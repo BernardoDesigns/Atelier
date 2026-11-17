@@ -17,7 +17,7 @@ Each bar cell is colored by its *position*, so a fuller bar literally reaches fu
 
 ## Install
 
-It ships as part of [atelier](../README.md), so the repo's `setup.sh` installs both pieces:
+It ships as part of [Atelier](../README.md), so the repo's `setup.sh` installs both pieces:
 
 ```bash
 bash setup.sh            # wires the mod into ~/.claude/settings.json, builds the HUD, starts it at login

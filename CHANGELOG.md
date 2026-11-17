@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Renamed the repo from `bernardo-claude-config` to `atelier`. The old GitHub URL redirects, and the local checkout folder keeps its name so existing symlinks still resolve.
+- Renamed the repo from `bernardo-claude-config` to `Atelier`. The old GitHub URL redirects, and the local checkout folder keeps its name so existing symlinks still resolve.
 
 ## [1.0.0] - 2026-11-17
 
