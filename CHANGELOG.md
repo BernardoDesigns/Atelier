@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-11-17
+
+### Added
+
+- MIT license.
+
+### Changed
+
+- Renamed the repo from `bernardo-claude-config` to `atelier`. The old GitHub URL redirects, and the local checkout folder keeps its name so existing symlinks still resolve.
+
 ## [1.0.0] - 2026-11-17
 
 ### Added
@@ -49,4 +59,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
-[1.0.0]: https://github.com/BernardoDesigns/bernardo-claude-config/releases/tag/v1.0.0
+[1.0.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.1
+[1.0.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.0

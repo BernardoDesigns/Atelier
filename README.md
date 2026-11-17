@@ -1,6 +1,8 @@
-# bernardo-claude-config
+# atelier
 
-**My Claude Code setup, version-controlled and synced across machines.** It holds a small team of design agents, a one-command dev environment, and Aurora Usage, a pair of plan-usage gauges. Clone it anywhere, run `setup.sh`, and the whole kit is wired in.
+atelier: a studio of design agents (Eames, Rand) and the tooling that turns their work into production-grade prototypes.
+
+**Version-controlled and synced across machines.** It holds a small team of design agents, a one-command dev environment, and Aurora Usage, a pair of plan-usage gauges. Clone it anywhere, run `setup.sh`, and the whole kit is wired in.
 
 Built by [Bernardo Garcia](https://www.bellwetherdesigns.io), a product designer who builds with AI every day.
 
@@ -97,7 +99,7 @@ A side conversation docked next to the session, where I brainstorm and refine a 
 ```bash
 xcode-select --install   # once, for the Aurora HUD's Swift compiler
 brew install cloudflared jq
-git clone https://github.com/BernardoDesigns/bernardo-claude-config.git ~/LocalDev/bernardo-claude-config
+git clone https://github.com/BernardoDesigns/atelier.git ~/LocalDev/bernardo-claude-config
 cd ~/LocalDev/bernardo-claude-config
 bash setup.sh
 ```
