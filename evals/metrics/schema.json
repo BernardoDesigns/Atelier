@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/BernardoDesigns/Atelier/evals/metrics/schema.json",
   "title": "Atelier benchmark run row",
-  "description": "One row per benchmark run in evals/metrics/log.jsonl. See SCHEMA.md for units and sources.",
+  "description": "One row per benchmark run in evals/metrics/log.jsonl. See SCHEMA.md for units, sources and the derived cost per accepted PR.",
   "type": "object",
   "required": [
     "run_id",
@@ -16,7 +16,8 @@
     "critic_score",
     "review_minutes",
     "critic_issues_agreed",
-    "cost_per_accepted_pr"
+    "cost_usd",
+    "accepted"
   ],
   "additionalProperties": false,
   "properties": {
@@ -74,27 +75,31 @@
       "type": "number",
       "minimum": 1,
       "maximum": 5,
-      "description": "Mean of the five principle scores P1 to P5 from the Critic (G10). Unit: score on a 1 to 5 scale."
+      "description": "Mean of the five principle scores P1 to P5, taken from the last /build pass of the Critic (G10). Unit: score on a 1 to 5 scale."
     },
     "review_minutes": {
       "type": "number",
       "minimum": 0,
-      "description": "Minutes the human reviewer spent on the PR and the critique, self-reported at /wrap. Unit: minutes."
+      "description": "Minutes from the Critic's findings being posted in the session to the owner's one-line verdict at /wrap step 3. Self-reported, rounded to the nearest 0.5. Unit: minutes."
     },
     "critic_issues_agreed": {
       "type": "object",
       "required": ["agreed", "total"],
       "additionalProperties": false,
-      "description": "Critic findings the reviewer agreed with, out of all Critic findings. agreed must not exceed total.",
+      "description": "Taken from the last /build pass. agreed counts findings the owner marked fix or later. disagree is not agreed. Findings with no token are excluded from total. agreed must not exceed total.",
       "properties": {
         "agreed": { "type": "integer", "minimum": 0 },
         "total": { "type": "integer", "minimum": 0 }
       }
     },
-    "cost_per_accepted_pr": {
-      "type": ["number", "null"],
+    "cost_usd": {
+      "type": "number",
       "minimum": 0,
-      "description": "Model spend for the run in USD, recorded when the PR is accepted. Null when the PR is not accepted. Unit: USD."
+      "description": "Estimated spend for this run in USD, whether or not the PR was accepted. Taken from the usage shown for the session. Unit: USD, estimate."
+    },
+    "accepted": {
+      "type": "boolean",
+      "description": "True when this run's PR was merged."
     }
   }
 }

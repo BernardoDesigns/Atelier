@@ -165,10 +165,15 @@ IDENTITY = ["run_id", "date", "ticket", "routing", "branch"]
 METRICS = [
     "first_try_ci_pass", "invented_component_count", "axe_violations",
     "critic_score", "review_minutes", "critic_issues_agreed",
-    "cost_per_accepted_pr",
+    "cost_usd", "accepted",
 ]
 report(sorted(schema.get("required", [])) == sorted(IDENTITY + METRICS),
-       "schema requires the five identity fields and seven metric fields")
+       "schema requires the five identity fields and the eight metric fields")
+report("cost_usd" in schema.get("properties", {}) and "accepted" in schema.get("properties", {}),
+       "schema defines cost_usd and accepted")
+report("cost_per_accepted_pr" not in schema.get("properties", {})
+       and "cost_per_accepted_pr" not in schema.get("required", []),
+       "schema no longer has cost_per_accepted_pr (it is derived)")
 
 sample_path = os.path.join(root, "evals", "metrics", "sample-row.json")
 sample = read_json(sample_path)
@@ -245,6 +250,9 @@ for d in defects:
            label + ": detected_by is critic-screenshot, critic-diff or script",
            "got %r" % (d.get("detected_by"),))
     report(bool(str(d.get("evidence", "")).strip()), label + ": evidence is set")
+    ticket = d.get("ticket")
+    report(isinstance(ticket, int) and not isinstance(ticket, bool) and 1 <= ticket <= 5,
+           label + ": ticket is 1 to 5", "got %r" % (ticket,))
 
 covered = {d.get("breaks") for d in defects}
 missing_gates = sorted(GATES - covered, key=lambda g: int(g[1:]))
@@ -258,10 +266,17 @@ critic_shots = sum(1 for d in defects if d.get("detected_by") == "critic-screens
 report(critic_shots >= 6, "at least six defects are critic-screenshot",
        "found %d" % critic_shots)
 
+for t in range(1, 6):
+    count = sum(1 for d in defects if d.get("ticket") == t)
+    report(count >= 2, "ticket %d has at least two defects" % t, "found %d" % count)
+
 report(len(decoys) == 3, "exactly 3 decoys", "found %d" % len(decoys))
 for d in decoys:
     label = str(d.get("id", "?"))
     report(bool(str(d.get("reason", "")).strip()), label + ": decoy has a reason")
+    ticket = d.get("ticket")
+    report(isinstance(ticket, int) and not isinstance(ticket, bool) and 1 <= ticket <= 5,
+           label + ": decoy ticket is 1 to 5", "got %r" % (ticket,))
 
 # ---------------------------------------------------------------- summary
 

@@ -27,13 +27,24 @@ Units are given where they apply. "Source" says who fills the field in and where
 | `first_try_ci_pass` | boolean | `true` when the first CI run on the first push passed with no fix commits | CI result for the first push of the PR |
 | `invented_component_count` | integer | Count, 0 or more | Assumptions log: components not in the design system manifest (G1) |
 | `axe_violations` | object | `serious` and `critical` counts, 0 or more each | Sum of axe counts across all shots in the render harness output (G5) |
-| `critic_score` | number | 1 to 5. Mean of the five principle scores P1 to P5 | `.atelier/critique.md`, principle scores (G10) |
-| `review_minutes` | number | Minutes, 0 or more | Reviewer self-report at `/wrap`: minutes from opening the PR to the decision, rounded to the nearest 0.5. Not tracked by a tool |
-| `critic_issues_agreed` | object | `agreed` and `total` counts. `agreed` must not exceed `total` | Reviewer at `/wrap`. `total` is the number of Critic findings. `agreed` is the number the reviewer accepted. The schema cannot check `agreed <= total`, so check it by hand when the row is entered |
-| `cost_per_accepted_pr` | number or null | USD. Null when the PR is not accepted | Model spend for the run from the provider usage record. Recorded only when the PR is accepted |
+| `critic_score` | number | 1 to 5. Mean of the five principle scores P1 to P5 | The last `/build` pass of the Critic, principle scores (G10) |
+| `review_minutes` | number | Minutes, 0 or more, rounded to the nearest 0.5 | Owner self-report. Time from the Critic's findings being posted in the session to the owner's one-line verdict at `/wrap` step 3. No tool records it |
+| `critic_issues_agreed` | object | `agreed` and `total` counts. `agreed` must not exceed `total` | The last `/build` pass of the Critic. `agreed` counts findings the owner marked `fix` or `later`. `disagree` is not agreed. Findings with no token are excluded from `total`. The schema cannot check `agreed <= total`, so check it by hand when the row is entered |
+| `cost_usd` | number | USD, 0 or more. An estimate | Spend for this run, whether or not the PR was accepted. Taken from the usage shown for the session. It is an estimate, because the session usage display is approximate |
+| `accepted` | boolean | `true` when the run's PR was merged | The PR state in Atelier after the review, recorded by the foreman |
 
-Cost is measured per accepted PR, not per token. A run that produces a PR nobody accepts still has a row, with `cost_per_accepted_pr` set to `null`.
+Every row has `cost_usd` and `accepted`, so the log keeps the spend of runs that were not accepted too.
+
+## Cost per accepted PR
+
+Cost per accepted PR is a derived figure. It is not stored in any row. To compute it for a set of rows being compared:
+
+    cost per accepted PR = sum of cost_usd over the rows / count of rows where accepted is true
+
+If no row in the set has `accepted` true, the figure is undefined. Report that, not zero.
+
+Cost is measured per accepted PR, not per token. A run whose PR nobody accepts still has a row with its `cost_usd`, and its cost counts toward the total for the set.
 
 ## Shadow runs
 
-Before a model swap, run the same ticket under two routing setups. Each run gets its own row, with the same `ticket` and `date` range and a different `routing`. Compare the two rows on `cost_per_accepted_pr`, and read the other metrics alongside it. Give each row its own `run_id`.
+Before a model swap, run the same ticket under two routing setups. Each run gets its own row, with the same `ticket` and `date` range and a different `routing`. Compare the two sets on the derived cost per accepted PR, and read the other metrics alongside it. Give each row its own `run_id`.
