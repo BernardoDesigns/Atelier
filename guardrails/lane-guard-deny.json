@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/auth/**)",
+      "Edit(/api/**)",
+      "Edit(/payments/**)",
+      "Edit(/lib/shared/**)"
+    ]
+  }
+}
