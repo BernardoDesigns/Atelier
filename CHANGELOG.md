@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-18
+
+Everything in this release is opt-in. Nothing changes how Claude Code behaves unless you use it.
+
+### Added
+
+- `failures.md`: 24 known traps, each with the trap, how it shows up and what to do instead, all marked draft until reviewed.
+- `templates/SPEC.md`: the SPEC template with the eight contract headings, the standard states and the four protected paths.
+- `spec` skill (`skills/spec/`): an interview that refuses to write a SPEC.md while acceptance criteria or states are missing, then writes it into the current repo.
+- `taste-review` skill (`skills/taste-review/`): reviews every draft item one at a time, keeps its state on a long-lived `taste-review` branch, and finishes with one pull request. Ships `taste-review/state.json` with every item pending.
+- `setup.sh` links `skills/spec` and `skills/taste-review` into `~/.claude/skills/` one folder at a time, beside whatever is already there. A real folder or a link to somewhere else with the same name is left alone with a warning. Like the `~/.claude/atelier` link, it skips this from a git worktree.
+- `packaging/build.sh`: builds `dist/eames.zip` and `dist/rand.zip` as claude.ai skill uploads. Each zip holds one folder with `SKILL.md`, `taste.md` and `conventions.md`, and two runs give identical bytes. `dist/` is git-ignored.
+- `packaging/tests/check.sh`: checks the model frontmatter on the three commands, the zip contents and build determinism.
+- `evals/tickets/`: five standing benchmark tickets (settings form, data table, onboarding, destructive confirm, notification preferences), each a SPEC in the gear desk domain.
+- `evals/metrics/`: a JSON Schema for one row per benchmark run, a sample row and an empty append-only log. Each row records the first-try CI result, invented components, axe violations, the Critic's score, review minutes, how many Critic findings were agreed, plus `cost_usd` (an estimate) and `accepted` (whether the PR merged). Cost per accepted PR is derived from those two fields, not stored; runs that were not accepted keep their cost in the total.
+- `evals/calibration/`: fifteen seeded defects across gates G1 to G10 and principles P1 to P5, each tagged `critic-screenshot` (6), `critic-diff` (5) or `script` (4), so the Critic's recall is measured over the 11 it can see. Three decoys (`X01` to `X03`) that look wrong but aren't, to measure noise. A scoring sheet (`SCORING.md`) with the matching rule and the recall and precision formulas.
+- `evals/tests/check.sh`: stdlib-only checks for the tickets, the metrics schema and the calibration set.
+
 ## [1.1.0] - 2026-11-18
 
 ### Added
@@ -95,6 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
+[1.2.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.1.0
 [1.0.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.1
 [1.0.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.0
