@@ -1,0 +1,85 @@
+{
+  "model": "opus",
+  "env": {
+    "FOO": "bar"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(curl *http://127.0.0.1/*)",
+      "Bash(curl *http://127.0.0.1:*/*)",
+      "Bash(curl *http://[::1]:*/*)",
+      "Bash(curl *http://localhost/*)",
+      "Bash(curl *http://localhost:*/*)",
+      "Bash(curl *https://*.trycloudflare.com)",
+      "Bash(curl *https://*.trycloudflare.com/*)",
+      "Bash(ls:*)"
+    ],
+    "ask": [
+      "Bash(find * -delete*)",
+      "Bash(git branch -D:*)",
+      "Bash(git checkout -- :*)",
+      "Bash(git clean:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git restore:*)",
+      "Bash(git stash clear:*)",
+      "Bash(git stash drop:*)",
+      "Bash(pip3 install:*)",
+      "Bash(rm:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo user-pre"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x '__G__/outside-repo-guard.sh' ] && exec '__G__/outside-repo-guard.sh' || { echo 'Atelier guardrail script missing; restore it or re-run guardrails/install.sh' >&2; exit 2; }"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x '__G__/net-host-guard.py' ] || { echo 'Atelier guardrail script missing; restore it or re-run guardrails/install.sh' >&2; exit 2; }; '__G__/net-host-guard.py' || { echo 'Atelier network guardrail failed, so this is blocked. Check python3, or re-run guardrails/install.sh' >&2; exit 2; }"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo user-post"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo user-stop"
+          }
+        ]
+      }
+    ]
+  }
+}

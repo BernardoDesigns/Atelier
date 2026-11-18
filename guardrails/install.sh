@@ -13,6 +13,36 @@
 # rules there look global but aren't. This removes the retired rules from it
 # and any rule that now lives in user scope, so nothing is left behind there.
 # Nothing is added to it.
+#
+# Flags (at most one):
+#   (none)     everything above, exactly as before. The build-session hooks
+#              below are NOT installed.
+#   --enforce  everything above, then add the build-session hooks (off by
+#              default, they only act in a session that has .atelier/session.json,
+#              apart from the lane guard, which acts in repos with a
+#              .claude/lane-rules.json):
+#                conventions-injector.sh  PreToolUse  Write|Edit
+#                lane-guard.sh            PreToolUse  Write|Edit|NotebookEdit
+#                fast-gate.sh             PostToolUse Write|Edit
+#                dod-gate.sh              Stop
+#   --relax    remove exactly those four hooks, and nothing else. The two
+#              hooks above and every permission rule stay.
+# The lane guard's deny rules are per repo: run lane-guard-init.sh on a repo.
+# This installer never touches any repo's .claude/settings.json.
+
+ENFORCE=0
+RELAX=0
+for arg in "$@"; do
+    case "$arg" in
+        --enforce) ENFORCE=1 ;;
+        --relax) RELAX=1 ;;
+        *) echo "Unknown option: $arg (use --enforce or --relax)" >&2; exit 2 ;;
+    esac
+done
+if [ "$ENFORCE" -eq 1 ] && [ "$RELAX" -eq 1 ]; then
+    echo "Use --enforce or --relax, not both." >&2
+    exit 2
+fi
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 G="$REPO_DIR/guardrails"
@@ -33,16 +63,6 @@ if ! command -v jq >/dev/null 2>&1; then
     exit 0
 fi
 
-chmod +x "$WRITE_HOOK" "$NET_HOOK"
-[ -s "$SETTINGS" ] || echo '{}' > "$SETTINGS"
-
-# Fail closed: a missing or non-executable script blocks the tool call (exit 2)
-# instead of letting it through. The net hook also blocks if it crashes, for
-# example when python3 isn't there.
-MSG="Atelier guardrail script missing; restore it or re-run guardrails/install.sh"
-WRITE_CMD="[ -x '$WRITE_HOOK' ] && exec '$WRITE_HOOK' || { echo '$MSG' >&2; exit 2; }"
-NET_CMD="[ -x '$NET_HOOK' ] || { echo '$MSG' >&2; exit 2; }; '$NET_HOOK' || { echo 'Atelier network guardrail failed, so this is blocked. Check python3, or re-run guardrails/install.sh' >&2; exit 2; }"
-
 # Write in place (not mv) so a symlinked file stays a symlink, after a backup.
 save() {
     local file=$1 merged=$2 label=$3
@@ -58,6 +78,47 @@ save() {
         echo "Updated $label in $file (backup: $backup)"
     fi
 }
+
+# The build-session hooks that --enforce adds and --relax removes.
+CONV_HOOK="$G/conventions-injector.sh"
+LANE_HOOK="$G/lane-guard.sh"
+FAST_HOOK="$G/fast-gate.sh"
+DOD_HOOK="$G/dod-gate.sh"
+# Matched as substrings of a hook command, from any checkout.
+ENFORCE_PATHS='["/guardrails/conventions-injector.sh","/guardrails/lane-guard.sh","/guardrails/fast-gate.sh","/guardrails/dod-gate.sh"]'
+
+if [ "$RELAX" -eq 1 ]; then
+    # Removes only the four entries --enforce added. Calls no hook script and
+    # merges no permission rules.
+    if [ ! -s "$SETTINGS" ]; then
+        echo "Nothing to relax: $SETTINGS is missing or empty"
+        exit 0
+    fi
+    if RELAXED=$(jq --argjson paths "$ENFORCE_PATHS" '
+            def ours: any(.hooks[]?; (.command // "") as $c | any($paths[]; . as $p | $c | contains($p)));
+            reduce ("PreToolUse", "PostToolUse", "Stop") as $e (.;
+                if .hooks[$e] then
+                    .hooks[$e] |= map(select(ours | not))
+                    | if .hooks[$e] == [] then del(.hooks[$e]) else . end
+                else . end)
+            | if (.hooks // null) == {} then del(.hooks) else . end
+        ' "$SETTINGS"); then
+        save "$SETTINGS" "$RELAXED" "relaxed guardrails (build-session hooks removed)"
+    else
+        echo "ERROR: $SETTINGS is not valid JSON, left it alone. Fix it and re-run."
+    fi
+    exit 0
+fi
+
+chmod +x "$WRITE_HOOK" "$NET_HOOK"
+[ -s "$SETTINGS" ] || echo '{}' > "$SETTINGS"
+
+# Fail closed: a missing or non-executable script blocks the tool call (exit 2)
+# instead of letting it through. The net hook also blocks if it crashes, for
+# example when python3 isn't there.
+MSG="Atelier guardrail script missing; restore it or re-run guardrails/install.sh"
+WRITE_CMD="[ -x '$WRITE_HOOK' ] && exec '$WRITE_HOOK' || { echo '$MSG' >&2; exit 2; }"
+NET_CMD="[ -x '$NET_HOOK' ] || { echo '$MSG' >&2; exit 2; }; '$NET_HOOK' || { echo 'Atelier network guardrail failed, so this is blocked. Check python3, or re-run guardrails/install.sh' >&2; exit 2; }"
 
 # Drop earlier entries for either script (bare or wrapped, from any checkout),
 # then add the current ones, so re-running upgrades in place without
@@ -78,7 +139,32 @@ if MERGED=$(jq \
             + [{matcher: "Write|Edit|NotebookEdit", hooks: [{type: "command", command: $wc}]},
                {matcher: "Bash", hooks: [{type: "command", command: $nc}]}])
     ' "$SETTINGS"); then
-    save "$SETTINGS" "$MERGED" "guardrails"
+    LABEL="guardrails"
+    if [ "$ENFORCE" -eq 1 ]; then
+        # Same fail-closed wrapper as the two hooks above. Entries for these four
+        # scripts (from any checkout) are dropped first, then the current ones are
+        # added, so re-running upgrades in place without duplicates.
+        chmod +x "$CONV_HOOK" "$LANE_HOOK" "$FAST_HOOK" "$DOD_HOOK" 2>/dev/null
+        wrap() { echo "[ -x '$1' ] && exec '$1' || { echo '$MSG' >&2; exit 2; }"; }
+        if MERGED=$(jq --argjson paths "$ENFORCE_PATHS" \
+                --arg cc "$(wrap "$CONV_HOOK")" --arg lc "$(wrap "$LANE_HOOK")" \
+                --arg fc "$(wrap "$FAST_HOOK")" --arg dc "$(wrap "$DOD_HOOK")" '
+                def ours: any(.hooks[]?; (.command // "") as $c | any($paths[]; . as $p | $c | contains($p)));
+                def keep($e): [(.hooks[$e] // [])[] | select(ours | not)];
+                .hooks.PreToolUse = (keep("PreToolUse")
+                    + [{matcher: "Write|Edit", hooks: [{type: "command", command: $cc}]},
+                       {matcher: "Write|Edit|NotebookEdit", hooks: [{type: "command", command: $lc}]}])
+                | .hooks.PostToolUse = (keep("PostToolUse")
+                    + [{matcher: "Write|Edit", hooks: [{type: "command", command: $fc}]}])
+                | .hooks.Stop = (keep("Stop") + [{hooks: [{type: "command", command: $dc}]}])
+            ' <<<"$MERGED"); then
+            LABEL="guardrails and build-session hooks (--enforce)"
+        else
+            echo "ERROR: couldn't add the build-session hooks, left $SETTINGS alone."
+            exit 1
+        fi
+    fi
+    save "$SETTINGS" "$MERGED" "$LABEL"
 else
     echo "ERROR: $SETTINGS is not valid JSON, left it alone. Fix it and re-run."
 fi
