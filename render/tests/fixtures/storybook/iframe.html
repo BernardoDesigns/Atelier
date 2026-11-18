@@ -20,6 +20,14 @@
       setTimeout(function () {
         if (id.indexOf('never') !== -1) return;
         document.body.classList.remove('sb-show-preparing-story');
+        if (id.indexOf('portal') !== -1) {
+          // Dialog-style story: renders only into a node appended to body; #storybook-root stays empty.
+          var portal = document.createElement('div');
+          portal.id = 'portal-node';
+          portal.innerHTML = '<p>Portal content</p>';
+          document.body.appendChild(portal);
+          return;
+        }
         document.getElementById('storybook-root').innerHTML =
           id.indexOf('noalt') !== -1 ? '<img src="/pic.png" width="40" height="40">' : '<p>Story content</p>';
       }, 400);

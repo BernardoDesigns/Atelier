@@ -1,0 +1,3 @@
+{
+  "/index.html": { "Content-Security-Policy": "style-src 'self'" }
+}

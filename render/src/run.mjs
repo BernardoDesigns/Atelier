@@ -1,6 +1,6 @@
 // Render runner. Never starts a server: it probes baseUrl, and in test mode
 // answers baseUrl requests from disk through context.route.
-import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { THEMES, BREAKPOINTS, validatePlan } from './plan.mjs';
@@ -40,6 +40,11 @@ async function probe(baseUrl) {
 async function installFixtureRoutes(context, baseUrl, fixturesDir) {
   const origin = new URL(baseUrl).origin;
   const root = path.resolve(fixturesDir);
+  // Optional test aid: <fixturesDir>/_headers.json maps a pathname to response headers.
+  let extraHeaders = {};
+  try {
+    extraHeaders = JSON.parse(await readFile(path.join(root, '_headers.json'), 'utf8'));
+  } catch {}
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) return route.abort();
@@ -53,6 +58,7 @@ async function installFixtureRoutes(context, baseUrl, fixturesDir) {
       const body = await readFile(file);
       return route.fulfill({
         status: 200,
+        headers: extraHeaders[url.pathname] || {},
         body,
         contentType: MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
       });
@@ -103,19 +109,50 @@ async function waitUntilReady(page, target, baseUrl) {
   // Short cap; hitting it is fine (pages with long polling never go idle).
   await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
   if (!isStoryFrame(target.url, baseUrl)) return;
+  // Rendered = #storybook-root has a child element, OR body has a direct child that is a portal-style
+  // node (not root/docs, script/style/link/noscript, or a Storybook "sb-" wrapper by id or class).
+  const hasContent = () => {
+    const body = document.body;
+    if (!body) return false;
+    const root = document.querySelector('#storybook-root');
+    if (root && root.children.length > 0) return true;
+    const skipTags = ['SCRIPT', 'STYLE', 'LINK', 'NOSCRIPT'];
+    for (const el of body.children) {
+      if (skipTags.includes(el.tagName)) continue;
+      if (el.id === 'storybook-root' || el.id === 'storybook-docs') continue;
+      if (el.id.startsWith('sb-') || [...el.classList].some((c) => c.startsWith('sb-'))) continue;
+      return true;
+    }
+    return false;
+  };
   try {
-    await page.waitForSelector('#storybook-root > *', { state: 'attached', timeout: STORY_TIMEOUT });
+    await page.waitForFunction(hasContent, null, { timeout: STORY_TIMEOUT });
   } catch {
-    throw new Error(`Storybook story did not render: #storybook-root stayed empty for ${STORY_TIMEOUT}ms`);
+    throw new Error(`Storybook story did not render: no story content appeared within ${STORY_TIMEOUT}ms`);
   }
   try {
-    await page.waitForFunction(() => !document.body.classList.contains('sb-show-preparing-story'), null, { timeout: STORY_TIMEOUT });
+    await page.waitForFunction(
+      () => !document.body.classList.contains('sb-show-preparing-story') && !document.body.classList.contains('sb-show-preparing-docs'),
+      null,
+      { timeout: STORY_TIMEOUT },
+    );
   } catch {
     throw new Error(`Storybook story did not render: still preparing after ${STORY_TIMEOUT}ms`);
   }
   if (await page.evaluate(() => document.body.classList.contains('sb-show-errordisplay'))) {
     throw new Error('Storybook story did not render: error display is showing');
   }
+}
+
+// Refuses symbolic links for the out dir and the slug folder (a missing path is fine).
+async function refuseSymlink(p) {
+  let st;
+  try {
+    st = await lstat(p);
+  } catch {
+    return;
+  }
+  if (st.isSymbolicLink()) throw new UnreachableError(`Refusing to write through a symbolic link: ${p}`);
 }
 
 // Removes the previous run's outputs from one slug folder, and nothing else.
@@ -142,6 +179,8 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
   if (!fixturesDir) await probe(plan.baseUrl);
 
   const slugDir = path.resolve(outDir, plan.slug);
+  await refuseSymlink(path.resolve(outDir));
+  await refuseSymlink(slugDir);
   await mkdir(slugDir, { recursive: true });
   await cleanSlugDir(outDir, slugDir);
 
@@ -154,6 +193,8 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
         const context = await browser.newContext({
           viewport: { width, height: VIEWPORT_HEIGHT },
           colorScheme: theme,
+          // The animation-kill style is injected inline; a strict page CSP would block it.
+          bypassCSP: true,
         });
         if (fixturesDir) await installFixtureRoutes(context, plan.baseUrl, fixturesDir);
         await context.addInitScript(initScript(theme));

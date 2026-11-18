@@ -23,7 +23,9 @@ node render/cli.mjs storybook --index <storybook-static/index.json | http://loca
      --base-url <url> --slug <slug> [--out .atelier/render-plan.json] [--include <glob>]... [--exclude <glob>]...
 ```
 `storybook` keeps `type: "story"` entries (docs dropped), filters on story id (`*` and `?` globs), and writes targets with `state` = slugged id and `url` = `/iframe.html?id=<id>&viewMode=story`. An http index must be on localhost and is fetched without following redirects.
-Targets whose path ends in `iframe.html` (Storybook frames) also wait for `#storybook-root > *` and for `sb-show-preparing-story` to clear; if the story never renders within 10s (`ATELIER_RENDER_STORY_TIMEOUT_MS` overrides) the shot is `error`, not `ok`.
+Targets whose path ends in `iframe.html` (Storybook frames) also wait for story content (rule below); if the story never renders within 10s (`ATELIER_RENDER_STORY_TIMEOUT_MS` overrides) the shot is `error`, not `ok`.
+A story counts as rendered when `#storybook-root` has a child element, or `<body>` has a direct child that is not `#storybook-root`/`#storybook-docs`, a script/style/link, or an `sb-` wrapper (portal-only dialogs and toasts); `sb-show-preparing-story` and `sb-show-preparing-docs` must also be gone.
+Pages run with CSP bypassed (the harness injects a style that disables animations). The out dir and slug folder must not be symbolic links (exit 2).
 `--out` must be relative with no `..` in both commands unless `--allow-outside` is passed.
 
 ## Output
