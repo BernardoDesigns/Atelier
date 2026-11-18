@@ -9,9 +9,21 @@
   html.dark body { background: #111111; color: #f2f2f2; }
 </style>
 </head>
-<body>
-  <main>
-    <p>Stand-in for the Storybook preview iframe.</p>
-  </main>
+<body class="sb-show-preparing-story">
+  <div id="storybook-root"></div>
+  <script>
+    // Like Storybook: the story is rendered by script some time after the load event.
+    // id contains "never": never renders. id contains "noalt": renders an image without alt text,
+    // which axe flags, so an axe result proves the harness waited for the story.
+    var id = new URLSearchParams(location.search).get('id') || '';
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (id.indexOf('never') !== -1) return;
+        document.body.classList.remove('sb-show-preparing-story');
+        document.getElementById('storybook-root').innerHTML =
+          id.indexOf('noalt') !== -1 ? '<img src="/pic.png" width="40" height="40">' : '<p>Story content</p>';
+      }, 400);
+    });
+  </script>
 </body>
 </html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme at load</title>
+<style>
+  body { margin: 0; padding: 24px; background: #ffffff; color: #111111; font-family: system-ui, sans-serif;
+         transition: background-color 1.5s, color 1.5s; }
+  html.dark body { background: #111111; }
+</style>
+<script>
+  // Runs while the page loads. It picks the text colour from the markers it sees right now.
+  // If the harness only added them later, dark shots get dark text on a dark background.
+  var seenDark = document.documentElement.classList.contains('dark') &&
+                 document.documentElement.getAttribute('data-theme') === 'dark';
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.style.color = seenDark ? '#f2f2f2' : '#111111';
+    document.getElementById('seen').textContent = 'Seen at load: ' + (seenDark ? 'dark' : 'not dark');
+  });
+</script>
+</head>
+<body>
+  <main>
+    <h1>Theme at load</h1>
+    <p id="seen"></p>
+  </main>
+</body>
+</html>

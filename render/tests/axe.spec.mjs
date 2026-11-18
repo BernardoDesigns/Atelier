@@ -1,23 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { execFile } from 'node:child_process';
-import { mkdtemp, writeFile, readFile, readdir } from 'node:fs/promises';
-import os from 'node:os';
+import { runCli, mkTmp, cleanupTmp } from './helpers.mjs';
+import { writeFile, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+test.afterAll(cleanupTmp);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.resolve(here, '..', 'cli.mjs');
 
-function runCli(args) {
-  return new Promise((resolve) => {
-    execFile(process.execPath, [cli, ...args], { timeout: 120000 }, (err, stdout, stderr) => {
-      resolve({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr });
-    });
-  });
-}
-
 async function renderFixture(fixture, slug, targets) {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'atelier-axe-'));
+  const dir = await mkTmp();
   const planFile = path.join(dir, 'plan.json');
   await writeFile(planFile, JSON.stringify({ baseUrl: 'http://fixture.test', slug, targets }));
   const out = path.join(dir, 'renders');

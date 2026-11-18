@@ -1,22 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { execFile } from 'node:child_process';
-import { mkdtemp, writeFile, readFile, readdir } from 'node:fs/promises';
+import { runCli, mkTmp, cleanupTmp } from './helpers.mjs';
+import { writeFile, readFile, readdir } from 'node:fs/promises';
 import net from 'node:net';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+test.afterAll(cleanupTmp);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const cli = path.join(root, 'cli.mjs');
-
-function runCli(args) {
-  return new Promise((resolve) => {
-    execFile(process.execPath, [cli, ...args], { timeout: 120000 }, (err, stdout, stderr) => {
-      resolve({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr });
-    });
-  });
-}
 
 // True when something accepts a TCP connection on the port. This only connects; it never listens.
 function answers(port) {
@@ -38,7 +31,7 @@ async function unusedPort() {
 }
 
 async function planFile(baseUrl, targets) {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'atelier-noserver-'));
+  const dir = await mkTmp();
   const file = path.join(dir, 'plan.json');
   await writeFile(file, JSON.stringify({ baseUrl, slug: 'ns', targets }));
   return { dir, file };

@@ -1,25 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, readdir } from 'node:fs/promises';
-import os from 'node:os';
+import { runCli, mkTmp, cleanupTmp } from './helpers.mjs';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validatePlan } from '../src/plan.mjs';
+
+test.afterAll(cleanupTmp);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.resolve(here, '..', 'cli.mjs');
 const fx = path.join(here, 'fixtures', 'storybook');
 
-function runCli(args) {
-  return new Promise((resolve) => {
-    execFile(process.execPath, [cli, ...args], { timeout: 120000 }, (err, stdout, stderr) => {
-      resolve({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr });
-    });
-  });
-}
-
 async function adapt(extra = [], index = 'index.json') {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'atelier-sb-'));
+  const dir = await mkTmp();
   const planFile = path.join(dir, 'plan.json');
   const res = await runCli([
     'storybook', '--index', path.join(fx, index), '--base-url', 'http://storybook.test',

@@ -81,8 +81,8 @@ export function validatePlan(plan) {
     if (typeof t.url !== 'string' || !t.url) throw new PlanError(`${where} is missing "url"`);
     const state = slugify(t.state);
     if (!state) throw new PlanError(`${where} "state" has no usable characters`);
-    if (seen.has(state)) throw new PlanError(`Invalid plan: duplicate state "${state}"`);
-    seen.add(state);
+    if (seen.has(state.toLowerCase())) throw new PlanError(`Invalid plan: duplicate state "${state}"`);
+    seen.add(state.toLowerCase());
     if (t.setup !== undefined) {
       if (!Array.isArray(t.setup)) throw new PlanError(`${where} "setup" must be an array`);
       t.setup.forEach((s, j) => validateStep(s, `${where}.setup[${j}]`));

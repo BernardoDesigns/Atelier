@@ -1,24 +1,17 @@
 import { test, expect } from '@playwright/test';
-import { execFile } from 'node:child_process';
-import { mkdtemp, writeFile, readFile, readdir } from 'node:fs/promises';
-import os from 'node:os';
+import { runCli, mkTmp, cleanupTmp } from './helpers.mjs';
+import { writeFile, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+test.afterAll(cleanupTmp);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.resolve(here, '..', 'cli.mjs');
 const okFixtures = path.join(here, 'fixtures', 'ok');
 
-function runCli(args) {
-  return new Promise((resolve) => {
-    execFile(process.execPath, [cli, ...args], { timeout: 120000 }, (err, stdout, stderr) => {
-      resolve({ code: err ? (typeof err.code === 'number' ? err.code : 1) : 0, stdout, stderr });
-    });
-  });
-}
-
 async function tmp() {
-  return mkdtemp(path.join(os.tmpdir(), 'atelier-render-'));
+  return mkTmp();
 }
 
 const okPlan = {

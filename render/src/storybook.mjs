@@ -42,7 +42,7 @@ export async function readIndex(source) {
     const url = new URL(source);
     if (!LOCAL_HOSTS.has(url.hostname)) throw new PlanError(`Index URL must be localhost: ${source}`);
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000), redirect: 'error' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       text = await res.text();
     } catch (err) {

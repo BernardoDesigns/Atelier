@@ -1,6 +1,6 @@
 // Render runner. Never starts a server: it probes baseUrl, and in test mode
 // answers baseUrl requests from disk through context.route.
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { THEMES, BREAKPOINTS, validatePlan } from './plan.mjs';
@@ -70,14 +70,71 @@ async function applySetup(page, steps = []) {
   }
 }
 
-// Puts the theme markers on <html>. Also installed as an init script so pages
-// that read them during load see them.
-function themeScript(theme) {
+// Theme markers on <html>: a "dark" class and a data-theme attribute.
+const applyBody = (theme) => `
+  const el = document.documentElement;
+  el.classList.toggle('dark', ${theme === 'dark'});
+  el.setAttribute('data-theme', '${theme}');`;
+
+// Installed with addInitScript. An init script can run before <html> exists, so
+// when it is missing we watch the document and apply the markers the moment the
+// element is created, which is before the page's own scripts run.
+function initScript(theme) {
   return `(() => {
-    const el = document.documentElement;
-    el.classList.toggle('dark', ${theme === 'dark'});
-    el.setAttribute('data-theme', '${theme}');
+    const apply = () => {${applyBody(theme)}};
+    if (document.documentElement) { apply(); return; }
+    const mo = new MutationObserver(() => {
+      if (document.documentElement) { mo.disconnect(); apply(); }
+    });
+    mo.observe(document, { childList: true });
   })();`;
+}
+
+// Re-applied after load and setup, in case the page or a setup step changed them.
+const reapplyScript = (theme) => `(() => {${applyBody(theme)}})();`;
+
+const KILL_MOTION = '*,*::before,*::after{transition:none!important;animation:none!important}';
+const STORY_TIMEOUT = Number(process.env.ATELIER_RENDER_STORY_TIMEOUT_MS) || 10000;
+
+const isStoryFrame = (url, baseUrl) => new URL(url, baseUrl).pathname.endsWith('iframe.html');
+
+// Waits until the page is worth photographing. Throws a one-line Error to mark the shot "error".
+async function waitUntilReady(page, target, baseUrl) {
+  // Short cap; hitting it is fine (pages with long polling never go idle).
+  await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
+  if (!isStoryFrame(target.url, baseUrl)) return;
+  try {
+    await page.waitForSelector('#storybook-root > *', { state: 'attached', timeout: STORY_TIMEOUT });
+  } catch {
+    throw new Error(`Storybook story did not render: #storybook-root stayed empty for ${STORY_TIMEOUT}ms`);
+  }
+  try {
+    await page.waitForFunction(() => !document.body.classList.contains('sb-show-preparing-story'), null, { timeout: STORY_TIMEOUT });
+  } catch {
+    throw new Error(`Storybook story did not render: still preparing after ${STORY_TIMEOUT}ms`);
+  }
+  if (await page.evaluate(() => document.body.classList.contains('sb-show-errordisplay'))) {
+    throw new Error('Storybook story did not render: error display is showing');
+  }
+}
+
+// Removes the previous run's outputs from one slug folder, and nothing else.
+async function cleanSlugDir(outDir, slugDir) {
+  const root = path.resolve(outDir);
+  if (!slugDir.startsWith(root + path.sep)) {
+    throw new UnreachableError(`Refusing to clean ${slugDir}: not inside ${root}`);
+  }
+  let names = [];
+  try {
+    names = await readdir(slugDir);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (name.endsWith('.png') || name === 'manifest.json' || name === 'axe.json') {
+      await rm(path.join(slugDir, name), { force: true });
+    }
+  }
 }
 
 export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } = {}) {
@@ -86,6 +143,7 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
 
   const slugDir = path.resolve(outDir, plan.slug);
   await mkdir(slugDir, { recursive: true });
+  await cleanSlugDir(outDir, slugDir);
 
   const browser = await chromium.launch();
   const shots = [];
@@ -98,7 +156,7 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
           colorScheme: theme,
         });
         if (fixturesDir) await installFixtureRoutes(context, plan.baseUrl, fixturesDir);
-        await context.addInitScript(themeScript(theme));
+        await context.addInitScript(initScript(theme));
         for (const target of plan.targets) {
           const file = `${target.state}.${theme}.${bp}.png`;
           const shot = { state: target.state, theme, bp, path: file, status: 'ok' };
@@ -118,14 +176,23 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
             }
             if (shot.status === 'ok') {
               try {
+                await waitUntilReady(page, target, plan.baseUrl);
                 await applySetup(page, target.setup);
-                await page.evaluate(themeScript(theme));
-                const violations = await analyze(page);
-                axeShots.push({ state: target.state, theme, bp, violations });
-                await page.screenshot({ path: path.join(slugDir, file), fullPage: true });
+                await page.addStyleTag({ content: KILL_MOTION });
+                await page.evaluate(reapplyScript(theme));
+                await page.screenshot({ path: path.join(slugDir, file), fullPage: true, animations: 'disabled' });
               } catch (err) {
                 shot.status = 'error';
                 shot.error = String(err.message).split('\n')[0];
+              }
+              // Axe only for shots that have a PNG, so a FAIL line always points at a file.
+              if (shot.status === 'ok') {
+                try {
+                  axeShots.push({ state: target.state, theme, bp, violations: await analyze(page) });
+                } catch (err) {
+                  shot.status = 'error';
+                  shot.error = `axe failed: ${String(err.message).split('\n')[0]}`;
+                }
               }
             }
           } finally {
