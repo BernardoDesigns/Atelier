@@ -95,26 +95,38 @@ else:
 FIX = here + "/fixture"
 ACTION = {"approve": "approved", "edit": "edited", "rewrite": "rewritten", "cut": "cut", "skip": "skipped"}
 
-def replay(state, session_text, today="2026-01-01"):
-    """Serve the first pending item, apply the answer, as SKILL.md steps 6 to 8 say."""
+import datetime, os, subprocess, tempfile
+REC = here + "/../record.py"
+VER = here + "/../verify-apply.py"
+
+def run(script, *args):
+    p = subprocess.run([sys.executable, "-I", "-B", script] + list(args), capture_output=True, text=True)
+    return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+def make_wt(state):
+    """A temporary worktree holding only taste-review/state.json."""
+    d = tempfile.mkdtemp(prefix="taste-review-test-")
+    os.makedirs(d + "/taste-review")
+    with open(d + "/taste-review/state.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(state, indent=2) + "\n")
+    return d
+
+def load_state(d):
+    return json.loads(read(d + "/taste-review/state.json"))
+
+def replay(wt, session_text):
+    """SKILL.md steps 6 to 8: ask record.py --next, then record the answer through record.py."""
     for line in session_text.splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         head, _, text = line.partition("|")
         key, action = head.split()
-        first = next(k for k, e in state["items"].items() if e["status"] == "pending")
-        assert first == key, "answer for %s but first pending is %s" % (key, first)
-        e = state["items"][key]
-        e["status"] = ACTION[action]
-        e["text"] = text.strip() if text.strip() else None
-        e["updated"] = today
-    return state
-
-def summary(state):
-    c = {s: 0 for s in ("approved", "edited", "rewritten", "cut", "skipped", "pending")}
-    for e in state["items"].values():
-        c[e["status"]] += 1
-    return c
+        _, first, _ = run(REC, wt, "--next")
+        assert first == key, "answer for %s but --next says %s" % (key, first)
+        args = [wt, key, ACTION[action]] + (["--text", text.strip()] if text.strip() else [])
+        rc, out, err = run(REC, *args)
+        assert rc == 0, "record.py failed: " + err
+    return load_state(wt)
 
 def set_row(line, text, status):
     cells = [c.strip() for c in line.strip().strip("|").split("|")]
@@ -165,12 +177,13 @@ check("recorded session has five answers, one of each option",
       len(answers) == 5 and {ACTION[l.partition("|")[0].split()[1]] for l in answers}
       == {"approved", "edited", "rewritten", "cut", "skipped"})
 
+fixwt = make_wt(fixstate)
 try:
-    done = replay(fixstate, session)
-    check("replay serves items in file order", True)
+    done = replay(fixwt, session)
+    check("replay through record.py serves items in file order", True)
 except AssertionError as ex:
     done = None
-    check("replay serves items in file order", False, str(ex))
+    check("replay through record.py serves items in file order", False, str(ex))
 
 if done:
     it = done["items"]
@@ -183,14 +196,16 @@ if done:
           it["taste.md#T2"]["status"] == "rewritten"
           and it["taste.md#T2"]["text"] == "Name every state in the words a user would say.")
     check("skip is recorded", it["conventions.md#C1"]["status"] == "skipped")
-    check("every answer is dated", all(it[k]["updated"] for k in list(it)[:5]))
-    nxt = next(k for k, e in it.items() if e["status"] == "pending")
-    check("resume picks the first pending item", nxt == "failures.md#F1", nxt)
-    s = summary(done)
-    printed = "approved %d, edited %d, rewritten %d, cut %d, skipped %d" % (
-        s["approved"], s["edited"], s["rewritten"], s["cut"], s["skipped"])
-    print("     summary: " + printed + " (pending %d)" % s["pending"])
-    check("summary counts are 1, 1, 1, 1, 1", printed == "approved 1, edited 1, rewritten 1, cut 1, skipped 1")
+    today = datetime.date.today().isoformat()
+    check("every answer is dated today", all(it[k]["updated"] == today for k in list(it)[:5]))
+    _, nxt, _ = run(REC, fixwt, "--next")
+    check("--next picks the first pending item", nxt == "failures.md#F1", nxt)
+    _, summ, _ = run(REC, fixwt, "--summary")
+    print("     summary: " + summ.replace("\n", " | "))
+    check("--summary counts are 1, 1, 1, 1, 1 and one pending",
+          summ.splitlines()[0] == "approved 1, edited 1, rewritten 1, cut 1, skipped 1, pending 1")
+    check("--summary lists the IDs under each status",
+          "cut: taste.md#T1" in summ and "skipped: conventions.md#C1" in summ and "pending: failures.md#F1" in summ)
 
     out = {n: apply_decisions(n, read(FIX + "/" + n), done) for n in gen.FILES}
     check("apply: approved gate flips to approved", re.search(r"^\| G1 .*\| approved \|$", out["quality.md"], re.M) is not None)
@@ -209,6 +224,72 @@ if done:
           "Check: Does every icon button have an accessible name?" in out["conventions.md"]
           and "Verify: that the label pattern" in out["conventions.md"])
 
+    # verify-apply.py on the applied fixture, and on the unapplied one
+    def put_files(d, texts):
+        for n, t in texts.items():
+            with open(d + "/" + n, "w", encoding="utf-8") as f:
+                f.write(t)
+    put_files(fixwt, out)
+    rc, vout, _ = run(VER, fixwt)
+    check("verify-apply accepts the correctly applied fixture", rc == 0 and vout == "OK", vout)
+    badwt = make_wt(done)
+    put_files(badwt, {n: read(FIX + "/" + n) for n in gen.FILES})
+    rc, vout, _ = run(VER, badwt)
+    check("verify-apply rejects the unapplied fixture and lists mismatches",
+          rc == 1 and "quality.md#G1" in vout and "taste.md#T1" in vout and "taste.md#T2" in vout, vout)
+    half = dict(out)
+    half["taste.md"] = half["taste.md"].replace("Status: approved", "Status: draft")
+    put_files(badwt, half)
+    rc, vout, _ = run(VER, badwt)
+    check("verify-apply catches a single missed status flip", rc == 1 and vout.strip() == "taste.md#T2: rewritten but Status is draft", vout)
+    rc, vout, _ = run(VER, root)
+    check("verify-apply passes on the real repo while every item is pending", rc == 0 and vout == "OK", vout)
+
+# record.py: refusals and byte-stable output
+wt2 = make_wt(gen.initial_state(FIX))
+statepath = wt2 + "/taste-review/state.json"
+before = read(statepath)
+check("initial state is already in the shared serialisation",
+      before == json.dumps(json.loads(before), indent=2) + "\n")
+for label, args in [("unknown key", [wt2, "taste.md#T99", "approved"]),
+                    ("unknown status", [wt2, "taste.md#T1", "maybe"]),
+                    ("missing status", [wt2, "taste.md#T1"]),
+                    ("malformed option", [wt2, "taste.md#T1", "approved", "--field", "nofieldvalue"]),
+                    ("dangling --text", [wt2, "taste.md#T1", "approved", "--text"])]:
+    rc, _, err = run(REC, *args)
+    check("record.py refuses " + label + " and changes nothing", rc != 0 and read(statepath) == before, err)
+rc, _, _ = run(REC, wt2, "quality.md#G1", "approved")
+after = read(statepath)
+b, a = before.split("\n"), after.split("\n")
+start = b.index('    "quality.md#G1": {')
+changed = [i for i in range(len(b)) if i >= len(a) or b[i] != a[i]]
+check("recording one answer changes only that entry's lines",
+      rc == 0 and len(a) == len(b) and changed and all(start < i < start + 4 for i in changed), str(changed))
+rc, out_, _ = run(REC, wt2, "taste.md#T1", "edited", "--text", "New line.", "--field", "Applied as=Do the new thing.")
+st2 = load_state(wt2)["items"]["taste.md#T1"]
+check("record.py stores --text and --field",
+      rc == 0 and st2["text"] == "New line." and st2["fields"] == {"Applied as": "Do the new thing."}, str(st2))
+check("record.py prints a one-line tally", out_.count("\n") == 0 and out_.startswith("taste.md#T1 edited | approved 1, edited 1"), out_)
+check("record.py output is stable on re-serialisation",
+      read(statepath) == json.dumps(json.loads(read(statepath)), indent=2) + "\n")
+
+# gen-state.py --sync: create, add missing, never delete
+syncwt = tempfile.mkdtemp(prefix="taste-review-sync-")
+put_files = lambda d, texts: [open(d + "/" + n, "w", encoding="utf-8").write(t) for n, t in texts.items()]
+put_files(syncwt, {n: read(FIX + "/" + n) for n in gen.FILES})
+os.makedirs(syncwt + "/taste-review")
+rc, _, _ = run(here + "/gen-state.py", "--sync", syncwt)
+s1 = load_state(syncwt)
+check("gen-state --sync creates the state with every fixture item", rc == 0 and len(s1["items"]) == 6)
+del s1["items"]["taste.md#T2"]
+s1["items"]["taste.md#T9"] = {"status": "cut", "text": None, "updated": "2026-01-01"}
+with open(syncwt + "/taste-review/state.json", "w", encoding="utf-8") as f:
+    f.write(json.dumps(s1, indent=2) + "\n")
+rc, _, _ = run(here + "/gen-state.py", "--sync", syncwt)
+s2 = load_state(syncwt)["items"]
+check("gen-state --sync adds a missing item as pending and keeps cut keys",
+      rc == 0 and s2["taste.md#T2"]["status"] == "pending" and "taste.md#T9" in s2 and len(s2) == 7)
+
 # ---------- 4. SKILL.md text ----------
 skill = read(here + "/../SKILL.md")
 fm = re.match(r"^---\n(.*?)\n---\n", skill, flags=re.S)
@@ -225,7 +306,17 @@ for label, needle in [
     ("fetches origin", "git -C ATELIER fetch origin"),
     ("reuses an existing taste-review worktree", "refs/heads/taste-review"),
     ("checks the remote for the branch", "ls-remote --exit-code --heads origin taste-review"),
-    ("resumes from the remote branch on a second machine", "worktree add -b taste-review ~/LocalDev/atelier-worktrees/taste-review origin/taste-review"),
+    ("resumes from the remote branch on a second machine", "worktree add -b taste-review ATELIER/.claude/worktrees/taste-review origin/taste-review"),
+    ("puts the worktree inside the checkout", "`WT` = `ATELIER/.claude/worktrees/taste-review`"),
+    ("must be run from inside the checkout", "Run `/taste-review` from a session started in the Atelier checkout"),
+    ("stops when not inside the checkout", "If the current directory is not inside `ATELIER`, say so"),
+    ("never edits state.json by hand", "Never edit `state.json` by hand"),
+    ("records answers with record.py", "record.py WT <key> <status>"),
+    ("uses record.py --next", "record.py WT --next"),
+    ("uses record.py --summary", "record.py WT --summary"),
+    ("syncs state with gen-state.py --sync", "gen-state.py --sync WT"),
+    ("verifies the apply step", "verify-apply.py WT"),
+    ("does not commit until verify prints OK", "Do not commit until it prints `OK`"),
     ("creates the branch from current main", "origin/main"),
     ("pulls the remote branch", "pull --ff-only origin taste-review"),
     ("writes state after every answer", "After EVERY answer"),
@@ -248,6 +339,9 @@ for label, needle in [
     ("generator referenced", "gen-state.py"),
 ]:
     check("SKILL.md " + label, needle in skill, needle)
+check("SKILL.md has no old outside-the-repo worktree path", "atelier-worktrees" not in skill)
+check("SKILL.md runs python as -I -B everywhere",
+      all("python3 -I -B" in l for l in skill.splitlines() if "python3 " in l))
 check("SKILL.md never stages everything", "git add -A" not in skill and "git add ." not in skill)
 check("SKILL.md never uses rm", re.search(r"\brm\b", skill) is None)
 check("no em dashes in SKILL.md", chr(0x2014) not in skill)
