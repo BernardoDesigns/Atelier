@@ -13,7 +13,7 @@
 //   "axe": null | { "minor": n, "moderate": n, "serious": n, "critical": n }
 // }
 //
-// "axe" stays null until the axe pass has run (L5-02 fills it in).
+// "axe" is the per-impact violation totals from axe.json (same four counts); null only if no axe pass ran.
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 

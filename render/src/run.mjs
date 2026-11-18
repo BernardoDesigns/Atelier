@@ -5,6 +5,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { THEMES, BREAKPOINTS, validatePlan } from './plan.mjs';
 import { buildManifest, writeManifest } from './manifest.mjs';
+import { analyze, buildAxe, writeAxe } from './axe.mjs';
 
 export class UnreachableError extends Error {}
 
@@ -88,6 +89,7 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
 
   const browser = await chromium.launch();
   const shots = [];
+  const axeShots = [];
   try {
     for (const theme of THEMES) {
       for (const [bp, width] of Object.entries(BREAKPOINTS)) {
@@ -118,6 +120,8 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
               try {
                 await applySetup(page, target.setup);
                 await page.evaluate(themeScript(theme));
+                const violations = await analyze(page);
+                axeShots.push({ state: target.state, theme, bp, violations });
                 await page.screenshot({ path: path.join(slugDir, file), fullPage: true });
               } catch (err) {
                 shot.status = 'error';
@@ -136,7 +140,9 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
     await browser.close();
   }
 
-  const manifest = buildManifest({ plan, shots });
+  const axe = buildAxe(plan.slug, axeShots);
+  const axePath = await writeAxe(slugDir, axe);
+  const manifest = buildManifest({ plan, shots, axe: axe.totals });
   const manifestPath = await writeManifest(slugDir, manifest);
-  return { plan, slugDir, shots, manifest, manifestPath };
+  return { plan, slugDir, shots, manifest, manifestPath, axe, axePath };
 }

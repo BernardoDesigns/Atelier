@@ -7,6 +7,7 @@
     "test": "playwright test"
   },
   "dependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.65.1",
     "playwright": "^1.65.1"
   }
