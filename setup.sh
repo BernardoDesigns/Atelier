@@ -114,6 +114,9 @@ else
     echo "Skipped the Aurora billboard and Sketchpad in $SETTINGS (needs jq)"
 fi
 
+# --- Guardrails: ask before destructive commands and writes outside the repo ---
+bash "$REPO_DIR/guardrails/install.sh"
+
 # --- Aurora HUD: build the floating usage panel and start it at login ---
 # On by default. Skip with: bash setup.sh --no-hud   Undo with: aurora-usage/aurora-hud/remove.sh
 # Set to 0 to take it out of setup entirely.
