@@ -2,6 +2,7 @@
   {
     "id": "D01",
     "kind": "defect",
+    "ticket": 2,
     "what": "A new StatusTag component is written in the inventory folder for the status column. It duplicates the badge component, is not in the design system manifest, and is not listed in the assumptions log.",
     "where": "app/inventory/status-tag.tsx",
     "breaks": "G1",
@@ -12,47 +13,52 @@
   {
     "id": "D02",
     "kind": "defect",
-    "what": "The inventory fixture types the item list as any, and the changed page reads fields from it without a type.",
+    "ticket": 2,
+    "what": "A function in the inventory fixture takes a parameter with no type annotation. Under strict, the parameter is an implicit any, and the changed page reads fields from it without a type.",
     "where": "lib/data/items.ts",
     "breaks": "G2",
     "severity": "medium",
     "detected_by": "script",
-    "evidence": "tsc --noEmit under strict fails on the any annotation in lib/data/items.ts"
+    "evidence": "tsc --noEmit under strict fails with implicit any on an untyped parameter in lib/data/items.ts"
   },
   {
     "id": "D03",
     "kind": "defect",
-    "what": "A changed settings line is longer than the prettier width, so the format check fails on that file.",
+    "ticket": 1,
+    "what": "A changed settings line is longer than the prettier width. Prettier can and would reflow it, so the format check fails on that file.",
     "where": "app/settings/page.tsx",
     "breaks": "G3",
     "severity": "low",
     "detected_by": "script",
-    "evidence": "prettier --check fails on app/settings/page.tsx for an over-width line"
+    "evidence": "prettier --check fails on app/settings/page.tsx for an over-width line that prettier can reflow"
   },
   {
     "id": "D04",
     "kind": "defect",
-    "what": "The empty state of the inventory table has no component test. The loading and error states do have one.",
-    "where": "components/ui/table.test.tsx",
+    "ticket": 2,
+    "what": "The test file beside the inventory screen has a case named for the empty state, but the case asserts the loading skeleton. The empty state has no real test.",
+    "where": "app/inventory/page.test.tsx",
     "breaks": "G4",
     "severity": "medium",
     "detected_by": "critic-diff",
-    "evidence": "components/ui/table.test.tsx: no test case in the diff for the empty state"
+    "evidence": "app/inventory/page.test.tsx:N, test named shows the empty state asserts the loading skeleton"
   },
   {
     "id": "D05",
     "kind": "defect",
-    "what": "The confirm dialog does not trap focus. Tab moves from the Retire button to the page behind the dialog.",
-    "where": "components/ui/dialog.tsx",
+    "ticket": 4,
+    "what": "The retire flow renders its confirm dialog with modal set to false, so focus is not trapped. Tab moves from the Retire button to the page behind the dialog.",
+    "where": "app/inventory/retire/page.tsx",
     "breaks": "G5",
     "severity": "high",
     "detected_by": "critic-diff",
-    "evidence": "components/ui/dialog.tsx: open handler has no focus trap or Tab wrap logic"
+    "evidence": "app/inventory/retire/page.tsx:N, Dialog rendered with modal={false}"
   },
   {
     "id": "D06",
     "kind": "defect",
-    "what": "At the md breakpoint, 768 wide, the inventory table drops the shelf location column with no horizontal scroll. The populated state in the render shot is missing a field the SPEC shows.",
+    "ticket": 2,
+    "what": "At md (768 wide) the populated inventory table drops the shelf location column that the SPEC asks for, with no horizontal scroll. No visual baseline exists yet, so this is spec drift, which G6 covers.",
     "where": "app/inventory/page.tsx",
     "breaks": "G6",
     "severity": "medium",
@@ -62,16 +68,18 @@
   {
     "id": "D07",
     "kind": "defect",
-    "what": "The date helper in the shared library is edited as part of an inventory change. The SPEC does not list the shared library as in scope.",
+    "ticket": 1,
+    "what": "The date helper in the shared library is edited as part of a settings change. The SPEC does not list the shared library as in scope.",
     "where": "lib/shared/format.ts",
     "breaks": "G7",
     "severity": "high",
     "detected_by": "script",
-    "evidence": "lane guard blocks the edit to lib/shared/format.ts, a protected path not in SPEC scope"
+    "evidence": "a diff check lists lib/shared/format.ts as a changed file under a protected path"
   },
   {
     "id": "D08",
     "kind": "defect",
+    "ticket": 2,
     "what": "A helper file keeps an unused export and a commented-out block left over from an earlier attempt.",
     "where": "app/inventory/helpers.ts",
     "breaks": "G8",
@@ -82,6 +90,7 @@
   {
     "id": "D09",
     "kind": "defect",
+    "ticket": 5,
     "what": "One PR carries the settings form, the onboarding flow and the notification page. The diff is about 900 changed lines, no split is proposed, and the work has no feature flag.",
     "where": "app/settings/**, app/onboarding/**, app/notifications/**",
     "breaks": "G9",
@@ -92,6 +101,7 @@
   {
     "id": "D10",
     "kind": "defect",
+    "ticket": 5,
     "what": "The notification page has no visual hierarchy. Group headings and switch labels share one size and weight, so the page reads as one flat list.",
     "where": "app/notifications/page.tsx",
     "breaks": "G10",
@@ -102,6 +112,7 @@
   {
     "id": "D11",
     "kind": "defect",
+    "ticket": 2,
     "what": "The inventory error state says Request failed (500) and offers no retry, so the counter tech is left stuck at the desk.",
     "where": "app/inventory/page.tsx",
     "breaks": "P1",
@@ -112,16 +123,18 @@
   {
     "id": "D12",
     "kind": "defect",
-    "what": "The Retire button that opens the confirm dialog uses a different red from the destructive confirm button inside the dialog.",
+    "ticket": 4,
+    "what": "The Retire button on the inventory row, which opens the confirm dialog, uses a different red from the destructive confirm button inside the dialog.",
     "where": "app/inventory/row-actions.tsx",
     "breaks": "P2",
     "severity": "medium",
     "detected_by": "critic-screenshot",
-    "evidence": ".atelier/renders/<slug>/open.light.md.png: Retire trigger and dialog confirm button in two different reds"
+    "evidence": ".atelier/renders/<slug>/populated.light.md.png (Retire trigger) with .atelier/renders/<slug>/open.light.md.png (confirm button): two different reds"
   },
   {
     "id": "D13",
     "kind": "defect",
+    "ticket": 3,
     "what": "The onboarding review step shows each value twice, once in a card and again in a summary sentence below it.",
     "where": "app/onboarding/review.tsx",
     "breaks": "P3",
@@ -132,16 +145,18 @@
   {
     "id": "D14",
     "kind": "defect",
+    "ticket": 1,
     "what": "The settings page sets three hex colour values inline instead of using the semantic colour tokens.",
     "where": "app/settings/page.tsx",
     "breaks": "P4",
     "severity": "medium",
     "detected_by": "critic-diff",
-    "evidence": "app/settings/page.tsx:line with three hex literals in style props"
+    "evidence": "app/settings/page.tsx:N, three hex literals in style props"
   },
   {
     "id": "D15",
     "kind": "defect",
+    "ticket": 3,
     "what": "The success state after onboarding reads Record created. It does not name the new staff member.",
     "where": "app/onboarding/page.tsx",
     "breaks": "P5",
@@ -152,22 +167,25 @@
   {
     "id": "X01",
     "kind": "decoy",
-    "what": "Inventory table rows are 52px tall, and settings list rows are 48px tall.",
+    "ticket": 2,
+    "what": "Table rows are 52px tall, and the status filter control is 48px tall.",
     "where": "app/inventory/page.tsx",
-    "reason": "Inventory rows hold a status badge and two lines of text, so they need the taller row. Settings rows hold one line and use the compact row. The difference is intended and a flag here is noise."
+    "reason": "Ticket 02 states both heights: rows are 52px to fit a badge and two lines of text, and the filter uses the 48px standard control height. The difference is specified, so a flag here is noise."
   },
   {
     "id": "X02",
     "kind": "decoy",
-    "what": "Helper text under the settings fields ends with a full stop. Helper text under the onboarding fields does not.",
-    "where": "app/onboarding/details.tsx",
-    "reason": "Onboarding helper text is a short label, not a sentence, and labels take no full stop. The difference follows the copy rules and a flag here is noise."
+    "ticket": 1,
+    "what": "Helper text under the email field ends with a full stop, and the helper text under the pickup hours field does not.",
+    "where": "app/settings/page.tsx",
+    "reason": "Ticket 01 states that helper text ends with a full stop and labels take none, and that the pickup hours hint is a short format hint with no full stop. The difference is specified, so a flag here is noise."
   },
   {
     "id": "X03",
     "kind": "decoy",
-    "what": "The skeleton shimmer runs for 1.2 seconds, and the onboarding stepper's pending spinner runs for 0.9 seconds.",
-    "where": "components/ui/skeleton.tsx",
-    "reason": "The two motions sit in different contexts, and both stop under reduced motion. Comparing them is comparing unlike things, so a flag here is noise."
+    "ticket": 3,
+    "what": "The Finish button's pending spinner turns at 0.9 seconds per turn, and the step marker animates over 0.2 seconds.",
+    "where": "app/onboarding/page.tsx",
+    "reason": "Ticket 03 sets both durations and says both motions stop under reduced motion. The two are different motions, so different durations are intended and a flag here is noise."
   }
 ]

@@ -14,7 +14,7 @@ A lead on a phone between customers wants to mute one alert in a couple of taps,
 - The Customers group holds booking confirmed, pickup reminder, return reminder and overdue. The Inventory group holds item back from repair, item retired and low stock.
 - Each alert has an in-app switch and an email switch, and each switch's label names the alert and the channel.
 - At the `sm` breakpoint, the two switches for an alert stack under its name. At `md` and `lg`, the two switches sit on one row beside the name.
-- Turning off the overdue alert shows an inline note that says late returns will not be flagged to you in the app.
+- Turning off the in-app switch on the overdue row in the Customers group shows an inline note that says late returns will not be flagged to you in the app.
 - Each switch saves when it changes, and its group heading shows a saving indicator until the request finishes.
 - When a save fails, the switch returns to its previous state and an error appears next to the group heading.
 - Every switch is reachable by keyboard in visual order, and each shows a visible focus ring.
@@ -30,6 +30,8 @@ A lead on a phone between customers wants to mute one alert in a couple of taps,
 ## Visual baseline
 
 None, first build.
+
+Until a baseline exists, gate G6 is judged on every state having a render and on drift from this SPEC.
 
 ## Out of scope and protected paths
 

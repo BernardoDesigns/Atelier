@@ -16,7 +16,9 @@ The counter lead changes one setting between two customers and wants it saved in
 - Late-return grace period accepts whole hours from 0 to 72 and shows an error for anything else.
 - The save button is disabled while every field matches its saved value.
 - Changing any field enables the save button and shows "Unsaved changes" beside it.
-- Leaving the page with unsaved changes opens a confirmation before the page changes.
+- Navigating away inside the app with unsaved changes opens a confirmation before the page changes.
+- Pickup hours take an opening and a closing time, each as 24-hour HH:MM, for example 09:00 and 18:00. The closing time must be later than the opening time. Any other value shows an error under the field.
+- Helper text ends with a full stop. Labels take no full stop. The pickup hours helper is a short format hint, not a sentence, so it takes no full stop.
 - Pressing save with an invalid field does not send the request and moves focus to the first invalid field.
 - A successful save clears the unsaved note and shows a saved confirmation that stays for at least three seconds.
 - A failed save keeps every entered value and shows an error above the form.
@@ -33,6 +35,8 @@ The counter lead changes one setting between two customers and wants it saved in
 ## Visual baseline
 
 None, first build.
+
+Until a baseline exists, gate G6 is judged on every state having a render and on drift from this SPEC.
 
 ## Out of scope and protected paths
 

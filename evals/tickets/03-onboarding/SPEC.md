@@ -11,12 +11,11 @@ The counter lead adds someone between customers, so every step has to be quick t
 ## Acceptance criteria
 
 - A stepper shows four steps, marks the current step, and marks finished steps as done.
-- The Next button stays disabled until the required fields on the current step are valid.
+- The Next button stays disabled until the required fields on the current step are valid. On the checklist step, that means the three required training items are checked.
 - The Back button returns to the previous step with every value still filled in.
 - The stepper is reachable by keyboard, and only finished steps can be jumped to.
 - The review step lists every value entered, and each section has an Edit link that returns to its step.
-- Finish stays disabled until the three required training items are checked.
-- While the record saves, the Finish button shows a pending state and cannot be pressed twice.
+- While the record saves, the Finish button shows a pending state and cannot be pressed twice. The pending spinner turns once every 0.9 seconds, and the step marker animates over 0.2 seconds. Both motions stop when reduced motion is on.
 - When saving fails, the person stays on the review step and sees the error above the Finish button.
 - Values typed on a step survive a round trip to the review step and back.
 - After Finish succeeds, the page shows a success message that names the new staff member.
@@ -33,6 +32,8 @@ The counter lead adds someone between customers, so every step has to be quick t
 ## Visual baseline
 
 None, first build.
+
+Until a baseline exists, gate G6 is judged on every state having a render and on drift from this SPEC.
 
 ## Out of scope and protected paths
 

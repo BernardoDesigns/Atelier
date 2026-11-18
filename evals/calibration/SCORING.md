@@ -1,51 +1,76 @@
 # Scoring a Critic run
 
-This sheet scores one Critic run against the seeded defects in `defects.json`. The defects are planted in the proving ground, so each run is scored on the same known answers.
+This sheet scores one Critic run against the seeded defects in `defects.json`, and against the decoys in the same file. Scores are taken from the Critic's last `/build` pass, saved as `.atelier/critique.md`. Copy that file somewhere else before you score it, so the original stays as it was.
 
-Scoring uses the Critic's output saved as `.atelier/critique.md` in the proving ground. Copy that file somewhere else before you score it, so the original stays as it was.
+## Detection types
 
 Every defect has a `detected_by` value:
 
-- `critic-screenshot`: visible in a render. The Critic must cite a screenshot.
-- `critic-diff`: visible by reading the diff. The Critic must cite a diff location, written `file:line`.
-- `script`: only a tool reliably catches it, such as `tsc`, prettier, the lane guard or the PR line count. The Critic cannot run commands, so it is not scored on these.
+- `critic-screenshot`: visible in a render. The Critic cites a render path under `.atelier/renders/`.
+- `critic-diff`: visible by reading the diff. The Critic cites `file:line` in the diff.
+- `script`: only a tool reliably catches it, such as `tsc`, prettier, the diff check for protected paths or the PR line count. The Critic cannot run commands, so these are not scored against it. They are scored in the gate table.
 
-## Counting Critic findings
+Critic-detectable defects are the entries with `"kind": "defect"` and a `detected_by` of `critic-screenshot` or `critic-diff`.
 
-Each entry in `defects.json` with `"kind": "defect"` and a `detected_by` of `critic-screenshot` or `critic-diff` is critic-detectable. Each entry with `"kind": "decoy"` is a harmless difference.
+## Five buckets
 
-- **Caught.** The Critic names the defect, and its evidence is valid for the defect's `detected_by`. A `critic-screenshot` defect needs a screenshot path under `.atelier/renders/`. A `critic-diff` defect needs a `file:line` in the diff. The finding must also name the defect's `where` path or its `breaks` ID. A gate ID alone does not count. Evidence of the wrong kind does not count either. A screenshot cited for a code finding, or a `file:line` cited for a visual finding, is noise, and the note says why.
-- **Missed.** No finding matches the critic-detectable defect.
-- **Noise.** A finding that matches no defect and no decoy, or that cites invalid evidence. A finding that matches a decoy is also noise, and it counts under decoy flags as well.
+Every finding in a Critic run goes into exactly one bucket.
 
-If two findings name the same defect, the first is caught and the second is noise.
+- **caught.** The finding matches a critic-detectable seeded defect under the matching rule below.
+- **bonus.** The finding matches a seeded defect tagged `script`. The Critic saw it in the diff anyway. Bonus findings are excluded from both precision and recall.
+- **unseeded-valid.** A real issue that was not seeded. The repo owner adjudicates each one. Unseeded-valid findings are excluded from both precision and recall, and each one is listed in the notes.
+- **decoy-flagged.** The finding matches a decoy under the matching rule. It counts as noise.
+- **noise.** Everything else: a finding the owner would not care about, or one that matches nothing.
 
-## Gate-detected defects
+A critic-detectable defect the Critic did not report is **missed**. Missed is reported beside the buckets, but it is not a bucket.
 
-Script-detected defects are not counted against the Critic. Score them in the gate table below, as caught by the gates yes or no. The gate that should catch each one is listed in `evidence`.
+Only caught and missed count toward recall. Only caught, noise and decoy-flagged count toward precision.
+
+## Matching rule
+
+A finding matches a defect when its evidence matches and it describes the same problem. Two scorers following this rule get the same numbers.
+
+- **Screenshot defects.** Evidence matches when the finding cites a render of the same state, in any theme or breakpoint where the defect is visible. The render must show the problem. A render where the defect is not visible does not match.
+- **Diff defects.** Evidence matches when the finding cites the same file within 5 lines of the defect's `file:line`, either way.
+- The gate or principle ID the Critic attached is ignored for matching. Only the evidence and the problem decide the match.
+- If two findings match the same defect, the first is caught and the second is noise.
+
+Worked examples:
+
+- **Screenshot, match.** D06 is visible at md. A finding cites `.atelier/renders/<slug>/populated.light.md.png` and says the shelf location column is missing. The render is the same state, the breakpoint is one where the defect shows, and the problem is the same. Caught.
+- **Screenshot, no match.** The same finding cites `populated.light.lg.png`. At lg the column is present, so the defect is not visible in that render. Not a match. The finding is noise, and the note says why.
+- **Diff, match.** D05 is at `app/inventory/retire/page.tsx:N`. A finding cites `app/inventory/retire/page.tsx:N+3` and says the dialog is rendered with `modal={false}`, so focus is not trapped. Same file, within 5 lines, same problem. Caught.
+- **Diff, no match.** A finding cites `app/inventory/retire/page.tsx:N+40` for the same problem. Outside the 5 line window, so it does not match. It is noise unless it matches another defect.
+
+Each defect's planted `file:line` is written into its `evidence` when the set is planted. Until then, the `N` in `evidence` stands for that line.
 
 ## Formulas
 
-- Critic-detectable defects: `D` (11 at the time of writing). Count the `"kind": "defect"` entries whose `detected_by` is `critic-screenshot` or `critic-diff`, and use that number.
+- Critic-detectable defects: `D` (11 at the time of writing). Count the entries whose `detected_by` is `critic-screenshot` or `critic-diff`.
 - Recall = caught / D
-- Precision = caught / (caught + noise)
-- Decoy flags = number of decoys flagged, out of 3
+- Precision = caught / (caught + noise + decoy-flagged)
 
-Precision includes decoy flags in noise. Recall counts only critic-detectable defects.
+Decoy-flagged counts in the precision denominator, as noise. Report the decoy-flagged count and the decoy flags out of 3 alongside precision. Report bonus and unseeded-valid counts beside caught, noise and recall.
+
+## How the set is planted
+
+Defects are planted per ticket. For each ticket, the planter takes that ticket's finished benchmark branch in the app repo, adds the seeded defects for that ticket on a separate throwaway branch, and never merges that branch. The Critic runs once per ticket, given that ticket's SPEC, its renders and its diff. Scores are summed across the five tickets before the formulas are applied.
+
+Planting and running belong to the build's integration step. They are not done in this folder. This folder holds only the known answers and the rules for scoring them.
 
 ## Critic table
 
-Fill one row per scored run. Do not overwrite earlier rows.
+One row per scored run, summed across the five tickets. Do not overwrite earlier rows.
 
-| Run date | Critic model | Builder model | Caught | Missed | Noise | Decoy flags | Recall | Precision | Notes |
-|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | |
+| Run date | Critic model | Builder model | Caught | Missed | Bonus | Unseeded-valid | Noise | Decoy-flagged | Recall | Precision | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | | | | |
 
 ## Gate table
 
-Fill one row per run for the script-detected defects. Mark yes only when the gate named in the column reported the defect.
+One row per run for the script-detected defects. Mark yes only when the gate named in the column reported the defect. These rows are not counted against the Critic.
 
-| Run date | Builder model | D02 tsc (G2) | D03 prettier (G3) | D07 lane guard (G7) | D09 PR line count (G9) | Notes |
+| Run date | Builder model | D02 tsc (G2) | D03 prettier (G3) | D07 diff check (G7) | D09 PR line count (G9) | Notes |
 |---|---|---|---|---|---|---|
 | | | | | | | |
 

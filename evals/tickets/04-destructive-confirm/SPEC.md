@@ -34,6 +34,8 @@ Retiring a cinema camera body is hard to undo, and a tired lead could confirm it
 
 None, first build.
 
+Until a baseline exists, gate G6 is judged on every state having a render and on drift from this SPEC.
+
 ## Out of scope and protected paths
 
 - Protected paths `auth/`, `api/`, `payments/` and `lib/shared/` are out of scope. The retire action calls the mock data layer in `lib/data/`.

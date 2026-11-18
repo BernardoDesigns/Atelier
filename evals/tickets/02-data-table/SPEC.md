@@ -1,8 +1,8 @@
-# Inventory table with loading, empty, error and paginated states
+# Inventory table with loading, empty, error, paginated and populated states
 
 ## Goal
 
-Show the gear desk inventory as one data table. Each row carries item name, item ID, category, status, next due date and shelf location. The six statuses are available, reserved, checked out, overdue, in repair and retired, and staff must read any of them at a glance.
+Show the gear desk inventory as one data table. Each row carries item name, item ID, category, status, next due date and shelf location. Staff can filter the table by status with one control. The six statuses are available, reserved, checked out, overdue, in repair and retired.
 
 ## User and core tension
 
@@ -13,13 +13,16 @@ A counter tech looking for a "50mm prime lens" while a customer waits needs the 
 - Each row shows item name, item ID, category, status, next due date and shelf location.
 - Status is a badge with its text label, so the status reads with colour removed.
 - The status badge uses one of six labels: available, reserved, checked out, overdue, in repair, retired.
-- Sorting by the name column switches between ascending and descending, and the column header shows the current direction.
-- While data loads, the table shows skeleton rows where data will go, and the column headers stay in place.
-- When the inventory has no items, the table shows an empty state with one line of text and a button to add the first item.
+- A status filter sits above the table. It is the only filter on the table.
+- Table rows are 52px tall to fit a badge and two lines of text. The status filter control is 48px tall, the standard control height.
+- While data loads, the table shows skeleton rows where data will go. The skeleton shimmer runs for 1.2 seconds and stops when reduced motion is on.
+- When the inventory has no items, the empty state shows one line of text and an Add item button.
+- When the status filter has no matching items, the empty state shows one line naming the filter and a Clear filters button. It does not show the Add item button.
 - When the request fails, the table shows an error state with a retry button.
 - Pagination shows 25 rows per page and the current page number, and moves forward and back by keyboard alone.
+- At `sm` (375), each row stacks into two lines: the item name with its status badge, then item ID, category, due date and shelf location as label and value pairs. The table does not scroll horizontally at `sm`.
+- At `md` (768) and `lg` (1280), the table shows all six columns, one row per item.
 - A retired item shows its row muted, and its status badge still reads "retired".
-- A status filter with no matching items shows the empty state, and the text names the filter.
 
 ## States to cover
 
@@ -28,16 +31,19 @@ A counter tech looking for a "50mm prime lens" while a customer waits needs the 
 - empty
 - error
 - paginated
-- filtered empty
 
 ## Visual baseline
 
 None, first build.
 
+Until a baseline exists, gate G6 is judged on every state having a render and on drift from this SPEC.
+
 ## Out of scope and protected paths
 
 - Protected paths `auth/`, `api/`, `payments/` and `lib/shared/` are out of scope. Rows come from the mock data layer in `lib/data/`.
-- Editing an item, the check-out flow and the return flow are out of scope. The add item button only needs to be visible and focusable.
+- Sorting by any column is out of scope.
+- Filtering by more than one field is out of scope. Only the status filter is built.
+- Editing an item, the check-out flow and the return flow are out of scope. The Add item button only needs to be visible and focusable.
 - Booking history and deposits are out of scope. They belong to `payments/`.
 
 ## Definition of done
