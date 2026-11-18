@@ -7,29 +7,92 @@
 <style>
   body { margin: 0; padding: 16px; background: #ffffff; color: #1a1a1a; font-family: system-ui, sans-serif; }
   html.dark body { background: #111111; color: #f2f2f2; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .fading { animation: fade 100s linear both; }
+  .box { width: 100px; height: 100px; background: #c00; }
 </style>
 </head>
 <body class="sb-show-preparing-story">
   <div id="storybook-root"></div>
   <script>
-    // Like Storybook: the story is rendered by script some time after the load event.
-    // id contains "never": never renders. id contains "noalt": renders an image without alt text,
-    // which axe flags, so an axe result proves the harness waited for the story.
+    // A small stand-in for a Storybook 10 preview frame. Ids select behaviours (substring match):
+    //   never    : never renders.            noalt  : renders an image without alt (axe flags it).
+    //   portal   : content only in a node appended to body (#storybook-root stays empty).
+    //   override : story-level globals force light, ignoring the ?globals=theme:dark URL global.
+    //   playerr  : play function throws (render phase "errored").   hang : play never finishes.
+    //   slowplay : phase is "playing" for 800ms; the flagged image only appears once it is "completed".
+    //   hover    : two buttons; real pointer hover on #b1 inserts an image without alt, on #b2 an unlabeled input.
+    //   hoverparam : like hover, and parameters.harness.hover = "#b2".
+    //   anim / static / fixed / tall : animation and layout fixtures.
+    // Any mousedown or click inserts an empty button, so a harness that clicks gets a button-name failure.
     var id = new URLSearchParams(location.search).get('id') || '';
+    var globalsParam = new URLSearchParams(location.search).get('globals') || '';
+    var wantDark = globalsParam.split(';').indexOf('theme:dark') !== -1 && id.indexOf('override') === -1;
+
+    // Like withThemeByClassName with light = "": the decorator owns the class and strips anything else.
+    function applyTheme() { document.documentElement.classList.toggle('dark', wantDark); }
+    new MutationObserver(function () {
+      if (document.documentElement.classList.contains('dark') !== wantDark) applyTheme();
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    applyTheme();
+
+    var render = { phase: 'preparing', story: { parameters: {} } };
+    if (id.indexOf('hoverparam') !== -1) render.story.parameters.harness = { hover: '#b2' };
+    window.__STORYBOOK_PREVIEW__ = { currentRender: render };
+
+    function trap() {
+      var b = document.createElement('button');
+      b.id = 'trap';
+      document.body.appendChild(b);
+    }
+    document.addEventListener('mousedown', trap);
+    document.addEventListener('click', trap);
+
+    function html() {
+      if (id.indexOf('noalt') !== -1) return '<img src="/pic.png" width="40" height="40">';
+      if (id.indexOf('hover') !== -1) return '<button id="b1">One</button> <button id="b2">Two</button><div id="out"></div>';
+      if (id.indexOf('anim') !== -1) return '<div class="box fading"></div>';
+      if (id.indexOf('static') !== -1) return '<div class="box"></div>';
+      if (id.indexOf('fixed') !== -1) return '<div style="position:fixed;top:0;left:0;width:100%;height:100vh;background:#336699"></div>';
+      if (id.indexOf('tall') !== -1) return '<div style="height:2000px;background:#eee"></div><div style="position:fixed;top:0;left:0;width:100%;height:100vh;background:#336699"></div>';
+      return '<p>Story content</p>';
+    }
+
     window.addEventListener('load', function () {
       setTimeout(function () {
         if (id.indexOf('never') !== -1) return;
+        applyTheme();
         document.body.classList.remove('sb-show-preparing-story');
         if (id.indexOf('portal') !== -1) {
-          // Dialog-style story: renders only into a node appended to body; #storybook-root stays empty.
           var portal = document.createElement('div');
           portal.id = 'portal-node';
           portal.innerHTML = '<p>Portal content</p>';
           document.body.appendChild(portal);
+          render.phase = 'completed';
           return;
         }
-        document.getElementById('storybook-root').innerHTML =
-          id.indexOf('noalt') !== -1 ? '<img src="/pic.png" width="40" height="40">' : '<p>Story content</p>';
+        var root = document.getElementById('storybook-root');
+        if (id.indexOf('slowplay') !== -1) {
+          root.innerHTML = '<p>Story content</p>';
+          render.phase = 'playing';
+          setTimeout(function () {
+            root.innerHTML = '<p>Story content</p><img src="/pic.png" width="40" height="40">';
+            render.phase = 'completed';
+          }, 800);
+          return;
+        }
+        root.innerHTML = html();
+        if (id.indexOf('hover') !== -1) {
+          document.getElementById('b1').addEventListener('mouseover', function () {
+            document.getElementById('out').innerHTML = '<img src="/pic.png" width="40" height="40">';
+          });
+          document.getElementById('b2').addEventListener('mouseover', function () {
+            document.getElementById('out').innerHTML = '<input type="text">';
+          });
+        }
+        if (id.indexOf('playerr') !== -1) render.phase = 'errored';
+        else if (id.indexOf('hang') !== -1) render.phase = 'playing';
+        else render.phase = 'completed';
       }, 400);
     });
   </script>

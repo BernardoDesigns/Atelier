@@ -72,14 +72,17 @@ async function applySetup(page, steps = []) {
   for (const step of steps) {
     if ('click' in step) await page.click(step.click, { timeout: STEP_TIMEOUT });
     else if ('fill' in step) await page.fill(step.fill[0], step.fill[1], { timeout: STEP_TIMEOUT });
+    else if ('hover' in step) await page.hover(step.hover, { timeout: STEP_TIMEOUT });
     else if ('wait' in step) await page.waitForTimeout(step.wait);
   }
 }
 
-// Theme markers on <html>: a "dark" class and a data-theme attribute.
+// Theme markers on <html>: a "dark" class and a data-theme attribute. On a Storybook frame (iframe.html)
+// the class is left to Storybook (theme addon, selected by the URL global) because it strips an externally
+// set class on mount, story switch and theme change; only data-theme, which Storybook ignores, is set there.
 const applyBody = (theme) => `
   const el = document.documentElement;
-  el.classList.toggle('dark', ${theme === 'dark'});
+  if (!location.pathname.endsWith('iframe.html')) el.classList.toggle('dark', ${theme === 'dark'});
   el.setAttribute('data-theme', '${theme}');`;
 
 // Installed with addInitScript. An init script can run before <html> exists, so
@@ -103,6 +106,72 @@ const KILL_MOTION = '*,*::before,*::after{transition:none!important;animation:no
 const STORY_TIMEOUT = Number(process.env.ATELIER_RENDER_STORY_TIMEOUT_MS) || 10000;
 
 const isStoryFrame = (url, baseUrl) => new URL(url, baseUrl).pathname.endsWith('iframe.html');
+
+// Storybook targets pick the theme through the URL global (?globals=theme:dark). Any other globals the
+// plan URL already carries are kept; only the theme entry is replaced.
+export function storyUrl(url, baseUrl, theme) {
+  const u = new URL(url, baseUrl);
+  const kept = (u.searchParams.get('globals') || '').split(';').filter((g) => g && !g.startsWith('theme:'));
+  u.searchParams.set('globals', [...kept, `theme:${theme}`].join(';'));
+  return u.href;
+}
+
+const targetUrl = (target, baseUrl, theme) =>
+  isStoryFrame(target.url, baseUrl) ? storyUrl(target.url, baseUrl, theme) : new URL(target.url, baseUrl).href;
+
+// Fails the shot when <html> does not carry the requested theme. Storybook story-level globals override the
+// URL global, so a mismatch is a failed capture, never a silent wrong-theme shot.
+async function assertStoryTheme(page, theme, settleMs) {
+  const want = theme === 'dark';
+  const matches = () => document.documentElement.classList.contains('dark');
+  try {
+    if (settleMs) await page.waitForFunction((w) => document.documentElement.classList.contains('dark') === w, want, { timeout: settleMs });
+  } catch {}
+  if ((await page.evaluate(matches)) !== want) {
+    throw new Error(
+      `Theme mismatch: requested ${theme} but <html> ${want ? 'has no' : 'still has the'} "dark" class after the story rendered (a story-level globals override or the theme decorator's mapping may be forcing it)`,
+    );
+  }
+}
+
+const FIRST_INTERACTIVE = [
+  'a[href]', 'button:not([disabled])', 'input:not([disabled]):not([type=hidden])', 'select:not([disabled])',
+  'textarea:not([disabled])', 'summary', '[role=button]', '[role=link]', '[role=tab]', '[role=menuitem]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+const HOVER_STATE = /(^|[-_])hover(ed)?($|[-_])/i;
+
+// Real pointer hover (mouse move, never a click or mouse-down) so CSS :hover applies. Skipped when the plan
+// has its own {"hover"} setup step. Selector comes from the story's parameters.harness.hover, else the first
+// interactive element for a state named like "hover".
+async function applyHover(page, target, isStory) {
+  if ((target.setup || []).some((s) => 'hover' in s)) return;
+  let want = null;
+  if (isStory) {
+    want = await page.evaluate(() => {
+      try {
+        const h = window.__STORYBOOK_PREVIEW__.currentRender.story.parameters.harness;
+        return h && h.hover !== undefined ? h.hover : null;
+      } catch {
+        return null;
+      }
+    });
+  }
+  let selector = typeof want === 'string' && want ? want : null;
+  if (!selector && (want === true || HOVER_STATE.test(target.state))) selector = FIRST_INTERACTIVE;
+  if (!selector) return;
+  const inRoot = page.locator('#storybook-root').locator(selector);
+  const anywhere = page.locator(selector);
+  const loc = (await inRoot.count()) > 0 ? inRoot.first() : (await anywhere.count()) > 0 ? anywhere.first() : null;
+  const none = () =>
+    new Error(`Hover requested but no hoverable element matched ${selector === FIRST_INTERACTIVE ? 'the first-interactive fallback' : selector}`);
+  if (!loc) throw none();
+  try {
+    await loc.hover({ timeout: STEP_TIMEOUT });
+  } catch {
+    throw none();
+  }
+}
 
 // Waits until the page is worth photographing. Throws a one-line Error to mark the shot "error".
 async function waitUntilReady(page, target, baseUrl) {
@@ -141,6 +210,29 @@ async function waitUntilReady(page, target, baseUrl) {
   }
   if (await page.evaluate(() => document.body.classList.contains('sb-show-errordisplay'))) {
     throw new Error('Storybook story did not render: error display is showing');
+  }
+  // Finished phase: Storybook's current render goes ... playing -> played -> completed. 'errored' means the
+  // render or the play function threw, which is a failed capture. If the preview global is absent (not a
+  // real Storybook frame) the content checks above are all there is.
+  const phase = () => {
+    const r = window.__STORYBOOK_PREVIEW__ && window.__STORYBOOK_PREVIEW__.currentRender;
+    return r ? r.phase : null;
+  };
+  if ((await page.evaluate(() => !!window.__STORYBOOK_PREVIEW__)) === false) return;
+  try {
+    await page.waitForFunction(
+      () => {
+        const r = window.__STORYBOOK_PREVIEW__ && window.__STORYBOOK_PREVIEW__.currentRender;
+        return !!r && (r.phase === 'completed' || r.phase === 'errored');
+      },
+      null,
+      { timeout: STORY_TIMEOUT },
+    );
+  } catch {
+    throw new Error(`Storybook story did not finish: render phase is "${await page.evaluate(phase)}" after ${STORY_TIMEOUT}ms (play function still running?)`);
+  }
+  if ((await page.evaluate(phase)) === 'errored') {
+    throw new Error('Storybook story errored: the play function or render threw (render phase "errored")');
   }
 }
 
@@ -206,7 +298,7 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
           try {
             let response;
             try {
-              response = await page.goto(new URL(target.url, plan.baseUrl).href, { waitUntil: 'load' });
+              response = await page.goto(targetUrl(target, plan.baseUrl, theme), { waitUntil: 'load' });
             } catch (err) {
               shot.status = 'missing';
               shot.error = `navigation failed: ${String(err.message).split('\n')[0]}`;
@@ -217,10 +309,15 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
             }
             if (shot.status === 'ok') {
               try {
+                const isStory = isStoryFrame(target.url, plan.baseUrl);
                 await waitUntilReady(page, target, plan.baseUrl);
+                if (isStory) await assertStoryTheme(page, theme, 3000);
                 await applySetup(page, target.setup);
+                await applyHover(page, target, isStory);
+                // Motion is switched off only now, after the finished phase, so the shot is of the end state.
                 await page.addStyleTag({ content: KILL_MOTION });
                 await page.evaluate(reapplyScript(theme));
+                if (isStory) await assertStoryTheme(page, theme, 0);
                 await page.screenshot({ path: path.join(slugDir, file), fullPage: true, animations: 'disabled' });
               } catch (err) {
                 shot.status = 'error';

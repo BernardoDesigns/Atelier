@@ -4,6 +4,9 @@
 - Runs axe on every shot and exits 1 when any serious or critical violation exists, naming the shot.
 - Added a `storybook` subcommand that turns a Storybook `index.json` into a render plan.
 - Each run clears the previous PNGs, manifest and axe.json in its own slug folder, so stale renders never sit beside a new manifest.
+- Storybook targets pick the theme through the `globals=theme:dark|light` URL global and fail the shot if `<html>` does not end up with the matching `dark` class. They also wait for the story's finished phase and fail a shot when the play function errored.
+- Hover states use a real pointer move (`{"hover"}` setup step, `parameters.harness.hover`, or a state named like `hover`). The harness never clicks before shooting.
+- The Storybook adapter skips docs entries and test-subtype entries of the Storybook 10 index.
 - The harness never starts a server. With nothing at the base URL it exits 2 with one line.
 
 ## README

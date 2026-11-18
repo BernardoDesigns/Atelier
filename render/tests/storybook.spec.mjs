@@ -61,3 +61,22 @@ test('produced plan is accepted by the harness against fixtures', async () => {
   const manifest = JSON.parse(await readFile(path.join(out, 'sb', 'manifest.json'), 'utf8'));
   expect(manifest.shots.every((s) => s.status === 'ok')).toBe(true);
 });
+
+test('fixture index has the real Storybook 10 v5 entry shape', async () => {
+  const index = JSON.parse(await readFile(path.join(fx, 'index.json'), 'utf8'));
+  expect(index.v).toBe(5);
+  const story = index.entries['example-button--primary'];
+  expect(Object.keys(story).sort()).toEqual(
+    ['componentPath', 'exportName', 'id', 'importPath', 'name', 'subtype', 'tags', 'title', 'type'].sort(),
+  );
+  expect(index.entries['example-button--docs'].type).toBe('docs');
+});
+
+test('docs entries and test-subtype entries are skipped; only story/story entries become targets', async () => {
+  const { planFile } = await adapt();
+  const plan = JSON.parse(await readFile(planFile, 'utf8'));
+  const ids = plan.targets.map((t) => decodeURIComponent(t.url));
+  expect(ids.some((u) => u.includes('--docs'))).toBe(false);
+  expect(ids.some((u) => u.includes('clicks'))).toBe(false);
+  expect(ids.length).toBe(3);
+});

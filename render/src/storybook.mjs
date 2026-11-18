@@ -1,8 +1,9 @@
 // Storybook index.json -> render plan. Does not start Storybook.
 //
-// Fields relied on (Storybook index v5, written by `storybook build` as
-// storybook-static/index.json):
-//   index.entries: { "<story id>": { type: "story" | "docs", id, ... } }
+// Fields relied on (Storybook 10 index v5, written by `storybook build` as storybook-static/index.json):
+//   {"v":5,"entries":{"<id>":{type,subtype,id,title,name,importPath,componentPath,tags,exportName}}}
+// Only type, subtype and id are read. type "docs" entries are skipped; so are story entries whose subtype is
+// "test" (component tests, which render their parent story again).
 // Older indexes (v3/v4) key the same objects under "stories" and may omit
 // "type"; an entry with no type is treated as a story.
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
@@ -25,6 +26,7 @@ export function indexToPlan(index, { baseUrl, slug, include = [], exclude = [] }
   const targets = [];
   for (const [key, entry] of Object.entries(entries)) {
     if (!entry || (entry.type !== undefined && entry.type !== 'story')) continue;
+    if (entry.subtype === 'test') continue;
     const id = entry.id || key;
     if (inc.length && !inc.some((r) => r.test(id))) continue;
     if (exc.some((r) => r.test(id))) continue;

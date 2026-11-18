@@ -5,6 +5,7 @@
 // Setup steps (run in order after the page loads, before the screenshot):
 //   { click: "<css selector>" }
 //   { fill: ["<css selector>", "<value>"] }
+//   { hover: "<css selector>" }   real pointer hover (mouse move), so CSS :hover applies
 //   { wait: <milliseconds, 0..30000> }
 import { readFile } from 'node:fs/promises';
 
@@ -28,12 +29,14 @@ function validateStep(step, where) {
   }
   const keys = Object.keys(step);
   if (keys.length !== 1) {
-    throw new PlanError(`${where}: a setup step must have exactly one key (click, fill or wait)`);
+    throw new PlanError(`${where}: a setup step must have exactly one key (click, fill, hover or wait)`);
   }
   const [key] = keys;
   const val = step[key];
   if (key === 'click') {
     if (typeof val !== 'string' || !val) throw new PlanError(`${where}: click needs a selector string`);
+  } else if (key === 'hover') {
+    if (typeof val !== 'string' || !val) throw new PlanError(`${where}: hover needs a selector string`);
   } else if (key === 'fill') {
     if (!Array.isArray(val) || val.length !== 2 || typeof val[0] !== 'string' || typeof val[1] !== 'string' || !val[0]) {
       throw new PlanError(`${where}: fill needs [selector, value] as two strings`);
