@@ -6,8 +6,13 @@ Each skill is a folder named after the skill. The folder holds SKILL.md,
 taste.md and conventions.md, and is zipped to <dist_dir>/<name>.zip.
 Zip entries share one fixed timestamp, fixed permissions, sorted order and
 no extra fields, so two runs give identical bytes.
+
+Both skills are staged before any zip is written. Each zip is first written
+to <dest>.tmp and then moved into place with os.replace, so a failure never
+leaves a truncated or mismatched pair in dist_dir.
 """
 
+import json
 import os
 import sys
 import zipfile
@@ -30,6 +35,13 @@ def read_text(path):
 def read_bytes(path):
     with open(path, "rb") as handle:
         return handle.read()
+
+
+def unquote(value):
+    """Return the string a frontmatter value means. Quoted values are JSON strings."""
+    if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+        return json.loads(value)
+    return value
 
 
 def split_frontmatter(text, path):
@@ -55,15 +67,17 @@ def split_frontmatter(text, path):
 def skill_md(repo, name):
     path = os.path.join(repo, "commands", name + ".md")
     fields, body = split_frontmatter(read_text(path), path)
-    description = fields.get("description", "")
+    description = unquote(fields.get("description", ""))
     if not description:
         sys.exit(f"{path}: frontmatter has no description")
     if body and not body.endswith("\n"):
         body += "\n"
+    # json.dumps output is a valid YAML double-quoted scalar, so colons,
+    # hashes and quotes in the description survive.
     text = (
         "---\n"
         f"name: {name}\n"
-        f"description: {description}\n"
+        f"description: {json.dumps(description, ensure_ascii=False)}\n"
         "---\n"
         + body
         + "\n"
@@ -82,10 +96,8 @@ def stage_skill(repo, name, folder):
             handle.write(read_bytes(os.path.join(repo, shipped)))
 
 
-def write_zip(name, folder, dist_dir):
-    dest = os.path.join(dist_dir, name + ".zip")
-    # "wb" truncates an existing zip, so each run overwrites in place.
-    with open(dest, "wb") as raw:
+def write_zip(name, folder, dest_path):
+    with open(dest_path, "wb") as raw:
         with zipfile.ZipFile(raw, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for filename in sorted(os.listdir(folder)):
                 info = zipfile.ZipInfo(f"{name}/{filename}", date_time=ZIP_TIME)
@@ -94,7 +106,7 @@ def write_zip(name, folder, dist_dir):
                 info.external_attr = FILE_ATTR
                 with open(os.path.join(folder, filename), "rb") as handle:
                     archive.writestr(info, handle.read())
-    return dest
+    return dest_path
 
 
 def main(argv):
@@ -102,10 +114,29 @@ def main(argv):
         sys.exit("usage: build_skills.py <repo> <stage_dir> <dist_dir>")
     _, repo, stage_root, dist_dir = argv
     os.makedirs(dist_dir, exist_ok=True)
+
+    # Stage every skill before touching dist/.
+    folders = {}
     for name in SKILLS:
-        folder = os.path.join(stage_root, name)
-        stage_skill(repo, name, folder)
-        print(write_zip(name, folder, dist_dir))
+        folders[name] = os.path.join(stage_root, name)
+        stage_skill(repo, name, folders[name])
+
+    # Write every zip to a .tmp file, then move them all into place.
+    pairs = [
+        (os.path.join(dist_dir, name + ".zip") + ".tmp", os.path.join(dist_dir, name + ".zip"), name)
+        for name in SKILLS
+    ]
+    try:
+        for tmp, _, name in pairs:
+            write_zip(name, folders[name], tmp)
+    except BaseException:
+        for tmp, _, _ in pairs:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        raise
+    for tmp, dest, _ in pairs:
+        os.replace(tmp, dest)
+        print(dest)
 
 
 if __name__ == "__main__":
