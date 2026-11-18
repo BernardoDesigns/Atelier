@@ -1,0 +1,736 @@
+{
+  "version": 1,
+  "files": [
+    "quality.md",
+    "taste.md",
+    "conventions.md",
+    "failures.md"
+  ],
+  "items": {
+    "quality.md#G1": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G2": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G3": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G4": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G5": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G6": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G7": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G8": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G9": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#G10": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#P1": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#P2": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#P3": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#P4": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "quality.md#P5": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T1": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T2": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T3": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T4": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T5": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T6": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T7": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T8": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T9": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T10": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T11": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T12": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T13": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T14": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T15": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T16": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T17": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T18": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T19": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T20": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T21": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T22": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T23": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T24": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T25": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T26": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T27": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T28": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T29": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T30": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T31": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T32": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T33": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T34": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T35": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "taste.md#T36": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C1": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C2": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C3": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C4": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C5": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C6": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C7": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C8": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C9": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C10": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C11": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C12": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C13": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C14": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C15": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C16": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C17": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C18": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C19": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C20": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C21": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C22": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C23": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C24": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C25": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C26": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C27": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C28": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C29": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C30": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C31": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C32": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C33": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C34": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C35": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C36": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C37": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C38": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C39": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C40": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C41": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C42": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C43": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C44": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C45": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C46": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C47": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C48": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C49": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C50": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C51": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C52": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C53": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C54": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C55": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C56": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C57": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C58": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C59": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C60": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C61": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C62": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C63": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C64": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C65": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C66": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C67": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C68": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C69": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C70": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F1": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F2": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F3": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F4": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F5": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F6": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F7": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F8": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F9": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F10": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F11": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F12": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F13": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F14": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F15": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F16": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F17": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F18": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F19": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F20": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F21": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F22": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F23": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F24": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    }
+  }
+}

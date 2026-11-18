@@ -115,7 +115,7 @@ tpl = read(tpl_p)
 check("template has the eight headings in order", sections(tpl)[0] == HEADINGS)
 check("template States to cover is bullets only",
       all(re.fullmatch(r"- [a-z]+", l.strip()) for l in sections(tpl)[1]["States to cover"] if l.strip()))
-check("no em dashes in skill files", "—" not in skill and "—" not in fix)
+check("no em dashes in skill files", chr(0x2014) not in skill and chr(0x2014) not in fix)
 
 sys.exit(1 if fails else 0)
 PY

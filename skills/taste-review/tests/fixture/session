@@ -1,0 +1,7 @@
+# One answer per line: <key> <action> [| final wording]
+# Actions: approve, edit, rewrite, cut, skip
+quality.md#G1 approve
+quality.md#P1 edit | Every element earns its place, and cutting is the default.
+taste.md#T1 cut
+taste.md#T2 rewrite | Name every state in the words a user would say.
+conventions.md#C1 skip
