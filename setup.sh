@@ -43,7 +43,11 @@ echo "Done! ~/.claude/commands -> $REPO_DIR/commands"
 ATELIER_LINK="$CLAUDE_DIR/atelier"
 GIT_DIR_ABS="$(cd "$REPO_DIR" 2>/dev/null && cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
 GIT_COMMON_ABS="$(cd "$REPO_DIR" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
+IN_LINKED_WORKTREE=0
 if [ -n "$GIT_DIR_ABS" ] && [ "$GIT_DIR_ABS" != "$GIT_COMMON_ABS" ]; then
+    IN_LINKED_WORKTREE=1
+fi
+if [ "$IN_LINKED_WORKTREE" = 1 ]; then
     echo "WARNING: $REPO_DIR is a linked git worktree, so ~/.claude/atelier was not created or changed. Run setup.sh from the main checkout for this step."
 elif [ -e "$ATELIER_LINK" ] && [ ! -L "$ATELIER_LINK" ]; then
     echo "WARNING: $ATELIER_LINK exists and isn't a symlink, left it alone. Move it aside and re-run setup.sh."
@@ -67,7 +71,7 @@ fi
 # running under set -e must handle that.
 # Links when the destination is absent or already a link into this repo.
 # A real file or folder, or a link pointing elsewhere, is left with a warning.
-# The calls (agents/*.md, skills/*) arrive in later releases.
+# Skills are linked below; agents/*.md arrive in a later release.
 link_into() {
     local src=$1 dir=$2 dest
     dest="$dir/$(basename "$src")"
@@ -85,6 +89,20 @@ link_into() {
         return 1
     fi
 }
+
+# --- Skills: link spec and taste-review into ~/.claude/skills/, beside what's there ---
+# Same hazard as the atelier link: from a linked git worktree the links would
+# point at a folder that gets deleted, so they are not made there. A skipped
+# link warns and the script carries on.
+if [ "$IN_LINKED_WORKTREE" = 1 ]; then
+    echo "WARNING: $REPO_DIR is a linked git worktree, so the spec and taste-review skills were not linked into ~/.claude/skills. Run setup.sh from the main checkout for this step."
+else
+    for SKILL in spec taste-review; do
+        if link_into "$REPO_DIR/skills/$SKILL" "$CLAUDE_DIR/skills"; then
+            echo "Done! ~/.claude/skills/$SKILL -> $REPO_DIR/skills/$SKILL"
+        fi
+    done
+fi
 
 # --- dev-aliases.sh: symlink into home + wire .zshrc ---
 ALIASES_LINK="$HOME/.dev-aliases.sh"

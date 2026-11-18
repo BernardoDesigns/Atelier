@@ -14,6 +14,9 @@ aurora-usage/aurora-hud/AuroraHUD
 # setup.sh backups
 *.bak.*
 
+# Build output of packaging/build.sh
+dist/
+
 # Secrets. Nothing secret-shaped should ever land in a public config repo.
 .env
 .env.*

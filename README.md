@@ -47,7 +47,7 @@ Session debrief ──▶ proposes learnings ──▶ I approve which ones to k
 
 ## Shared rules: `global/CLAUDE.md`
 
-`global/CLAUDE.md` holds the rules the agents share: verb ownership, when to ask and when to ship, and pointers to the contract files. It's short on purpose, because it loads into every session in every repo. It also points at `failures.md` and a Critic agent; both arrive in later releases and aren't in the repo yet.
+`global/CLAUDE.md` holds the rules the agents share: verb ownership, when to ask and when to ship, and pointers to the contract files. It's short on purpose, because it loads into every session in every repo. It also points at `failures.md`, which is here now, and a Critic agent, which arrives in a later release.
 
 To use it, add one line to your own `~/.claude/CLAUDE.md`:
 
@@ -68,6 +68,48 @@ Three files at the root hold the standards the agents work to:
 | `conventions.md` | Literal standards, each answerable yes or no |
 
 `taste.md` and `conventions.md` are drafts until each item has been reviewed.
+
+### The failure ledger: `failures.md`
+
+A list of known traps: things models get wrong, and tool behavior that bites. Each entry has the trap, how it shows up, and what to do instead. There are 24 so far, all drafts until reviewed. It's the file you add to when the same mistake happens twice.
+
+---
+
+## From idea to SPEC
+
+### The SPEC template
+
+`templates/SPEC.md` is the handoff document for a build: eight headings (goal, user and core tension, acceptance criteria, states to cover, visual baseline, out of scope and protected paths, definition of done, open questions). The states list is the one the render plan and the Critic will read once they exist (both arrive in a later release), so it's not optional.
+
+### `/spec`
+
+The `spec` skill interviews you and writes a `SPEC.md` into the repo you're in. It runs when you type `/spec` or ask for a spec, and not otherwise. It won't write one while acceptance criteria or states are missing, because a spec without those is just a wish.
+
+### `/taste-review`
+
+Walks through every draft item in the contract files, one at a time, and records your call on each. It's resumable: state lives in `taste-review/state.json` on a long-lived `taste-review` branch, so you can stop and pick it up on either machine. It runs only when you ask for it. Start it from a session opened in the Atelier checkout. It works in a worktree under `.claude/worktrees/`, never edits the main checkout, and ends in one pull request.
+
+---
+
+## Packaging for claude.ai
+
+```bash
+bash packaging/build.sh
+```
+
+Builds `dist/eames.zip` and `dist/rand.zip`, one skill folder in each (`SKILL.md`, `taste.md`, `conventions.md`), and the same input gives the same bytes. `dist/` is git-ignored; the zips are build output. The zip layout is my assumption of what claude.ai wants, so upload one to confirm before you trust it.
+
+---
+
+## Evals
+
+`evals/` is how I find out whether the system is getting better or just feeling better.
+
+- `evals/tickets/`: five benchmark tickets, each a SPEC, to run through the build loop the same way every time.
+- `evals/metrics/`: a schema and an append-only log, one row per benchmark run (CI result, invented components, axe violations, Critic score, review minutes, cost and whether the PR was accepted). The Critic and the build loop that produce most of these arrive in a later release; for now the log is empty.
+- `evals/calibration/`: 15 seeded defects and 3 decoys, plus a scoring sheet, for checking how much of what's wrong the Critic will actually catch once it exists in a later release.
+
+Run the checks with `bash evals/tests/check.sh`.
 
 ---
 
@@ -135,6 +177,7 @@ bash setup.sh
 Then open a new terminal. `setup.sh`:
 
 - symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies, and `~/.claude/atelier` to the checkout (run it from the main checkout, not a git worktree; it skips that link from a worktree and says so)
+- links the `spec` and `taste-review` skills into `~/.claude/skills/`, one folder each, beside whatever is already there. It never replaces that folder, leaves a same-named folder of yours alone with a warning, and skips this from a worktree too
 - adds a source line to `.zshrc`
 - adds the Aurora billboard and Sketchpad to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
 - merges the guardrails into `~/.claude/settings.json`: ask before destructive commands, before any write outside the current repo, and before curl/wget reaches anything but localhost or a `cc` tunnel
@@ -166,6 +209,16 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `taste.md` | Judgment items, each tagged with its source |
 | `conventions.md` | Literal standards, each with a yes/no check |
 | `global/CLAUDE.md` | Shared agent rules, imported from your own CLAUDE.md |
+| `failures.md` | Known traps and how to avoid them, read by the Critic and the Builder, which arrive in a later release |
+| `templates/SPEC.md` | SPEC template, eight headings |
+| `skills/spec/` | `spec` skill: interview that produces a SPEC.md |
+| `skills/taste-review/` | `taste-review` skill: one-item-at-a-time review of the contract files |
+| `taste-review/state.json` | Review state, resumable on any machine |
+| `packaging/build.sh` | Builds the claude.ai skill zips for eames and rand into `dist/`. Run `bash packaging/build.sh`; the output is not committed |
+| `evals/tickets/` | Five benchmark SPECs for the regression suite |
+| `evals/metrics/` | Per-run metrics schema, sample row and append-only log |
+| `evals/calibration/` | Seeded defects, decoys and the scoring sheet for the Critic, which arrives in a later release |
+| `evals/tests/check.sh` | Checks for the evals folder, run with `bash evals/tests/check.sh` |
 | `dev-aliases.sh` | `cc`, `devup`, `devdown` |
 | `aurora-usage/aurora-billboard/` | Usage billboard mod for Claude Code |
 | `aurora-usage/aurora-hud/` | Floating usage HUD for macOS (`main.swift` + build scripts) |
