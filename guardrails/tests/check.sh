@@ -13,6 +13,7 @@ repo="${ATELIER_REPO:-$(cd "$here/../.." && pwd)}"
 command -v jq >/dev/null 2>&1 || { echo "SKIP jq not found, the settings merge needs it"; exit 0; }
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/atelier-backup-test.XXXXXX")"
+trap 'rm -rf "$work"' EXIT
 failures=0
 fail() { echo "FAIL $*" >&2; failures=$((failures + 1)); }
 ok() { echo "ok   $*"; }
@@ -55,8 +56,10 @@ echo "== whole flow: both steps in the same second"
 h="$(new_home same-second)"
 out="$(run_setup "$h")"
 count=$(backups_of "$h" | wc -l | tr -d ' ')
-[ "$count" -ge 2 ] && ok "two distinct settings backups exist ($count)" \
+[ "$count" -eq 2 ] && ok "exactly two settings backups exist" \
   || fail "expected 2 settings backups, found $count"
+[ "$(backups_of "$h" | grep -c -- '-aurora-mods$')" -eq 1 ] && [ "$(backups_of "$h" | grep -c -- '-guardrails$')" -eq 1 ] \
+  && ok "one backup ends -aurora-mods and one ends -guardrails" || fail "backup labels are not one -aurora-mods and one -guardrails"
 first="$(backups_of "$h" | head -1)"
 [ -n "$first" ] && cmp -s "$first" "$work/same-second.original.json" \
   && ok "earliest backup is byte-identical to the original ($(basename "$first"))" \
@@ -140,7 +143,7 @@ HOME="$h4" PATH="$work/bin:$PATH" bash "$copy/guardrails/install.sh" >/dev/null 
 out4="$(HOME="$h4" PATH="$work/bin:$PATH" bash "$copy/setup.sh" --no-hud 2>&1)"
 cmp -s "$h4/.claude/settings.json" "$work/nohelper.original.json" \
   && ok "setup.sh without the helper leaves settings untouched" || fail "setup.sh edited settings without a backup"
-printf '%s\n' "$out4" | grep -q "^Skipped because no backup could be made" \
+printf '%s\n' "$out4" | grep -q "^Skipped, see the warnings above" \
   && ok "setup.sh summary names the skipped steps" || fail "setup.sh summary does not mention skipped steps"
 [ -z "$(backups_of "$h4")" ] && ok "no backup files were claimed" || fail "unexpected backup files"
 
@@ -170,6 +173,47 @@ HOME="$h6" PATH="$work/failbin:$PATH" bash "$repo/guardrails/install.sh" >"$work
   && ok "install.sh exits non-zero, settings untouched, no placeholder (exit $rc)" \
   || fail "install.sh copy failure handling (exit $rc)"
 
+echo "== copy is damaged: the checksum catches it"
+mkdir -p "$work/badbin"
+cat > "$work/badbin/cp" <<'SH'
+#!/bin/sh
+for last; do :; done
+/bin/cp "$@" || exit $?
+case "$last" in *.bak.*) printf x >> "$last" ;; esac
+exit 0
+SH
+chmod +x "$work/badbin/cp"
+cp "$work/bin/date" "$work/badbin/date"
+h8="$(new_home badcopy)"
+out8="$(HOME="$h8" PATH="$work/badbin:$PATH" bash "$repo/setup.sh" --no-hud 2>&1)"
+cmp -s "$h8/.claude/settings.json" "$work/badcopy.original.json" \
+  && ok "settings byte-identical when the copy does not match" || fail "settings changed although the copy did not match"
+[ -z "$(find "$h8/.claude" -name '*.bak.*' 2>/dev/null)" ] \
+  && ok "no incomplete backup left to be restored by mistake" || fail "an incomplete backup was left behind"
+
+echo "== settings.json is a symlink"
+h9="$work/symlinked"
+mkdir -p "$h9/.claude" "$h9/elsewhere"
+write_original "$h9/elsewhere/real.json"
+cp "$h9/elsewhere/real.json" "$work/symlinked.original.json"
+ln -s "$h9/elsewhere/real.json" "$h9/.claude/settings.json"
+out9="$(run_setup "$h9")"
+[ -L "$h9/.claude/settings.json" ] && ok "settings.json is still a symlink" || fail "settings.json symlink was replaced"
+named9="$(printf '%s\n' "$out9" | sed -n 's|^  .*/settings\.json -> ||p' | head -1)"
+[ -n "$named9" ] && cmp -s "$named9" "$work/symlinked.original.json" \
+  && ok "first logged backup equals the target's original content" || fail "first backup is not the original content"
+[ -n "$named9" ] && [ ! -L "$named9" ] && ok "the backup is a real file, not a link" || fail "backup is a symlink or missing"
+jq -e '.hooks.PreToolUse' "$h9/elsewhere/real.json" >/dev/null 2>&1 \
+  && ok "the edit went through to the target" || fail "the target was not updated"
+
+echo "== HOME path with a space"
+hs="$(new_home "sp ace")"
+outs="$(run_setup "$hs")"
+nameds="$(printf '%s\n' "$outs" | sed -n 's|^  .*/settings\.json -> ||p' | head -1)"
+case "$nameds" in *"sp ace"*"-aurora-mods") ok "summary lists the right backup ($(basename "$nameds"))" ;; *) fail "summary line wrong: $nameds" ;; esac
+[ -n "$nameds" ] && cmp -s "$nameds" "$work/sp ace.original.json" \
+  && ok "that backup is the original" || fail "spaced-path backup is not the original"
+
 echo "== move fails: the original folder stays put"
 mkdir -p "$work/mvbin"
 cat > "$work/mvbin/mv" <<'SH'
@@ -182,9 +226,13 @@ chmod +x "$work/mvbin/mv"
 cp "$work/bin/date" "$work/mvbin/date"
 h7="$(new_home movefail)"
 mkdir -p "$h7/.claude/commands"; echo keep > "$h7/.claude/commands/mine.md"
+echo "my aliases" > "$h7/.dev-aliases.sh"
 HOME="$h7" PATH="$work/mvbin:$PATH" bash "$repo/setup.sh" --no-hud >"$work/o7.txt" 2>&1
 [ -d "$h7/.claude/commands" ] && [ ! -L "$h7/.claude/commands" ] && [ "$(cat "$h7/.claude/commands/mine.md")" = keep ] \
   && ok "commands folder left in place when it can't be moved aside" || fail "commands folder was replaced"
+[ -f "$h7/.dev-aliases.sh" ] && [ ! -L "$h7/.dev-aliases.sh" ] && [ "$(cat "$h7/.dev-aliases.sh")" = "my aliases" ] \
+  && [ -z "$(ls "$h7"/.dev-aliases.sh.bak.* 2>/dev/null)" ] \
+  && ok ".dev-aliases.sh is still a regular file with no .bak beside it" || fail ".dev-aliases.sh was replaced or left a .bak after a failed move"
 [ -z "$(find "$h7" -type f -name '*.bak.*' -size 0 2>/dev/null)" ] && ok "no empty placeholder after a failed move" || fail "placeholder left after failed move"
 
 echo

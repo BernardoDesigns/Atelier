@@ -30,10 +30,13 @@ atelier_backup_path() {
             if ( set -C; : > "$cand" ) 2>/dev/null; then
                 break
             fi
+            # Reserving failed and the name is still free: the folder isn't
+            # writable, so no other name will work either. Stop now.
+            if [ ! -e "$cand" ] && [ ! -L "$cand" ]; then
+                return 1
+            fi
         fi
         n=$((n + 1))
-        # Can't reserve any name (read-only folder, say): give up, don't spin.
-        [ "$n" -le 1000 ] || return 1
         cand="$base-$n"
     done
     printf '%s\n' "$cand"
@@ -42,8 +45,7 @@ atelier_backup_path() {
 # atelier_backup_copy <source> <label>
 #   Copies a file to a fresh backup name and checks the copy is byte-identical.
 #   Prints the backup path and returns 0 only then. On any failure it prints why
-#   to stderr, removes the empty placeholder it reserved (only if still 0 bytes)
-#   and returns 1. Callers must not touch the source after a non-zero return.
+#   to stderr, removes the file it reserved (empty or incomplete) and returns 1. Callers must not touch the source after a non-zero return.
 atelier_backup_copy() {
     local src=$1 label=$2 dest
     if ! dest=$(atelier_backup_path "$src" "$label") || [ -z "$dest" ]; then
@@ -55,12 +57,10 @@ atelier_backup_copy() {
         printf '%s\n' "$dest"
         return 0
     fi
-    if [ -f "$dest" ] && [ ! -s "$dest" ]; then
-        rm -f "$dest"
-        echo "Backup of $src failed, so $src was left untouched (removed the empty placeholder $dest)." >&2
-    else
-        echo "Backup of $src failed or did not match, so $src was left untouched. Do not trust $dest." >&2
-    fi
+    # The name was reserved by this call, so the file is ours to remove. A
+    # leftover would sort as the newest backup and the undo would restore it.
+    if [ -f "$dest" ] && [ ! -L "$dest" ]; then rm -f "$dest"; fi
+    echo "Backup of $src failed or did not match, so $src was left untouched (removed the incomplete backup)." >&2
     return 1
 }
 

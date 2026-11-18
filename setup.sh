@@ -30,6 +30,7 @@ mkdir -p "$CLAUDE_DIR"
 
 # If commands directory already exists as a real dir, back it up (timestamped)
 SKIP_COMMANDS=0
+SKIP_ALIASES=0
 if [ -d "$COMMANDS_DIR" ] && [ ! -L "$COMMANDS_DIR" ]; then
     if [ "$HAVE_BACKUP_LIB" = 1 ] && BACKUP=$(atelier_backup_move "$COMMANDS_DIR" commands); then
         echo "Backed up existing commands directory to $BACKUP"
@@ -244,7 +245,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 if ! bash "$REPO_DIR/guardrails/install.sh"; then
     SKIPPED="$SKIPPED
-  - guardrails (guardrails/install.sh stopped before finishing, see the message above; a file it could not back up was left untouched)"
+  - guardrails (guardrails did not finish; any file it updated is listed above with its backup)"
     echo "WARNING: the guardrails step did not complete."
 fi
 
@@ -273,20 +274,25 @@ fi
 # file as it was before this run touched it.
 if [ -s "$ATELIER_BACKUP_LOG" ]; then
     echo ""
-    echo "Pre-run originals (restore these to undo this run):"
+    echo "Your files as they were before this run:"
     SEEN=""
+    LINK_NOTE=0
     while IFS="$(printf '\t')" read -r SRC BAK; do
         case "$SEEN" in *"|$SRC|"*) continue ;; esac
         SEEN="$SEEN|$SRC|"
         echo "  $SRC -> $BAK"
+        case "$SRC" in "$COMMANDS_DIR"|"$ALIASES_LINK") LINK_NOTE=1 ;; esac
     done < "$ATELIER_BACKUP_LOG"
+    if [ "${LINK_NOTE:-0}" = 1 ]; then
+        echo "For commands and .dev-aliases.sh, remove the link first, then move the backup back."
+    fi
 elif [ -z "$ATELIER_BACKUP_LOG" ]; then
     echo ""
     echo "Note: no temp file for the backup log, so the pre-run originals are not listed. Each backup path was printed above."
 fi
 if [ -n "$SKIPPED" ]; then
     echo ""
-    echo "Skipped because no backup could be made, nothing here was changed:$SKIPPED"
+    echo "Skipped, see the warnings above:$SKIPPED"
 fi
 
 echo ""
