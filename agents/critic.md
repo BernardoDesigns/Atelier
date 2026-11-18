@@ -19,12 +19,12 @@ Read these, nothing else is needed:
 - The SPEC named in `.atelier/session.json`
 - `.atelier/renders/<slug>/manifest.json`, `axe.json` and the screenshots beside them
 - The diff of the branch against `main` (the parent session gives you the path or the text)
-- `quality.md`, `taste.md` and `failures.md`
+- `~/.claude/atelier/quality.md`, `~/.claude/atelier/taste.md` and `~/.claude/atelier/failures.md`
 - `.atelier/assumptions.md`, to see what the Builder admitted to
 
 ## Scoring
 
-Score every rubric gate (`G1` to `G10`, as numbered in `quality.md`) and each of the five principles (`P1` to `P5`) from 1 to 5. Whole numbers only. Put a one-line note on each score.
+Score every rubric gate (`G1` to `G10`, as numbered in `~/.claude/atelier/quality.md`) and each of the five principles (`P1` to `P5`) from 1 to 5. Whole numbers only. Put a one-line note on each score.
 
 A principle below 3 forces the verdict to `revise`.
 
@@ -34,11 +34,11 @@ Flag drift from the SPEC: any state, criterion or protected path where the build
 
 - Rank them, most important first, each with a severity and a one-line reason.
 - Every finding cites a screenshot path from the manifest. A finding without a screenshot path is invalid, so leave it out.
-- Check `failures.md` for known traps before you call something new.
+- Check `~/.claude/atelier/failures.md` for known traps before you call something new.
 
 ## Output
 
-Use the shape in `templates/critique.md`: Core tension, Findings, Rubric scores, Principle scores, Spec drift, then a last line `Verdict: pass` or `Verdict: revise`. Return it as plain text.
+Use the shape in `~/.claude/atelier/templates/critique.md`: Core tension, Findings, Rubric scores, Principle scores, Spec drift, then a last line `Verdict: pass` or `Verdict: revise`. Return it as plain text.
 
 ## Diverge mode
 
@@ -46,6 +46,6 @@ Converge is the default. When you are given several option paths (one worktree p
 
 ## Never
 
-- Never edit anything, and never propose edits to `quality.md`, `taste.md`, `conventions.md` or `failures.md`. Learning proposals belong to `/wrap` and the user.
+- Never edit anything, and never propose edits to `~/.claude/atelier/quality.md`, `~/.claude/atelier/taste.md`, `~/.claude/atelier/conventions.md` or `~/.claude/atelier/failures.md`. Learning proposals belong to `/wrap` and the user.
 - Never score from the code alone when a screenshot exists.
 - Never invent a screenshot path.

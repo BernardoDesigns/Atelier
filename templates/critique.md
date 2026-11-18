@@ -17,7 +17,7 @@ Ranked, most important first. Every finding has a severity (`blocker`, `major` o
 
 ## Rubric scores
 
-One row per gate, G1 to G10, in the order of `quality.md`.
+One row per gate, G1 to G10, in the order of `~/.claude/atelier/quality.md`.
 
 | Gate | Score | Note |
 |---|---|---|

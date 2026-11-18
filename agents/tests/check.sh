@@ -5,7 +5,7 @@
 #   bash agents/tests/check.sh --validate-critique F    validate one critique file
 #
 # Paths can be overridden for testing:
-#   BUILDER, CRITIC, WRAP, CRITIQUE_TEMPLATE, ASSUMPTIONS_TEMPLATE
+#   BUILDER, CRITIC, WRAP, BUILD, CRITIQUE_TEMPLATE, ASSUMPTIONS_TEMPLATE
 #
 # Exits non-zero on any failure. Writes no files.
 
@@ -17,6 +17,7 @@ FIX="$HERE/fixtures"
 BUILDER="${BUILDER:-$ROOT/agents/builder.md}"
 CRITIC="${CRITIC:-$ROOT/agents/critic.md}"
 WRAP="${WRAP:-$ROOT/commands/wrap.md}"
+BUILD="${BUILD:-$ROOT/commands/build.md}"
 CRITIQUE_TEMPLATE="${CRITIQUE_TEMPLATE:-$ROOT/templates/critique.md}"
 ASSUMPTIONS_TEMPLATE="${ASSUMPTIONS_TEMPLATE:-$ROOT/templates/assumptions.md}"
 
@@ -162,6 +163,29 @@ check "builder: ask only on big decisions"       has "$BUILDER" "Ask only on big
 check "builder: diverge mode, 4 to 6, per-option worktree" \
   bash -c 'grep -Fq "Diverge mode" "$1" && grep -Fq "4 to 6" "$1" && grep -Fq "own git worktree" "$1"' _ "$BUILDER"
 check "builder: converge is the default"         has "$BUILDER" "Converge is the default"
+check "builder: stops if session.json exists for a different SPEC" \
+  has "$BUILDER" "for a different SPEC, stop and ask"
+check "builder: names session.closed.json"       has "$BUILDER" ".atelier/session.closed.json"
+check "builder: diverge has no marker in the main checkout" \
+  has "$BUILDER" 'the main checkout gets no `.atelier/session.json`'
+
+# Every mention of a rule file, template or the render CLI in the agents and
+# templates must be a path under ~/.claude/atelier/. No <atelier> placeholder.
+no_unprefixed_refs() {
+  local f all pre
+  for f in "$@"; do
+    all=$(grep -o -E '(quality|taste|conventions|failures)\.md|templates/(assumptions|critique)\.md|render/cli\.mjs' "$f" | wc -l)
+    pre=$(grep -o -E '~/\.claude/atelier/((quality|taste|conventions|failures)\.md|templates/(assumptions|critique)\.md|render/cli\.mjs)' "$f" | wc -l)
+    [ "$all" -eq "$pre" ] || return 1
+  done
+}
+no_placeholder() { ! grep -q '<atelier>' "$@"; }
+check "atelier home: no unprefixed rule-file, template or render paths" \
+  no_unprefixed_refs "$BUILDER" "$CRITIC" "$CRITIQUE_TEMPLATE" "$ASSUMPTIONS_TEMPLATE"
+check "atelier home: no <atelier> placeholder" \
+  no_placeholder "$BUILDER" "$CRITIC" "$WRAP" "$BUILD" "$CRITIQUE_TEMPLATE" "$ASSUMPTIONS_TEMPLATE"
+check "builder: render harness path under ~/.claude/atelier" \
+  has "$BUILDER" "node ~/.claude/atelier/render/cli.mjs --plan .atelier/render-plan.json"
 
 core_before_scoring() {
   local a b
@@ -175,13 +199,28 @@ check "critic: diverge mode ranking"             bash -c 'grep -Fq "Diverge mode
 
 # ---- wrap command -----------------------------------------------------------
 
-wrap_pr_only_in_step5() {
-  [ "$(grep -c 'gh pr create' "$WRAP")" -eq 1 ] || return 1
-  local pr s5
-  pr=$(grep -n 'gh pr create' "$WRAP" | cut -d: -f1)
+wrap_prs() {
+  # Exactly two: one under step 4 (Atelier repo), one under step 5 (host repo).
+  [ "$(grep -c 'gh pr create' "$WRAP")" -eq 2 ] || return 1
+  local s4 s5 a b
+  s4=$(grep -n '^## Step 4' "$WRAP" | cut -d: -f1)
   s5=$(grep -n '^## Step 5' "$WRAP" | cut -d: -f1)
-  [ -n "$s5" ] && [ "$pr" -gt "$s5" ]
+  a=$(grep -n 'gh pr create' "$WRAP" | sed -n 1p | cut -d: -f1)
+  b=$(grep -n 'gh pr create' "$WRAP" | sed -n 2p | cut -d: -f1)
+  [ -n "$s4" ] && [ -n "$s5" ] && [ "$a" -gt "$s4" ] && [ "$a" -lt "$s5" ] && [ "$b" -gt "$s5" ]
 }
+wrap_marker_close() {
+  local s5 m
+  s5=$(grep -n '^## Step 5' "$WRAP" | cut -d: -f1)
+  m=$(grep -n '^mv .atelier/session.json .atelier/session.closed.json$' "$WRAP" | cut -d: -f1)
+  [ -n "$m" ] && [ "$m" -gt "$s5" ] && ! grep -Eq '^[[:space:]]*rm ' "$WRAP"
+}
+wrap_learn_branch() {
+  grep -Fq 'learn/<yyyy-mm-dd>-<short-slug>' "$WRAP" && grep -Fq 'git worktree add' "$WRAP" \
+    && grep -Fq 'Never write accepted lines into the working tree of `~/.claude/atelier`' "$WRAP"
+}
+wrap_reuse_critique() { grep -Fq 'no commits were made on the branch after it was written, reuse it' "$WRAP"; }
+wrap_not_addressed() { grep -Fq '"Not addressed"' "$WRAP"; }
 wrap_steps_in_order() {
   local got
   got=$(grep -o '^## Step [0-9]' "$WRAP" | tr -d '\n')
@@ -189,14 +228,47 @@ wrap_steps_in_order() {
 }
 wrap_no_build_skips() { grep -Fq "skip steps 1 to 3" "$WRAP"; }
 wrap_targets() {
-  grep -Fq 'failures.md' "$WRAP" && grep -Fq 'conventions.md' "$WRAP" && grep -Fq 'taste.md' "$WRAP"
+  grep -Fq '~/.claude/atelier/failures.md' "$WRAP" && grep -Fq '~/.claude/atelier/conventions.md' "$WRAP" && grep -Fq '~/.claude/atelier/taste.md' "$WRAP"
 }
 wrap_example() { grep -Fq '`1 fix, 2 disagree, 3 later, A2 wrong`' "$WRAP"; }
 check "wrap: five steps in order"                wrap_steps_in_order
-check "wrap: gh pr create appears once, under step 5" wrap_pr_only_in_step5
+check "wrap: two gh pr create, one under step 4 (Atelier) and one under step 5 (host)" wrap_prs
+check "wrap: step 5 closes the session by renaming the marker, no rm" wrap_marker_close
+check "wrap: learning edits go to a learn/ branch in a new worktree" wrap_learn_branch
+check "wrap: step 1 reuses a fresh critique" wrap_reuse_critique
+check "wrap: untokened findings go under Not addressed" wrap_not_addressed
 check "wrap: no-build path skips steps 1 to 3"   wrap_no_build_skips
 check "wrap: learning proposals name their target files" wrap_targets
 check "wrap: grammar example present"            wrap_example
+
+# ---- build command ----------------------------------------------------------
+
+build_frontmatter_desc_only() {
+  [ "$(frontmatter "$BUILD" | sed -n 's/^\([a-z-]*\):.*/\1/p' | tr '\n' ' ')" = "description " ]
+}
+build_loop_steps() {
+  grep -Fq 'Run the `builder` subagent' "$BUILD" && grep -Fq 'Run the `critic` subagent' "$BUILD" \
+    && grep -Fq 'git diff main...HEAD' "$BUILD" && grep -Fq '.atelier/critique.md' "$BUILD" \
+    && grep -Fq 'If it is `revise`, send the ranked findings back to the Builder' "$BUILD"
+}
+build_cap() { grep -Fq 'At most 3 Builder passes in total' "$BUILD"; }
+build_report() {
+  grep -Fq 'Run /wrap to close.' "$BUILD" && grep -Fq 'screenshot path' "$BUILD" && grep -Fq 'assumptions count' "$BUILD"
+}
+build_no_pr_no_server() {
+  ! grep -Fq 'gh pr create' "$BUILD" && grep -Fq 'never creates a PR' "$BUILD" && grep -Fq 'Do not start one' "$BUILD"
+}
+build_diverge() {
+  grep -Fq '## Diverge mode' "$BUILD" && grep -Fq 'one Critic call' "$BUILD" && grep -Fq 'top 2 or 3' "$BUILD"
+}
+check "build: file exists"                       test -f "$BUILD"
+check "build: frontmatter is description only"   build_frontmatter_desc_only
+check "build: builder, critic, revise loop steps" build_loop_steps
+check "build: 3 Builder pass cap"                build_cap
+check "build: final report contents"             build_report
+check "build: no PR, no server"                  build_no_pr_no_server
+check "build: diverge mode ranks with one Critic call" build_diverge
+check "build: under 60 lines"                    test "$(wc -l < "$BUILD")" -lt 60
 
 # ---- verdict parser fixtures ------------------------------------------------
 
@@ -247,8 +319,8 @@ done
 # ---- no em dashes, and rule-file mentions ------------------------------------
 
 no_em_dash() { ! grep -q '—' "$@"; }
-check "no em dashes in agents, templates, wrap" \
-  no_em_dash "$BUILDER" "$CRITIC" "$WRAP" "$CRITIQUE_TEMPLATE" "$ASSUMPTIONS_TEMPLATE"
+check "no em dashes in agents, templates, commands" \
+  no_em_dash "$BUILDER" "$CRITIC" "$WRAP" "$BUILD" "$CRITIQUE_TEMPLATE" "$ASSUMPTIONS_TEMPLATE"
 
 # Informational: every mention of the four rule files in agents and templates.
 # Review these by hand. Each must be a read, or a "never edit", or a /wrap proposal.
