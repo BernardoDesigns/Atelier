@@ -17,6 +17,7 @@ outside-repo-guard=bash '$G/outside-repo-guard.sh'
 net-host-guard=python3 -I '$G/net-host-guard.py'
 conventions-injector=bash '$G/conventions-injector.sh'
 fast-gate=bash '$G/fast-gate.sh'
+lane-guard=bash '$G/lane-guard.sh'
 "
 
 pass=0; fail=0
