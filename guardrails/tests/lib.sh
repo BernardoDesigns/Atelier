@@ -8,6 +8,7 @@
 #   env               optional KEY=VALUE lines exported for the hook ({{CWD}} expands)
 #   stderr.contains   optional, one fixed string per line that stderr must contain
 #   stdout.contains   optional, same for stdout
+#   silent            optional marker: stdout and stderr must both be empty
 #   after.sh          optional, run inside the temp repo after the hook; non-zero = FAIL
 #
 # Decision: exit 2 = block; exit 0 with permissionDecision ask/deny = that;
@@ -60,6 +61,9 @@ run_case() { # <hook-cmd> <case-dir>
 
     why=""
     [ "$got" = "$want" ] || why="expected $want, got $got"
+    if [ -z "$why" ] && [ -f "$dir/silent" ] && { [ -s "$out" ] || [ -s "$err" ]; }; then
+        why="expected no output at all"
+    fi
     for kind in stdout stderr; do
         if [ -z "$why" ] && [ -f "$dir/$kind.contains" ]; then
             f="$out"; [ "$kind" = stderr ] && f="$err"
