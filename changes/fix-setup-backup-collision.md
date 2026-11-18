@@ -6,7 +6,7 @@
   - `settings.json.bak.20261118-101530-aurora-mods` (the step that wires in the Aurora billboard and Sketchpad)
   - `settings.json.bak.20261118-101530-guardrails` (the guardrails step; `settings.local.json` gets the same label)
   - `commands.bak.<date>-<time>-commands` and `.dev-aliases.sh.bak.<date>-<time>-aliases` for the two other things `setup.sh` can move aside
-  Every backup still starts with `.bak.` and the date and time, so the undo commands from 1.1.0 work as written. `setup.sh` also prints each backup path as it makes it, and at the end says which backup is the pre-run original, which is the one to restore to undo that whole run. Running `guardrails/install.sh` on its own works the same way. What gets installed has not changed.
+  Every backup still starts with `.bak.` and the date and time, so the undo commands from 1.1.0 work as written. `setup.sh` also prints each backup path as it makes it, and at the end says which backup is the pre-run original, which is the one to restore to undo that whole run. Running `guardrails/install.sh` on its own uses the same names and prints the backup path for each file it changes; the "pre-run original" summary is only printed by `setup.sh`. If a backup can't be made, the file is left untouched: `setup.sh` skips that step and lists it at the end, and `guardrails/install.sh` stops with an error. What gets installed has not changed.
 
 ## README
 

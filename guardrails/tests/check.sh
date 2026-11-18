@@ -125,6 +125,68 @@ else
   fail "guardrails/backup-lib.sh is missing"
 fi
 
+echo "== helper missing: nothing is edited without a backup"
+copy="$work/repo-copy"
+mkdir -p "$copy/aurora-usage" "$copy/commands"
+cp -R "$repo/guardrails" "$copy/guardrails"
+cp "$repo/setup.sh" "$repo/dev-aliases.sh" "$copy/"
+cp "$repo/aurora-usage/aurora" "$copy/aurora-usage/aurora"
+mv "$copy/guardrails/backup-lib.sh" "$copy/guardrails/backup-lib.sh.away" 2>/dev/null
+h4="$(new_home nohelper)"
+HOME="$h4" PATH="$work/bin:$PATH" bash "$copy/guardrails/install.sh" >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] && cmp -s "$h4/.claude/settings.json" "$work/nohelper.original.json" \
+  && ok "install.sh exits non-zero and leaves settings untouched (exit $rc)" \
+  || fail "install.sh without the helper: exit $rc or settings changed"
+out4="$(HOME="$h4" PATH="$work/bin:$PATH" bash "$copy/setup.sh" --no-hud 2>&1)"
+cmp -s "$h4/.claude/settings.json" "$work/nohelper.original.json" \
+  && ok "setup.sh without the helper leaves settings untouched" || fail "setup.sh edited settings without a backup"
+printf '%s\n' "$out4" | grep -q "^Skipped because no backup could be made" \
+  && ok "setup.sh summary names the skipped steps" || fail "setup.sh summary does not mention skipped steps"
+[ -z "$(backups_of "$h4")" ] && ok "no backup files were claimed" || fail "unexpected backup files"
+
+echo "== copy fails: settings untouched, no empty placeholder left"
+mkdir -p "$work/failbin"
+cat > "$work/failbin/cp" <<'SH'
+#!/bin/sh
+for last; do :; done
+case "$last" in *.bak.*) exit 1 ;; esac
+exec /bin/cp "$@"
+SH
+cp "$work/bin/date" "$work/failbin/date"
+chmod +x "$work/failbin/cp"
+h5="$(new_home copyfail)"
+out5="$(HOME="$h5" PATH="$work/failbin:$PATH" bash "$repo/setup.sh" --no-hud 2>&1)"
+cmp -s "$h5/.claude/settings.json" "$work/copyfail.original.json" \
+  && ok "setup.sh leaves settings byte-identical when the copy fails" || fail "settings changed although the backup failed"
+[ -z "$(find "$h5/.claude" -type f -name '*.bak.*' -size 0 2>/dev/null)" ] \
+  && ok "no 0-byte placeholder left behind" || fail "an empty backup placeholder was left"
+printf '%s\n' "$out5" | grep -q "left untouched" \
+  && ok "message says the file was left untouched" || fail "no clear message about the failed backup"
+h6="$(new_home copyfail-standalone)"
+HOME="$h6" PATH="$work/failbin:$PATH" bash "$repo/guardrails/install.sh" >"$work/o6.txt" 2>&1; rc=$?
+[ "$rc" -ne 0 ] && cmp -s "$h6/.claude/settings.json" "$work/copyfail-standalone.original.json" \
+  && [ -z "$(find "$h6/.claude" -type f -name '*.bak.*' -size 0 2>/dev/null)" ] \
+  && grep -q "left untouched" "$work/o6.txt" \
+  && ok "install.sh exits non-zero, settings untouched, no placeholder (exit $rc)" \
+  || fail "install.sh copy failure handling (exit $rc)"
+
+echo "== move fails: the original folder stays put"
+mkdir -p "$work/mvbin"
+cat > "$work/mvbin/mv" <<'SH'
+#!/bin/sh
+for last; do :; done
+case "$last" in *.bak.*) exit 1 ;; esac
+exec /bin/mv "$@"
+SH
+chmod +x "$work/mvbin/mv"
+cp "$work/bin/date" "$work/mvbin/date"
+h7="$(new_home movefail)"
+mkdir -p "$h7/.claude/commands"; echo keep > "$h7/.claude/commands/mine.md"
+HOME="$h7" PATH="$work/mvbin:$PATH" bash "$repo/setup.sh" --no-hud >"$work/o7.txt" 2>&1
+[ -d "$h7/.claude/commands" ] && [ ! -L "$h7/.claude/commands" ] && [ "$(cat "$h7/.claude/commands/mine.md")" = keep ] \
+  && ok "commands folder left in place when it can't be moved aside" || fail "commands folder was replaced"
+[ -z "$(find "$h7" -type f -name '*.bak.*' -size 0 2>/dev/null)" ] && ok "no empty placeholder after a failed move" || fail "placeholder left after failed move"
+
 echo
 if [ "$failures" -eq 0 ]; then echo "all checks passed"; exit 0; fi
 echo "$failures check(s) failed" >&2

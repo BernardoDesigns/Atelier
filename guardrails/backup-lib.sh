@@ -32,9 +32,58 @@ atelier_backup_path() {
             fi
         fi
         n=$((n + 1))
+        # Can't reserve any name (read-only folder, say): give up, don't spin.
+        [ "$n" -le 1000 ] || return 1
         cand="$base-$n"
     done
     printf '%s\n' "$cand"
+}
+
+# atelier_backup_copy <source> <label>
+#   Copies a file to a fresh backup name and checks the copy is byte-identical.
+#   Prints the backup path and returns 0 only then. On any failure it prints why
+#   to stderr, removes the empty placeholder it reserved (only if still 0 bytes)
+#   and returns 1. Callers must not touch the source after a non-zero return.
+atelier_backup_copy() {
+    local src=$1 label=$2 dest
+    if ! dest=$(atelier_backup_path "$src" "$label") || [ -z "$dest" ]; then
+        echo "Could not reserve a backup name for $src, left it untouched." >&2
+        return 1
+    fi
+    if cp "$src" "$dest" 2>/dev/null && cmp -s "$src" "$dest"; then
+        atelier_backup_log "$src" "$dest"
+        printf '%s\n' "$dest"
+        return 0
+    fi
+    if [ -f "$dest" ] && [ ! -s "$dest" ]; then
+        rm -f "$dest"
+        echo "Backup of $src failed, so $src was left untouched (removed the empty placeholder $dest)." >&2
+    else
+        echo "Backup of $src failed or did not match, so $src was left untouched. Do not trust $dest." >&2
+    fi
+    return 1
+}
+
+# atelier_backup_move <source> <label>
+#   Moves a file or folder aside to a fresh backup name. Prints the new path and
+#   returns 0 on success; on failure cleans up an empty placeholder, says so on
+#   stderr and returns 1, leaving the original in place.
+atelier_backup_move() {
+    local src=$1 label=$2 dest
+    if ! dest=$(atelier_backup_path "$src" "$label") || [ -z "$dest" ]; then
+        echo "Could not reserve a backup name for $src, left it in place." >&2
+        return 1
+    fi
+    if mv "$src" "$dest" 2>/dev/null; then
+        atelier_backup_log "$src" "$dest"
+        printf '%s\n' "$dest"
+        return 0
+    fi
+    if [ -f "$dest" ] && [ ! -s "$dest" ] && [ -e "$src" ]; then
+        rm -f "$dest"
+    fi
+    echo "Could not move $src aside, so it was left in place." >&2
+    return 1
 }
 
 atelier_backup_log() {
