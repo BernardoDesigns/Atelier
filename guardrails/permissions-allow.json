@@ -1,0 +1,9 @@
+[
+  "Bash(curl *http://localhost/*)",
+  "Bash(curl *http://localhost:*/*)",
+  "Bash(curl *http://127.0.0.1/*)",
+  "Bash(curl *http://127.0.0.1:*/*)",
+  "Bash(curl *http://[::1]:*/*)",
+  "Bash(curl *https://*.trycloudflare.com)",
+  "Bash(curl *https://*.trycloudflare.com/*)"
+]

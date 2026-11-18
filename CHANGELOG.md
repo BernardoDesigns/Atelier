@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Network guardrail (`guardrails/net-host-guard.py`): a PreToolUse hook on Bash that parses the real host of every curl/wget URL and asks unless it's `localhost`, `127.0.0.1`, `[::1]` or a `*.trycloudflare.com` quick tunnel. It also asks on variables, scheme-less targets and flags that reroute traffic (`--proxy`, `--resolve`, `--connect-to`, `-K`, wget `-e`/`-i`). It never approves anything, and blocks if the script is missing or crashes.
+- Host-scoped curl allow rules in user scope (`guardrails/permissions-allow.json`), and `pip3 install` as an ask rule.
+
+### Changed
+
+- `guardrails/install.sh` now also removes retired rules (`guardrails/permissions-retired.json`: `Bash(curl:*)`, the broad python3 allows, `Bash(cloudflared tunnel *)`) and clears rules that moved to user scope out of `~/.claude/settings.local.json`, which only applies to sessions started from `~`.
 - Aurora threshold profiles: `aurora profile [name]` switches between `default` (today's lines) and `fable-run` (5h 70/85, 7d 45/75, and a 7d note: "Fable cap may be near: check /usage"). Profiles live in `aurora-usage/profiles.json`, and `setup.sh` links `aurora` into `~/.local/bin`.
 - Aurora pause points: past one, the band and the HUD say `⏸ Time to stop` in words, a stop toast fires once, and snoozes or an Off line can't hide it.
 
