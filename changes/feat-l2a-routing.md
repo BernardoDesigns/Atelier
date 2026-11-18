@@ -1,7 +1,7 @@
 # Changelog
 
 - Added `model: opus` frontmatter to `commands/design-director.md`, `commands/eames.md` and `commands/rand.md`.
-- Added `global/CLAUDE.md` with verb ownership, ask vs ship, the four contract files and shared rules.
+- Added `global/CLAUDE.md` with verb ownership, ask vs ship and the four contract files.
 
 # README
 
