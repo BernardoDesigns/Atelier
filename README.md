@@ -192,7 +192,7 @@ cp "$(ls -t ~/.claude/settings.json.bak.* | head -1)" ~/.claude/settings.json
 cp "$(ls -t ~/.claude/settings.local.json.bak.* | head -1)" ~/.claude/settings.local.json
 ```
 
-Open the backup first: if it still mentions `net-host-guard`, take the next one down. To put `settings.json` back exactly as it was before a `setup.sh` run, restore the backup listed under "Your files as they were before this run" at the end of that run; that also removes the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS`. Restoring a later backup puts back the permission rules and hooks only. The symlinks `setup.sh` made stay either way.
+Open the backup first: if it still mentions `net-host-guard`, take the next one down. To put `settings.json` back exactly as it was before a `setup.sh` run, restore the backup listed under "Your files as they were before this run" at the end of that run. If that run added the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS` (it does the first time), this removes it too. Restoring a later backup puts back the permission rules and hooks only. The symlinks `setup.sh` made stay either way.
 
 ## Keeping machines in sync
 
