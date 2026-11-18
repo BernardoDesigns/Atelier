@@ -141,7 +141,15 @@ Then open a new terminal. `setup.sh`:
 - builds the Aurora HUD and starts it at login (skip with `bash setup.sh --no-hud`)
 - backs up any existing file it would replace (timestamped), and is safe to re-run
 
-**Heads up on the guardrails.** `setup.sh` now edits `~/.claude/settings.json`, so it applies to every repo on the machine. It adds ask rules for destructive commands, a few allow rules for curl to local hosts only, and two hooks: one for writes outside the current repo, one for curl or wget to anything that isn't local. It also removes the broad allow rules listed in `guardrails/permissions-retired.json`, from that file and from `~/.claude/settings.local.json`. Each file that changes is backed up first, beside the original, as `.bak.<date>-<time>`. The hooks block rather than pass if their script or python3 is missing. To undo, put the backup back.
+**Heads up on the guardrails.** The network hook is a `python3` script. If `python3` is missing, every Bash tool call is blocked ("Atelier network guardrail failed, so this is blocked. Check python3, or re-run guardrails/install.sh") until you install it or remove the hook. `setup.sh` also edits `~/.claude/settings.json` now, so it applies to every repo on the machine. It adds ask rules for destructive commands, a few allow rules for curl to local hosts only, and two hooks: one for writes outside the current repo, one for curl or wget to anything that isn't local. It removes the broad allow rules listed in `guardrails/permissions-retired.json`, from that file and from `~/.claude/settings.local.json`. A file that changes is backed up beside the original as `.bak.<date>-<time>`; no backup means that file wasn't touched. To undo, restore the newest backup and start a new Claude Code session:
+
+```bash
+cp "$(ls -t ~/.claude/settings.json.bak.* | head -1)" ~/.claude/settings.json
+# only if a settings.local.json backup exists:
+cp "$(ls -t ~/.claude/settings.local.json.bak.* | head -1)" ~/.claude/settings.local.json
+```
+
+Open the backup first: if it still mentions `net-host-guard`, take the next one down. This puts back the permission rules and hooks only; the symlinks `setup.sh` made and the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS` stay.
 
 ## Keeping machines in sync
 

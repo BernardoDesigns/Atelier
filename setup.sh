@@ -179,6 +179,9 @@ else
 fi
 
 # --- Guardrails: ask before destructive commands and writes outside the repo ---
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "WARNING: python3 not found. The network guardrail is a python3 script, so it will block every Bash tool call in Claude Code until python3 is installed. Continuing with the install anyway."
+fi
 bash "$REPO_DIR/guardrails/install.sh"
 
 # --- Aurora HUD: build the floating usage panel and start it at login ---

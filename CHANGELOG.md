@@ -24,7 +24,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Behaviour change for anyone who runs `setup.sh`:** it now edits `~/.claude/settings.json`. It adds ask rules for destructive commands, a few allow rules for curl to local hosts only, and two PreToolUse hooks (writes outside the current repo, and curl or wget to hosts that are not local). It also removes the broad allow rules listed in `guardrails/permissions-retired.json` from `~/.claude/settings.json`, and from `~/.claude/settings.local.json` along with any rule that now lives in user scope. A file that changes is backed up first, as `<file>.bak.<date>-<time>` beside it. The hooks block instead of passing if their script or python3 is missing. To undo, restore the backup that sits beside the settings file.
+- **Behaviour change for anyone who runs `setup.sh`:** the network hook is a `python3` script, so if `python3` is missing, every Bash tool call is blocked until you install it or remove the hook. The message shown is "Atelier network guardrail failed, so this is blocked. Check python3, or re-run guardrails/install.sh". `setup.sh` now also edits `~/.claude/settings.json`:
+  - It adds ask rules for destructive commands, a few allow rules for curl to local hosts only, and two PreToolUse hooks: one for writes outside the current repo (blocks if its script is missing), and the network hook for curl or wget to hosts that are not local.
+  - It removes the broad allow rules listed in `guardrails/permissions-retired.json` from `~/.claude/settings.json`, and from `~/.claude/settings.local.json` along with any rule that now lives in user scope.
+  - A file is backed up only when it actually changes, beside the original, as `<file>.bak.YYYYmmdd-HHMMSS`. No backup means that file was not changed.
+  - To undo, restore the newest backup, then start a new Claude Code session:
+
+    ```bash
+    ls -t ~/.claude/settings.json.bak.* | head -1
+    cp "$(ls -t ~/.claude/settings.json.bak.* | head -1)" ~/.claude/settings.json
+    # only if a settings.local.json backup exists:
+    cp "$(ls -t ~/.claude/settings.local.json.bak.* | head -1)" ~/.claude/settings.local.json
+    ```
+
+    Open the backup first: if it still mentions `net-host-guard`, take the next one down (it came from a later re-run). Restoring puts back the permission rules and hooks only. The symlinks `setup.sh` made (`~/.claude/commands`, `~/.claude/atelier`, `~/.dev-aliases.sh`, `~/.local/bin/aurora`) and the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS` stay.
 - `guardrails/install.sh` now also removes retired rules (`guardrails/permissions-retired.json`: `Bash(curl:*)`, the broad python3 allows, `Bash(cloudflared tunnel *)`) and clears rules that moved to user scope out of `~/.claude/settings.local.json`, which only applies to sessions started from `~`.
 - Aurora pause points: past one, the band and the HUD say `⏸ Time to stop` in words, a stop toast fires once, and snoozes or an Off line can't hide it.
 
