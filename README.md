@@ -79,15 +79,15 @@ A list of known traps: things models get wrong, and tool behavior that bites. Ea
 
 ### The SPEC template
 
-`templates/SPEC.md` is the handoff document for a build: eight headings (goal, user and core tension, acceptance criteria, states to cover, visual baseline, out of scope and protected paths, definition of done, open questions). The states list is the one the render plan and the Critic will read later, so it's not optional.
+`templates/SPEC.md` is the handoff document for a build: eight headings (goal, user and core tension, acceptance criteria, states to cover, visual baseline, out of scope and protected paths, definition of done, open questions). The states list is the one the render plan and the Critic will read once they exist (both arrive in a later release), so it's not optional.
 
 ### `/spec`
 
-The `spec` skill interviews you and writes a `SPEC.md` into the repo you're in. It won't write one while acceptance criteria or states are missing, because a spec without those is just a wish.
+The `spec` skill interviews you and writes a `SPEC.md` into the repo you're in. It runs when you type `/spec` or ask for a spec, and not otherwise. It won't write one while acceptance criteria or states are missing, because a spec without those is just a wish.
 
 ### `/taste-review`
 
-Walks through every draft item in the contract files, one at a time, and records your call on each. It's resumable: state lives in `taste-review/state.json` on a long-lived `taste-review` branch, so you can stop and pick it up on either machine. Start it from a session opened in the Atelier checkout. It works in a worktree under `.claude/worktrees/`, never edits the main checkout, and ends in one pull request.
+Walks through every draft item in the contract files, one at a time, and records your call on each. It's resumable: state lives in `taste-review/state.json` on a long-lived `taste-review` branch, so you can stop and pick it up on either machine. It runs only when you ask for it. Start it from a session opened in the Atelier checkout. It works in a worktree under `.claude/worktrees/`, never edits the main checkout, and ends in one pull request.
 
 ---
 
@@ -106,8 +106,8 @@ Builds `dist/eames.zip` and `dist/rand.zip`, one skill folder in each (`SKILL.md
 `evals/` is how I find out whether the system is getting better or just feeling better.
 
 - `evals/tickets/`: five benchmark tickets, each a SPEC, to run through the build loop the same way every time.
-- `evals/metrics/`: a schema and an append-only log, one row per benchmark run (CI result, invented components, axe violations, Critic score, review minutes, cost and whether the PR was accepted).
-- `evals/calibration/`: 15 seeded defects and 3 decoys, plus a scoring sheet, for checking how much of what's wrong the Critic actually catches.
+- `evals/metrics/`: a schema and an append-only log, one row per benchmark run (CI result, invented components, axe violations, Critic score, review minutes, cost and whether the PR was accepted). The Critic and the build loop that produce most of these arrive in a later release; for now the log is empty.
+- `evals/calibration/`: 15 seeded defects and 3 decoys, plus a scoring sheet, for checking how much of what's wrong the Critic will actually catch once it exists in a later release.
 
 Run the checks with `bash evals/tests/check.sh`.
 
@@ -209,7 +209,7 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `taste.md` | Judgment items, each tagged with its source |
 | `conventions.md` | Literal standards, each with a yes/no check |
 | `global/CLAUDE.md` | Shared agent rules, imported from your own CLAUDE.md |
-| `failures.md` | Known traps and how to avoid them, read by the Critic and the Builder |
+| `failures.md` | Known traps and how to avoid them, read by the Critic and the Builder, which arrive in a later release |
 | `templates/SPEC.md` | SPEC template, eight headings |
 | `skills/spec/` | `spec` skill: interview that produces a SPEC.md |
 | `skills/taste-review/` | `taste-review` skill: one-item-at-a-time review of the contract files |
@@ -217,7 +217,7 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `packaging/build.sh` | Builds the claude.ai skill zips for eames and rand into `dist/`. Run `bash packaging/build.sh`; the output is not committed |
 | `evals/tickets/` | Five benchmark SPECs for the regression suite |
 | `evals/metrics/` | Per-run metrics schema, sample row and append-only log |
-| `evals/calibration/` | Seeded defects, decoys and the Critic scoring sheet |
+| `evals/calibration/` | Seeded defects, decoys and the scoring sheet for the Critic, which arrives in a later release |
 | `evals/tests/check.sh` | Checks for the evals folder, run with `bash evals/tests/check.sh` |
 | `dev-aliases.sh` | `cc`, `devup`, `devdown` |
 | `aurora-usage/aurora-billboard/` | Usage billboard mod for Claude Code |
