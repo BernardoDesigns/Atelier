@@ -117,6 +117,33 @@ check both-flags-rejected $? "exit $code"
 inst "$h" "$INSTALL" --nope >/dev/null 2>&1; code=$?
 [ "$code" -ne 0 ] && [ "$(hashf "$(S "$h")")" = "$before" ]; check unknown-flag-rejected $? "exit $code"
 
+# 11b. backup labels: plain, --enforce and --relax backups are told apart by name
+h=$(newhome); inst "$h" "$INSTALL" >/dev/null 2>&1
+inst "$h" "$INSTALL" --enforce >/dev/null 2>&1
+inst "$h" "$INSTALL" --relax >/dev/null 2>&1
+n_plain=$(ls "$h/.claude" | grep -c '^settings\.json\.bak\..*-guardrails\(-[0-9]*\)\{0,1\}$')
+n_enf=$(ls "$h/.claude" | grep -c '^settings\.json\.bak\..*-guardrails-enforce\(-[0-9]*\)\{0,1\}$')
+n_rel=$(ls "$h/.claude" | grep -c '^settings\.json\.bak\..*-guardrails-relax\(-[0-9]*\)\{0,1\}$')
+[ "$n_plain" -eq 1 ] && [ "$n_enf" -eq 1 ] && [ "$n_rel" -eq 1 ]
+check backup-labels-distinguish-plain-enforce-relax $? "plain $n_plain enforce $n_enf relax $n_rel"
+
+# 11c. --relax with a failing backup: non-zero, settings.json byte-for-byte unchanged.
+# The backup can't be made because the .claude dir is read-only (the settings
+# file itself stays writable, so a relax that skipped the backup would succeed).
+h=$(newhome); inst "$h" "$INSTALL" --enforce >/dev/null 2>&1
+before=$(hashf "$(S "$h")"); baks_before=$(ls "$h/.claude" | grep -c '\.bak\.')
+chmod 555 "$h/.claude"
+if ( : > "$h/.claude/.probe" ) 2>/dev/null; then
+    echo "SKIP installer/relax-with-failing-backup (directory still writable, running as root?)"
+else
+    inst "$h" "$INSTALL" --relax >/dev/null 2>&1; code=$?
+    chmod 755 "$h/.claude"
+    baks_after=$(ls "$h/.claude" | grep -c '\.bak\.')
+    [ "$code" -ne 0 ] && [ "$(hashf "$(S "$h")")" = "$before" ] && [ "$baks_after" -eq "$baks_before" ]
+    check relax-with-failing-backup-exits-nonzero-and-leaves-settings $? "exit $code, backups $baks_before -> $baks_after"
+fi
+chmod 755 "$h/.claude"
+
 # 12. default and --relax call no new script: run both from a copy with the five scripts moved away
 mkdir -p "$ROOT/c1" "$ROOT/c2" && cp -R "$G" "$ROOT/c1/guardrails"
 mkdir -p "$ROOT/gcopy-away"
