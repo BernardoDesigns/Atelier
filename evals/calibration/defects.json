@@ -1,0 +1,143 @@
+[
+  {
+    "id": "D01",
+    "kind": "defect",
+    "what": "A new StatusTag component is written in the inventory folder for the status column. It duplicates the badge component, is not in the design system manifest, and is not listed in the assumptions log.",
+    "where": "app/inventory/status-tag.tsx",
+    "breaks": "G1",
+    "severity": "high"
+  },
+  {
+    "id": "D02",
+    "kind": "defect",
+    "what": "The inventory fixture types the item list as any, and the changed page reads fields from it without a type.",
+    "where": "lib/data/items.ts",
+    "breaks": "G2",
+    "severity": "medium"
+  },
+  {
+    "id": "D03",
+    "kind": "defect",
+    "what": "A changed settings line is longer than the prettier width, so the format check fails on that file.",
+    "where": "app/settings/page.tsx",
+    "breaks": "G3",
+    "severity": "low"
+  },
+  {
+    "id": "D04",
+    "kind": "defect",
+    "what": "The empty state of the inventory table has no component test. The loading and error states do have one.",
+    "where": "components/ui/table.test.tsx",
+    "breaks": "G4",
+    "severity": "medium"
+  },
+  {
+    "id": "D05",
+    "kind": "defect",
+    "what": "The confirm dialog does not trap focus. Tab moves from the Retire button to the page behind the dialog.",
+    "where": "components/ui/dialog.tsx",
+    "breaks": "G5",
+    "severity": "high"
+  },
+  {
+    "id": "D06",
+    "kind": "defect",
+    "what": "At the md breakpoint, 768 wide, the inventory table drops the shelf location column with no horizontal scroll. The populated state in the render shot is missing a field the SPEC shows.",
+    "where": "app/inventory/page.tsx",
+    "breaks": "G6",
+    "severity": "medium"
+  },
+  {
+    "id": "D07",
+    "kind": "defect",
+    "what": "The date helper in the shared library is edited as part of an inventory change. The SPEC does not list the shared library as in scope.",
+    "where": "lib/shared/format.ts",
+    "breaks": "G7",
+    "severity": "high"
+  },
+  {
+    "id": "D08",
+    "kind": "defect",
+    "what": "A helper file keeps an unused export and a commented-out block left over from an earlier attempt.",
+    "where": "app/inventory/helpers.ts",
+    "breaks": "G8",
+    "severity": "low"
+  },
+  {
+    "id": "D09",
+    "kind": "defect",
+    "what": "One PR carries the settings form, the onboarding flow and the notification page. The diff is about 900 changed lines, no split is proposed, and the work has no feature flag.",
+    "where": "app/settings/**, app/onboarding/**, app/notifications/**",
+    "breaks": "G9",
+    "severity": "medium"
+  },
+  {
+    "id": "D10",
+    "kind": "defect",
+    "what": "The notification page has no visual hierarchy. Group headings and switch labels share one size and weight, so the page reads as one flat list.",
+    "where": "app/notifications/page.tsx",
+    "breaks": "G10",
+    "severity": "medium"
+  },
+  {
+    "id": "D11",
+    "kind": "defect",
+    "what": "The inventory error state says Request failed (500) and offers no retry, so the counter tech is left stuck at the desk.",
+    "where": "app/inventory/page.tsx",
+    "breaks": "P1",
+    "severity": "medium"
+  },
+  {
+    "id": "D12",
+    "kind": "defect",
+    "what": "The Retire action in the row menu uses a different red from the destructive button in the confirm dialog.",
+    "where": "app/inventory/row-actions.tsx",
+    "breaks": "P2",
+    "severity": "medium"
+  },
+  {
+    "id": "D13",
+    "kind": "defect",
+    "what": "The onboarding review step shows each value twice, once in a card and again in a summary sentence below it.",
+    "where": "app/onboarding/review.tsx",
+    "breaks": "P3",
+    "severity": "low"
+  },
+  {
+    "id": "D14",
+    "kind": "defect",
+    "what": "The settings page sets three hex colour values inline instead of using the semantic colour tokens.",
+    "where": "app/settings/page.tsx",
+    "breaks": "P4",
+    "severity": "medium"
+  },
+  {
+    "id": "D15",
+    "kind": "defect",
+    "what": "The success message after onboarding reads Record created. It does not name the new staff member.",
+    "where": "app/onboarding/page.tsx",
+    "breaks": "P5",
+    "severity": "low"
+  },
+  {
+    "id": "X01",
+    "kind": "decoy",
+    "what": "Inventory table rows are 52px tall, and settings list rows are 48px tall.",
+    "where": "app/inventory/page.tsx",
+    "reason": "Inventory rows hold a status badge and two lines of text, so they need the taller row. Settings rows hold one line and use the compact row. The difference is intended and a flag here is noise."
+  },
+  {
+    "id": "X02",
+    "kind": "decoy",
+    "what": "Helper text under the settings fields ends with a full stop. Helper text under the onboarding fields does not.",
+    "where": "app/onboarding/details.tsx",
+    "reason": "Onboarding helper text is a short label, not a sentence, and labels take no full stop. The difference follows the copy rules and a flag here is noise."
+  },
+  {
+    "id": "X03",
+    "kind": "decoy",
+    "what": "The skeleton shimmer runs for 1.2 seconds, and the onboarding stepper's pending spinner runs for 0.9 seconds.",
+    "where": "components/ui/skeleton.tsx",
+    "reason": "The two motions sit in different contexts, and both stop under reduced motion. Comparing them is comparing unlike things, so a flag here is noise."
+  }
+]
