@@ -45,7 +45,8 @@ atelier_backup_path() {
 # atelier_backup_copy <source> <label>
 #   Copies a file to a fresh backup name and checks the copy is byte-identical.
 #   Prints the backup path and returns 0 only then. On any failure it prints why
-#   to stderr, removes the file it reserved (empty or incomplete) and returns 1. Callers must not touch the source after a non-zero return.
+#   to stderr, removes the file it reserved (empty or incomplete) and returns
+#   1. Callers must not touch the source after a non-zero return.
 atelier_backup_copy() {
     local src=$1 label=$2 dest
     if ! dest=$(atelier_backup_path "$src" "$label") || [ -z "$dest" ]; then

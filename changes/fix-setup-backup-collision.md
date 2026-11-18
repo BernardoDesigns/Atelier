@@ -10,17 +10,17 @@
 
 ## README
 
-The documented commands still work as written, because the `.bak.` prefix and the date-time are unchanged. One optional addition, so the undo path matches what `setup.sh` now prints.
+The documented commands still work as written, because the `.bak.` prefix and the date-time are unchanged.
 
 Current line (the sentence after the code block, near "Open the backup first"):
 
 > Open the backup first: if it still mentions `net-host-guard`, take the next one down. This puts back the permission rules and hooks only; the symlinks `setup.sh` made and the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS` stay.
 
-Optional replacement:
+Replacement:
 
-> Open the backup first: if it still mentions `net-host-guard`, take the next one down. To undo a whole `setup.sh` run, restore the backup that `setup.sh` names under "Your files as they were before this run" at the end of the run; that is your file as it was before the run. This puts back the permission rules and hooks only; the symlinks `setup.sh` made and the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS` stay.
+> Open the backup first: if it still mentions `net-host-guard`, take the next one down. To put `settings.json` back exactly as it was before a `setup.sh` run, restore the backup listed under "Your files as they were before this run" at the end of that run; that also removes the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS`. Restoring a later backup puts back the permission rules and hooks only. The symlinks `setup.sh` made stay either way.
 
-In the CHANGELOG 1.1.0 section, the "Open the backup first" line has the same shape and can take the same addition. The `<file>.bak.YYYYmmdd-HHMMSS` description there is still true as a prefix; the label after it is new.
+Do not edit the 1.1.0 section of the changelog; it describes that release as shipped. The new names and the new list belong under 1.2.1 only.
 
 ## Setup
 
