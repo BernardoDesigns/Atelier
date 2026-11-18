@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-18
+
 ### Added
 
+- `quality.md`: ten production-grade gates (G1 to G10) with checkable pass bars, and five design principles (P1 to P5).
+- `taste.md`: numbered judgment items, each source-tagged and marked draft until reviewed.
+- `conventions.md`: numbered literal standards, each with a yes/no Check line and marked draft until reviewed.
+- `global/CLAUDE.md`: shared rules for the Atelier agents (verb ownership, ask vs ship and the contract files). Import it from your own CLAUDE.md with one `@` line; personal rules stay in your own file.
+- `setup.sh` links `~/.claude/atelier` to the checkout, so agents and commands can reach Atelier's files from any repo. It also gains a helper that links single files or folders into `~/.claude/agents/` and `~/.claude/skills/` beside whatever is already there; nothing calls it yet.
+- `model: opus` frontmatter on `commands/design-director.md`, `commands/eames.md` and `commands/rand.md`. It routes the turn that runs the command, not the rest of the conversation.
 - Network guardrail (`guardrails/net-host-guard.py`): a PreToolUse hook on Bash that parses the real host of every curl/wget URL and asks unless it's `localhost`, `127.0.0.1`, `[::1]` or a `*.trycloudflare.com` quick tunnel. It also asks on variables, scheme-less targets and flags that reroute traffic (`--proxy`, `--resolve`, `--connect-to`, `-K`, wget `-e`/`-i`). It never approves anything, and blocks if the script is missing or crashes.
 - Host-scoped curl allow rules in user scope (`guardrails/permissions-allow.json`), and `pip3 install` as an ask rule.
 
@@ -17,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `guardrails/install.sh` now also removes retired rules (`guardrails/permissions-retired.json`: `Bash(curl:*)`, the broad python3 allows, `Bash(cloudflared tunnel *)`) and clears rules that moved to user scope out of `~/.claude/settings.local.json`, which only applies to sessions started from `~`.
 - Aurora threshold profiles: `aurora profile [name]` switches between `default` (today's lines) and `fable-run` (5h 70/85, 7d 45/75, and a 7d note: "Fable cap may be near: check /usage"). Profiles live in `aurora-usage/profiles.json`, and `setup.sh` links `aurora` into `~/.local/bin`.
 - Aurora pause points: past one, the band and the HUD say `⏸ Time to stop` in words, a stop toast fires once, and snoozes or an Off line can't hide it.
-
 - Guardrails (`guardrails/`): user-scope `permissions.ask` rules for destructive commands (`rm`, force pushes, `git reset --hard`, `git clean`, `git branch -D`, `git restore`, `git checkout --`, stash drop/clear, `find -delete`), plus a PreToolUse hook that asks before Write, Edit or NotebookEdit touch anything outside the current git repo or worktree. Claude's own scratchpad is exempt. If the hook script goes missing, writes are blocked instead of slipping through. `setup.sh` merges both into `~/.claude/settings.json` without touching other keys.
 
 ## [1.0.1] - 2026-11-17
@@ -74,5 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
+[1.1.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.1.0
 [1.0.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.1
 [1.0.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.0

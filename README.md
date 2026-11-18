@@ -20,6 +20,8 @@ Three slash commands in `commands/` that work as one system: a router, two speci
 
 Named after Charles Eames and Paul Rand, because each agent takes on a point of view, not just a task list.
 
+All three commands carry `model: opus` in their frontmatter, so the turn that runs the command is routed to Opus. It applies to that turn only, not to the rest of the conversation.
+
 ### How the system works
 
 ```
@@ -43,6 +45,32 @@ Session debrief ──▶ proposes learnings ──▶ I approve which ones to k
 
 ---
 
+## Shared rules: `global/CLAUDE.md`
+
+`global/CLAUDE.md` holds the rules the agents share: who owns which verb (Eames and the Critic judge, Impeccable polishes code), when to ask and when to ship, and where the contract files live. It's short on purpose, because it loads into every session in every repo.
+
+To use it, add one line to your own `~/.claude/CLAUDE.md`:
+
+```
+@~/.claude/atelier/global/CLAUDE.md
+```
+
+`setup.sh` creates the `~/.claude/atelier` link to your checkout. Personal rules stay in your own file, which is never part of this repo.
+
+### The contract files
+
+Three files at the root hold the standards the agents work to:
+
+| File | What it is |
+|---|---|
+| `quality.md` | Production-grade rubric: gates G1 to G10 and principles P1 to P5 |
+| `taste.md` | Judgment items, interpreted rather than followed literally |
+| `conventions.md` | Literal standards, each answerable yes or no |
+
+`taste.md` and `conventions.md` are drafts until each item has been reviewed.
+
+---
+
 ## Daily rhythm
 
 From inside any project with a `package.json` and a `dev` script:
@@ -55,7 +83,7 @@ cc        # starts the dev server + a Cloudflare tunnel, then launches Claude Co
 - The public tunnel URL is copied to the clipboard and opened in the browser, so I can share a live preview right away. `DEV_OPEN=local` opens `localhost` instead (skips Chrome's Local Network Access prompt), `DEV_OPEN=none` opens nothing.
 - The tunnel dials whichever loopback address the server actually answers on (`127.0.0.1` or `::1`), so it stays steady whether the project is static, Next or Vite.
 - Works the same on a fresh start or a resume (`cc --resume`, `cc --continue`).
-- The port is auto-detected from `package.json` (3000 for Next, 5173 for Vite).
+- The port is auto-detected: a `-p` or `--port` in the `dev` script wins, otherwise 5173 if the script mentions Vite and 3000 if not. With no `dev` script it serves the folder statically on 8000.
 
 | Command | What it does |
 |---|---|
@@ -106,7 +134,8 @@ bash setup.sh
 
 Then open a new terminal. `setup.sh`:
 
-- symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies
+- symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies, and `~/.claude/atelier` to the checkout
+- carries a helper that will link single agent and skill files into `~/.claude/agents/` and `~/.claude/skills/` beside whatever is already there, without replacing those folders (nothing uses it yet)
 - adds a source line to `.zshrc`
 - adds the Aurora billboard and Sketchpad to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
 - merges the guardrails into `~/.claude/settings.json`: ask before destructive commands, before any write outside the current repo, and before curl/wget reaches anything but localhost or a `cc` tunnel
@@ -124,6 +153,10 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `commands/design-director.md` | Router agent and the shared session debrief protocol |
 | `commands/eames.md` | Product design specialist |
 | `commands/rand.md` | Brand design specialist |
+| `quality.md` | Production-grade rubric (gates G1 to G10, principles P1 to P5) |
+| `taste.md` | Judgment items, each tagged with its source |
+| `conventions.md` | Literal standards, each with a yes/no check |
+| `global/CLAUDE.md` | Shared agent rules, imported from your own CLAUDE.md |
 | `dev-aliases.sh` | `cc`, `devup`, `devdown` |
 | `aurora-usage/aurora-billboard/` | Usage billboard mod for Claude Code |
 | `aurora-usage/aurora-hud/` | Floating usage HUD for macOS (`main.swift` + build scripts) |

@@ -35,6 +35,43 @@ fi
 
 echo "Done! ~/.claude/commands -> $REPO_DIR/commands"
 
+# --- Atelier home: ~/.claude/atelier -> this checkout ---
+# Agents and commands run inside other repos, so they reach Atelier's files
+# (contract files, templates) through this one fixed path. Only a symlink is
+# ever replaced; anything else sitting there is left alone.
+ATELIER_LINK="$CLAUDE_DIR/atelier"
+if [ -e "$ATELIER_LINK" ] && [ ! -L "$ATELIER_LINK" ]; then
+    echo "WARNING: $ATELIER_LINK exists and isn't a symlink, left it alone. Move it aside and re-run setup.sh."
+else
+    ln -sfn "$REPO_DIR" "$ATELIER_LINK"
+    echo "Done! ~/.claude/atelier -> $REPO_DIR"
+fi
+
+# --- Helper: link ONE file or folder into a directory we don't own ---
+# ~/.claude/agents and ~/.claude/skills hold other tools' files, so Atelier adds
+# its links beside them. Never moves, replaces or deletes the directory itself.
+#   link_into <source in this repo> <target dir>
+# Links when the destination is absent or already a link into this repo.
+# A real file or folder, or a link pointing elsewhere, is left with a warning.
+# The calls (agents/*.md, skills/*) arrive in later releases.
+link_into() {
+    local src=$1 dir=$2 dest
+    dest="$dir/$(basename "$src")"
+    if [ ! -e "$src" ]; then
+        echo "WARNING: $src doesn't exist, nothing linked into $dir"
+        return 1
+    fi
+    mkdir -p "$dir" || { echo "WARNING: couldn't create $dir, skipped $dest"; return 1; }
+    if [ ! -e "$dest" ] && [ ! -L "$dest" ]; then
+        ln -sfn "$src" "$dest"
+    elif [ -L "$dest" ] && [[ "$(readlink "$dest")" == "$REPO_DIR/"* ]]; then
+        ln -sfn "$src" "$dest"
+    else
+        echo "WARNING: $dest exists and isn't ours, left it alone"
+        return 1
+    fi
+}
+
 # --- dev-aliases.sh: symlink into home + wire .zshrc ---
 ALIASES_LINK="$HOME/.dev-aliases.sh"
 
