@@ -190,3 +190,35 @@ When the same feedback arrives twice, go broader, not deeper. Stop iterating on 
 Source: log:C33
 Status: draft
 Applied as: On the second round of the same note, look at references and alternatives before touching the design again.
+
+## Moved from conventions
+
+### T32
+Commit or skip on full-bleed backdrops. Either go edge to edge so the effect lives in the gaps, or make the foreground translucent. Never use a subtle glow behind opaque cards.
+Source: log:E3
+Status: draft
+Applied as: Before adding a backdrop layer, look for a hidden or dead one to repurpose.
+
+### T33
+Completion states get their own distinct surface, and timing carries the feeling. 1.8s feels earned, and 400ms feels transactional.
+Source: log:C8
+Status: draft
+Applied as: Give a finished state its own surface rather than reusing the working one, and pick the duration for the feeling wanted.
+
+### T34
+Surface exceptions as gentle nudges, not blockers.
+Source: log:C9
+Status: draft
+Applied as: Show an inline hint the person can ignore. Reserve blocking dialogs for actions that cannot be undone.
+
+### T35
+In spec sheets, proximity is the primary connector and lines are confirmation.
+Source: log:S3
+Status: draft
+Applied as: Place each annotation next to what it describes first, and add a line only where proximity alone could be misread.
+
+### T36
+In diagrams, setup precedes the punchline, and reading order is validated against the viewer's knowledge state. Use vectors, not Venn diagrams, when patterns do not exist on both sides.
+Source: log:C19
+Status: draft
+Applied as: Read the diagram as someone who has not seen the brief, and reorder until each step depends only on what came before it.
