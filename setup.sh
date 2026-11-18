@@ -6,16 +6,45 @@ CLAUDE_DIR="$HOME/.claude"
 COMMANDS_DIR="$CLAUDE_DIR/commands"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Backup naming shared with guardrails/install.sh: every backup gets a step
+# label and a name that never collides. The log lets the end of the run say
+# which backup is the pre-run original (install.sh appends to it too).
+# Without the helper nothing that needs a backup is touched: those steps are
+# skipped and named in the summary at the end.
+SKIPPED=""
+if [ -r "$REPO_DIR/guardrails/backup-lib.sh" ]; then . "$REPO_DIR/guardrails/backup-lib.sh"; fi
+if type atelier_backup_copy >/dev/null 2>&1 && type atelier_backup_move >/dev/null 2>&1; then
+    HAVE_BACKUP_LIB=1
+else
+    HAVE_BACKUP_LIB=0
+    echo "WARNING: guardrails/backup-lib.sh is missing or broken. Steps that need a backup (commands folder, dev-aliases.sh, settings.json) will be skipped, and so will the guardrails."
+fi
+# Temp log of the backups made this run. Removed on any exit; if mktemp fails
+# the run carries on without it and the end-of-run report is skipped.
+ATELIER_BACKUP_LOG="$(mktemp "${TMPDIR:-/tmp}/atelier-backups.XXXXXX" 2>/dev/null)" || ATELIER_BACKUP_LOG=""
+export ATELIER_BACKUP_LOG
+trap '[ -n "$ATELIER_BACKUP_LOG" ] && rm -f "$ATELIER_BACKUP_LOG"' EXIT
+
 # Create .claude directory if it doesn't exist
 mkdir -p "$CLAUDE_DIR"
 
 # If commands directory already exists as a real dir, back it up (timestamped)
+SKIP_COMMANDS=0
+SKIP_ALIASES=0
 if [ -d "$COMMANDS_DIR" ] && [ ! -L "$COMMANDS_DIR" ]; then
-    BACKUP="$COMMANDS_DIR.bak.$(date +%Y%m%d-%H%M%S)"
-    echo "Backing up existing commands directory to $BACKUP"
-    mv "$COMMANDS_DIR" "$BACKUP"
+    if [ "$HAVE_BACKUP_LIB" = 1 ] && BACKUP=$(atelier_backup_move "$COMMANDS_DIR" commands); then
+        echo "Backed up existing commands directory to $BACKUP"
+    else
+        SKIP_COMMANDS=1
+        SKIPPED="$SKIPPED
+  - ~/.claude/commands link (the existing folder could not be backed up, so it was left in place)"
+        echo "WARNING: skipped the ~/.claude/commands link, the existing folder was left in place."
+    fi
 fi
 
+if [ "$SKIP_COMMANDS" = 1 ]; then
+    :
+else
 # Remove existing symlink (live or broken) if present
 if [ -L "$COMMANDS_DIR" ]; then
     if [ ! -e "$COMMANDS_DIR" ]; then
@@ -34,6 +63,7 @@ if [ ! -e "$COMMANDS_DIR" ]; then
 fi
 
 echo "Done! ~/.claude/commands -> $REPO_DIR/commands"
+fi
 
 # --- Atelier home: ~/.claude/atelier -> the main checkout ---
 # Agents and commands run inside other repos, so they reach Atelier's files
@@ -109,10 +139,18 @@ ALIASES_LINK="$HOME/.dev-aliases.sh"
 
 # Back up a real file in the way (timestamped), then clear any stale symlink
 if [ -f "$ALIASES_LINK" ] && [ ! -L "$ALIASES_LINK" ]; then
-    BACKUP="$ALIASES_LINK.bak.$(date +%Y%m%d-%H%M%S)"
-    echo "Backing up existing dev-aliases.sh to $BACKUP"
-    mv "$ALIASES_LINK" "$BACKUP"
+    if [ "$HAVE_BACKUP_LIB" = 1 ] && BACKUP=$(atelier_backup_move "$ALIASES_LINK" aliases); then
+        echo "Backed up existing dev-aliases.sh to $BACKUP"
+    else
+        SKIP_ALIASES=1
+        SKIPPED="$SKIPPED
+  - ~/.dev-aliases.sh link (the existing file could not be backed up, so it was left in place)"
+        echo "WARNING: skipped the ~/.dev-aliases.sh link, the existing file was left in place."
+    fi
 fi
+if [ "${SKIP_ALIASES:-0}" = 1 ]; then
+    :
+else
 [ -L "$ALIASES_LINK" ] && rm "$ALIASES_LINK"
 
 # Symlink home -> repo copy
@@ -124,6 +162,7 @@ if [ ! -e "$ALIASES_LINK" ]; then
     exit 1
 fi
 echo "Done! ~/.dev-aliases.sh -> $REPO_DIR/dev-aliases.sh"
+fi
 
 # Wire the source line into .zshrc (only if missing)
 ZSHRC="$HOME/.zshrc"
@@ -170,11 +209,15 @@ if command -v jq >/dev/null 2>&1; then
         if [ "$MERGED" = "$(jq . "$SETTINGS")" ]; then
             echo "Mods already wired in $SETTINGS, leaving it"
         else
-            BACKUP="$SETTINGS.bak.$(date +%Y%m%d-%H%M%S)"
-            cp "$SETTINGS" "$BACKUP"
-            # Write in place (not mv) so a symlinked settings.json stays a symlink
-            printf '%s\n' "$MERGED" > "$SETTINGS"
-            echo "Wired the Aurora billboard and Sketchpad into $SETTINGS (backup: $BACKUP)"
+            if [ "$HAVE_BACKUP_LIB" = 1 ] && BACKUP=$(atelier_backup_copy "$SETTINGS" aurora-mods); then
+                # Write in place (not mv) so a symlinked settings.json stays a symlink
+                printf '%s\n' "$MERGED" > "$SETTINGS"
+                echo "Wired the Aurora billboard and Sketchpad into $SETTINGS (backup: $BACKUP)"
+            else
+                SKIPPED="$SKIPPED
+  - Aurora billboard and Sketchpad wiring in $SETTINGS (no backup could be made, so the file was left untouched)"
+                echo "WARNING: skipped the Aurora billboard and Sketchpad wiring, $SETTINGS was left untouched."
+            fi
         fi
     else
         echo "ERROR: $SETTINGS is not valid JSON, left it alone. Fix it and re-run."
@@ -200,7 +243,11 @@ fi
 if ! command -v python3 >/dev/null 2>&1; then
     echo "WARNING: python3 not found. The network guardrail is a python3 script, so it will block every Bash tool call in Claude Code until python3 is installed. Continuing with the install anyway."
 fi
-bash "$REPO_DIR/guardrails/install.sh"
+if ! bash "$REPO_DIR/guardrails/install.sh"; then
+    SKIPPED="$SKIPPED
+  - guardrails (guardrails did not finish; any file it updated is listed above with its backup)"
+    echo "WARNING: the guardrails step did not complete."
+fi
 
 # --- Aurora HUD: build the floating usage panel and start it at login ---
 # On by default. Skip with: bash setup.sh --no-hud   Undo with: aurora-usage/aurora-hud/remove.sh
@@ -220,6 +267,32 @@ elif "$HUD_DIR/build.sh" && "$HUD_DIR/start-at-login.sh"; then
     echo "Done! Aurora HUD is running and starts at login"
 else
     echo "WARNING: Aurora HUD build or launch failed. Everything else is set up."
+fi
+
+# --- Which backup is the pre-run original? ---
+# The log is in the order backups were made, so the first line per file is the
+# file as it was before this run touched it.
+if [ -s "$ATELIER_BACKUP_LOG" ]; then
+    echo ""
+    echo "Your files as they were before this run:"
+    SEEN=""
+    LINK_NOTE=0
+    while IFS="$(printf '\t')" read -r SRC BAK; do
+        case "$SEEN" in *"|$SRC|"*) continue ;; esac
+        SEEN="$SEEN|$SRC|"
+        echo "  $SRC -> $BAK"
+        case "$SRC" in "$COMMANDS_DIR"|"$ALIASES_LINK") LINK_NOTE=1 ;; esac
+    done < "$ATELIER_BACKUP_LOG"
+    if [ "${LINK_NOTE:-0}" = 1 ]; then
+        echo "For commands and .dev-aliases.sh, remove the link first, then move the backup back."
+    fi
+elif [ -z "$ATELIER_BACKUP_LOG" ]; then
+    echo ""
+    echo "Note: no temp file for the backup log, so the pre-run originals are not listed. Each backup path was printed above."
+fi
+if [ -n "$SKIPPED" ]; then
+    echo ""
+    echo "Skipped, see the warnings above:$SKIPPED"
 fi
 
 echo ""
