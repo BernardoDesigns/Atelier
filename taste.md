@@ -81,7 +81,7 @@ Applied as: A finite cover image leaves a void on tall pages, so use a repeating
 Make visuals part of the product's logic, so every appearance maps to behaviour. It costs discipline and pays in coherence.
 Source: log:E12
 Status: draft
-Applied as: Use brand colour only when that brand's voice is active. When the value prop is "adapts to your voice", the first screen is the first proof, so match the audience's brand before any words appear.
+Applied as: Use brand colour only when that brand's voice is active.
 
 ### T14
 A visual treatment does not carry across element types. Re-derive it for each type from the same character family rather than copying one and adjusting it down.
@@ -168,13 +168,13 @@ Status: draft
 Applied as: Set primary CTAs at weight 800 and let secondary actions sit lighter.
 
 ### T28
-Onboarding copy only reveals itself when rendered at actual size, and pick count is a UX question, not a data-science one.
+Onboarding copy only reveals itself when rendered at actual size.
 Source: log:C27
 Status: draft
 Applied as: Expect 3 to 4 copy passes in the real layout. Placeholder copy can frame unfinished space as collaborative.
 
 ### T29
-Closing screens plant a seed rather than summarise. Atmosphere plus a few words beats a paragraph. Aggregate sentiment on held screens and distribute it on dashboards.
+Closing screens plant a seed rather than summarise. Atmosphere plus a few words beats a paragraph.
 Source: log:C28
 Status: draft
 Applied as: Promote the domain term that downstream artifacts anchor to into the closing headline.

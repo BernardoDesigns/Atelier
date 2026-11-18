@@ -152,13 +152,13 @@ Check: Is the flag initialised to the server value and resolved in an isomorphic
 Status: draft
 
 ### C25
-Styles are scoped with descendant selectors when the phase is already encoded in the DOM.
+Styles are scoped with descendant selectors when the state is already encoded in the DOM.
 Source: log:E13
-Check: Are phase styles written as descendant selectors off the phase class?
+Check: Are state styles written as descendant selectors off the state class?
 Status: draft
 
 ### C26
-User-visible accents take the brand token, not a mechanical one such as `--phase-color`.
+User-visible accents take the brand token, not a mechanical or internal one.
 Source: log:E13
 Check: Does every visible accent reference the brand token?
 Status: draft
