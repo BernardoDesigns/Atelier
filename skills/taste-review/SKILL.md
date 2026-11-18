@@ -1,6 +1,6 @@
 ---
 name: taste-review
-description: Review the Atelier contract files one item at a time (quality gates and principles, taste, conventions, failures) and approve, edit, rewrite, cut or skip each draft. Resumable on any machine, and finishes with one pull request. Use when the user says "taste review", "/taste-review", or wants to approve the draft rules.
+description: Review the Atelier contract files one item at a time (quality gates and principles, taste, conventions, failures) and approve, edit, rewrite, cut or skip each draft. Resumable on any machine, and finishes with one pull request. Use only when the user types /taste-review or explicitly asks for a taste review of the draft rules. Do not use it on your own initiative during ordinary design or build work.
 ---
 
 # Taste review
