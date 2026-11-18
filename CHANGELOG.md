@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `guardrails/install.sh` now also removes retired rules (`guardrails/permissions-retired.json`: `Bash(curl:*)`, the broad python3 allows, `Bash(cloudflared tunnel *)`) and clears rules that moved to user scope out of `~/.claude/settings.local.json`, which only applies to sessions started from `~`.
+- Aurora threshold profiles: `aurora profile [name]` switches between `default` (today's lines) and `fable-run` (5h 70/85, 7d 45/75, and a 7d note: "Fable cap may be near: check /usage"). Profiles live in `aurora-usage/profiles.json`, and `setup.sh` links `aurora` into `~/.local/bin`.
+- Aurora pause points: past one, the band and the HUD say `⏸ Time to stop` in words, a stop toast fires once, and snoozes or an Off line can't hide it.
 
 - Guardrails (`guardrails/`): user-scope `permissions.ask` rules for destructive commands (`rm`, force pushes, `git reset --hard`, `git clean`, `git branch -D`, `git restore`, `git checkout --`, stash drop/clear, `find -delete`), plus a PreToolUse hook that asks before Write, Edit or NotebookEdit touch anything outside the current git repo or worktree. Claude's own scratchpad is exempt. If the hook script goes missing, writes are blocked instead of slipping through. `setup.sh` merges both into `~/.claude/settings.json` without touching other keys.
 

@@ -11,10 +11,13 @@ export type Snapshot = {
 
 export type LimitKey = '5h' | '7d'
 
-// The lines and snoozes, as they sit in the shared file. A missing line means
-// the default, a missing snooze means not snoozed.
+// The lines, pause points, notes and snoozes, as they sit in the shared file. A
+// missing line means the default, a missing pause point means none, a missing
+// snooze means not snoozed. A note rides along with a limit's heads-up.
 export type Gate = {
   showAt: Partial<Record<LimitKey, number>>
+  pauseAt?: Partial<Record<LimitKey, number>>
+  note?: Partial<Record<LimitKey, string>>
   snooze: Partial<Record<LimitKey, number>>
 }
 
@@ -28,7 +31,11 @@ export type Shared = {
   theme?: string
   glyph?: 'thin' | 'block'
   showAt?: Gate['showAt']
+  pauseAt?: Gate['pauseAt']
+  note?: Gate['note']
   snooze?: Gate['snooze']
+  // Set by `aurora profile <name>`. Informational: the lines above are what count.
+  profile?: string
 }
 
 declare module 'claude-code' {

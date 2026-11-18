@@ -64,6 +64,32 @@ The 5h and 7d limits work like a low-fuel light, in both the band and the HUD. T
 | 5h | 75% | Burns fast, so you want the early warning |
 | 7d | 90% | Climbs slowly, and a lower line would keep the HUD up for days |
 
+**Profiles.** A profile swaps in a whole set of lines at once, plus optional pause points and notes. They live in [`profiles.json`](profiles.json), and `setup.sh` puts the `aurora` command on your PATH:
+
+```bash
+aurora profile             # list profiles, mark the active one
+aurora profile fable-run   # switch
+aurora profile default     # back to the everyday lines
+```
+
+| Profile | 5h heads-up | 5h pause | 7d heads-up | 7d pause | Note |
+| --- | --- | --- | --- | --- | --- |
+| `default` | 75% | none | 90% | none | |
+| `fable-run` | 70% | 85% | 45% | 75% | 7d: `Fable cap may be near: check /usage` |
+
+The usage data has no separate Fable gauge: every response reports one 5-hour and one weekly window, account-wide. Fable's allowance caps at 50% of weekly, so `fable-run` warns on 7d at 45% to land before that cap, and the note points you at `/usage` for the real per-model split.
+
+Switching writes the lines into the shared file and clears any snoozes. Both pieces pick it up within 30 seconds. A `/billboard show` or HUD menu change still adjusts a single line on top of the profile.
+
+**Pause points** mean stop, not look. At one:
+
+- The band leads with `⏸ Time to stop · 7d hit 75%` in bold, ahead of everything else
+- The HUD comes up, its border glows hot, and the footer says the same thing in words. Collapsed, the pill reads `⏸ Stop · 7d 76%`
+- A `⏸ Pause point` toast fires once per window
+- A snooze or an Off line can't hide it, and `/billboard hide` explains why. It clears at the reset, or when you switch profiles
+
+A snooze on a heads-up waits for the pause point first, then 90 and 95.
+
 **Changing a line.** Use whichever is handy:
 
 - In Claude Code: `/billboard show 5h 75`, or `/billboard show 7d always`, or `/billboard show 7d off`. Plain `/billboard` lists the current lines

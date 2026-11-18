@@ -114,6 +114,19 @@ else
     echo "Skipped the Aurora billboard and Sketchpad in $SETTINGS (needs jq)"
 fi
 
+# --- aurora command: switch Aurora threshold profiles (aurora profile fable-run) ---
+# Linked into ~/.local/bin, where the claude CLI lives, so it's already on PATH.
+# Only replaces an existing aurora link that points into this repo.
+AURORA_LINK="$HOME/.local/bin/aurora"
+mkdir -p "$HOME/.local/bin"
+chmod +x "$REPO_DIR/aurora-usage/aurora"
+if [ -e "$AURORA_LINK" ] && ! [[ "$(readlink "$AURORA_LINK")" == "$REPO_DIR/"* ]]; then
+    echo "WARNING: $AURORA_LINK exists and isn't ours, left it alone"
+else
+    ln -sfn "$REPO_DIR/aurora-usage/aurora" "$AURORA_LINK"
+    echo "Done! $AURORA_LINK -> $REPO_DIR/aurora-usage/aurora"
+fi
+
 # --- Guardrails: ask before destructive commands and writes outside the repo ---
 bash "$REPO_DIR/guardrails/install.sh"
 
