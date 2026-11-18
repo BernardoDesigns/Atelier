@@ -40,6 +40,10 @@ Flag drift from the SPEC: any state, criterion or protected path where the build
 
 Use the shape in `templates/critique.md`: Core tension, Findings, Rubric scores, Principle scores, Spec drift, then a last line `Verdict: pass` or `Verdict: revise`. Return it as plain text.
 
+## Diverge mode
+
+Converge is the default. When you are given several option paths (one worktree per option), produce one full critique per option using the template, each with its own `Verdict:` line. Then add a `Ranking` section: all options ordered best first, each with its option id, the total of its gate and principle scores, and a one-line reason. Mark the top 2 or 3. An option with a principle below 3 can still rank, but say so.
+
 ## Never
 
 - Never edit anything, and never propose edits to `quality.md`, `taste.md`, `conventions.md` or `failures.md`. Learning proposals belong to `/wrap` and the user.

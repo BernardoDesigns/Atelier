@@ -16,4 +16,6 @@ One entry per choice the SPEC did not specify, and one per component invented in
 - Where: <file path>
 - Verdict:
 
+In diverge mode each option has its own `.atelier/assumptions.md` in its own worktree.
+
 The Verdict line stays blank until `/wrap`, where it becomes `right` or `wrong`. An entry not mentioned in the verdict line counts as right.

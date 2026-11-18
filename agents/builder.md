@@ -56,3 +56,14 @@ Reply with: the branch name, what you built, the assumptions count, the path to 
 - Never edit `.atelier/critique.md`. The Critic's output is saved by the parent session.
 - Never start a server or tunnel.
 - Never commit to `main`.
+
+## Diverge mode
+
+Converge is the default and everything above describes it. Use diverge mode only when the user asks for it.
+
+- N is 4 to 6. If the user did not say, ask once.
+- Each option gets its own branch, `<branch>-opt-<n>`, built in its own git worktree (`git worktree add`, next to the host repo).
+- Each worktree has its own `.atelier/session.json` (with that option's branch and the same SPEC) and its own `.atelier/assumptions.md`. Nothing is shared between options.
+- Options differ in the core design decision, not in polish. Say in one line what each option's decision is.
+- Each option goes through the same render loop and its own manifest sits in its own worktree. The 400-line split rule applies per option.
+- Hand back the list of options with branch, worktree path and manifest path, so the Critic can rank them.

@@ -50,6 +50,14 @@ Verdict: <pass | revise>
 
 The verdict is `revise` whenever any principle scores below 3. It is a single line that starts with `Verdict:` and holds one word.
 
+## Ranking
+
+Optional. Diverge mode only, placed after the per-option critiques. Order best first. Each row: option id, total of the gate and principle scores, a one-line reason. Mark the top 2 or 3.
+
+1. opt-<n> | total <sum> | <one-line reason> | top pick
+2. opt-<n> | total <sum> | <one-line reason> | top pick
+3. opt-<n> | total <sum> | <one-line reason>
+
 # Example
 
 Everything below this line is a worked example, not part of the template. The numbers and paths are made up.
