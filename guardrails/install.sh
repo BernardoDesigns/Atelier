@@ -21,6 +21,9 @@ LOCAL="$HOME/.claude/settings.local.json"
 WRITE_HOOK="$G/outside-repo-guard.sh"
 NET_HOOK="$G/net-host-guard.py"
 
+# Backup naming lives beside this script, so install.sh works on its own.
+. "$G/backup-lib.sh"
+
 if ! command -v jq >/dev/null 2>&1; then
     echo "Skipped guardrails (needs jq: brew install jq)"
     exit 0
@@ -42,8 +45,10 @@ save() {
     if [ "$merged" = "$(jq . "$file")" ]; then
         echo "$label already up to date in $file, leaving it"
     else
-        local backup="$file.bak.$(date +%Y%m%d-%H%M%S)"
+        local backup
+        backup=$(atelier_backup_path "$file" guardrails)
         cp "$file" "$backup"
+        atelier_backup_log "$file" "$backup"
         printf '%s\n' "$merged" > "$file"
         echo "Updated $label in $file (backup: $backup)"
     fi

@@ -6,14 +6,22 @@ CLAUDE_DIR="$HOME/.claude"
 COMMANDS_DIR="$CLAUDE_DIR/commands"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Backup naming shared with guardrails/install.sh: every backup gets a step
+# label and a name that never collides. The log lets the end of the run say
+# which backup is the pre-run original (install.sh appends to it too).
+. "$REPO_DIR/guardrails/backup-lib.sh"
+ATELIER_BACKUP_LOG="$(mktemp "${TMPDIR:-/tmp}/atelier-backups.XXXXXX")"
+export ATELIER_BACKUP_LOG
+
 # Create .claude directory if it doesn't exist
 mkdir -p "$CLAUDE_DIR"
 
 # If commands directory already exists as a real dir, back it up (timestamped)
 if [ -d "$COMMANDS_DIR" ] && [ ! -L "$COMMANDS_DIR" ]; then
-    BACKUP="$COMMANDS_DIR.bak.$(date +%Y%m%d-%H%M%S)"
+    BACKUP=$(atelier_backup_path "$COMMANDS_DIR" commands)
     echo "Backing up existing commands directory to $BACKUP"
     mv "$COMMANDS_DIR" "$BACKUP"
+    atelier_backup_log "$COMMANDS_DIR" "$BACKUP"
 fi
 
 # Remove existing symlink (live or broken) if present
@@ -109,9 +117,10 @@ ALIASES_LINK="$HOME/.dev-aliases.sh"
 
 # Back up a real file in the way (timestamped), then clear any stale symlink
 if [ -f "$ALIASES_LINK" ] && [ ! -L "$ALIASES_LINK" ]; then
-    BACKUP="$ALIASES_LINK.bak.$(date +%Y%m%d-%H%M%S)"
+    BACKUP=$(atelier_backup_path "$ALIASES_LINK" aliases)
     echo "Backing up existing dev-aliases.sh to $BACKUP"
     mv "$ALIASES_LINK" "$BACKUP"
+    atelier_backup_log "$ALIASES_LINK" "$BACKUP"
 fi
 [ -L "$ALIASES_LINK" ] && rm "$ALIASES_LINK"
 
@@ -170,8 +179,9 @@ if command -v jq >/dev/null 2>&1; then
         if [ "$MERGED" = "$(jq . "$SETTINGS")" ]; then
             echo "Mods already wired in $SETTINGS, leaving it"
         else
-            BACKUP="$SETTINGS.bak.$(date +%Y%m%d-%H%M%S)"
+            BACKUP=$(atelier_backup_path "$SETTINGS" aurora-mods)
             cp "$SETTINGS" "$BACKUP"
+            atelier_backup_log "$SETTINGS" "$BACKUP"
             # Write in place (not mv) so a symlinked settings.json stays a symlink
             printf '%s\n' "$MERGED" > "$SETTINGS"
             echo "Wired the Aurora billboard and Sketchpad into $SETTINGS (backup: $BACKUP)"
@@ -221,6 +231,21 @@ elif "$HUD_DIR/build.sh" && "$HUD_DIR/start-at-login.sh"; then
 else
     echo "WARNING: Aurora HUD build or launch failed. Everything else is set up."
 fi
+
+# --- Which backup is the pre-run original? ---
+# The log is in the order backups were made, so the first line per file is the
+# file as it was before this run touched it.
+if [ -s "$ATELIER_BACKUP_LOG" ]; then
+    echo ""
+    echo "Pre-run originals (restore these to undo this run):"
+    SEEN=""
+    while IFS="$(printf '\t')" read -r SRC BAK; do
+        case "$SEEN" in *"|$SRC|"*) continue ;; esac
+        SEEN="$SEEN|$SRC|"
+        echo "  $SRC -> $BAK"
+    done < "$ATELIER_BACKUP_LOG"
+fi
+rm -f "$ATELIER_BACKUP_LOG"
 
 echo ""
 echo "Available commands:"
