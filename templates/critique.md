@@ -8,12 +8,17 @@ The Critic returns this shape as its reply. The parent session saves it to `.ate
 
 ## Findings
 
-Ranked, most important first. Every finding has a severity (`blocker`, `major` or `minor`), a one-line reason, and a screenshot path. A finding without a `Screenshot:` line is invalid.
+Ranked, most important first. Every finding has a severity (`blocker`, `major` or `minor`), a one-line reason, and one evidence line, exactly one of:
+
+- `Screenshot: .atelier/renders/<slug>/<state>.<theme>.<bp>.png` for anything visual or about taste.
+- `Diff: <file>:<line>` for anything about the code.
+
+A finding with neither evidence line is invalid and is left out.
 
 1. Severity: <blocker | major | minor>. <One-line reason.>
    Screenshot: .atelier/renders/<slug>/<state>.<theme>.<bp>.png
 2. Severity: <blocker | major | minor>. <One-line reason.>
-   Screenshot: .atelier/renders/<slug>/<state>.<theme>.<bp>.png
+   Diff: <file>:<line>
 
 ## Rubric scores
 
@@ -44,7 +49,7 @@ One row per gate, G1 to G10, in the order of `~/.claude/atelier/quality.md`.
 
 ## Spec drift
 
-<Where the build departs from the SPEC, each with a screenshot path or a file path. "None found" if there is none.>
+<Where the build departs from the SPEC, each with a screenshot path or a `<file>:<line>` location. "None found" if there is none.>
 
 Verdict: <pass | revise>
 
@@ -72,7 +77,9 @@ The user needs to change many settings quickly but must never lose an edit by ac
    Screenshot: .atelier/renders/settings/error.light.md.png
 2. Severity: major. The dirty-state bar is a new component, not the system's Alert.
    Screenshot: .atelier/renders/settings/dirty.dark.md.png
-3. Severity: minor. The helper text is crowded against the input at the narrowest width.
+3. Severity: major. The save handler reads from `lib/shared/` state directly, a protected path.
+   Diff: app/settings/save.ts:42
+4. Severity: minor. The helper text is crowded against the input at the narrowest width.
    Screenshot: .atelier/renders/settings/default.light.sm.png
 
 ## Rubric scores
@@ -80,7 +87,7 @@ The user needs to change many settings quickly but must never lose an edit by ac
 | Gate | Score | Note |
 |---|---|---|
 | G1 System fidelity | 3 | One invented component, logged as A2. |
-| G2 Types | 5 | Clean. |
+| G2 Types | 5 | tests.json shows pass, and the diff has no `any`. |
 | G3 Lint/format | 5 | Clean. |
 | G4 Tests | 4 | Error path covered, loading state is not. |
 | G5 Accessibility | 4 | axe clean, focus ring faint in dark. |

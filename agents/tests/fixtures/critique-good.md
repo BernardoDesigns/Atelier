@@ -6,7 +6,9 @@ The user wants a dense table they can scan fast without it feeling like a spread
 
 1. Severity: major. The loading state shows a spinner instead of row skeletons, so the layout jumps.
    Screenshot: .atelier/renders/table/loading.light.lg.png
-2. Severity: minor. Row hover contrast is faint in dark.
+2. Severity: major. The table component is copied inline instead of imported from the system.
+   Diff: components/orders/table.tsx:18
+3. Severity: minor. Row hover contrast is faint in dark.
    Screenshot: .atelier/renders/table/default.dark.md.png
 
 ## Rubric scores

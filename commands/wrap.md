@@ -17,7 +17,7 @@ First check for a reusable critique. If `.atelier/critique.md` exists, has a `Ve
 
 Otherwise run the `critic` subagent. Give it the SPEC path from `.atelier/session.json`, the render manifest path, and the branch diff. Save its reply, unchanged, to `.atelier/critique.md`.
 
-Post the ranked findings in the session. Each finding keeps its number, severity, one-line reason and screenshot path. If the reply has no `Verdict:` line, or a finding has no screenshot path, send it back to the Critic once.
+Post the ranked findings in the session. Each finding keeps its number, severity, one-line reason and evidence line (`Screenshot:` or `Diff:`). If the reply has no `Verdict:` line, or a finding has no evidence line, send it back to the Critic once.
 
 ## Step 2. Assumptions
 

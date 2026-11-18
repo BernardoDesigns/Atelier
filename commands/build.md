@@ -16,7 +16,7 @@ This command runs the loop in the parent session. It never creates a PR, never s
 3. Read the `Verdict:` line. If it is `revise`, send the ranked findings back to the Builder and go to step 2 again after it hands back. At most 3 Builder passes in total. After the third, stop even if the verdict is still `revise`.
 4. Report to the user:
    - the verdict, and how many passes it took
-   - the top findings, each with its screenshot path
+   - the top findings, each with its evidence line (screenshot path or diff location)
    - the assumptions count from `.atelier/assumptions.md`
    - the line "Run /wrap to close."
 

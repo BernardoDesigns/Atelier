@@ -50,24 +50,25 @@ template_headings() {
 
 # Validate a critique file against the template. Prints reasons, returns 1 on failure.
 validate_critique() {
-  local req
+  local req both=${2-}
   req=$(template_headings | paste -sd'|' -)
-  awk -v req="$req" '
+  awk -v req="$req" -v need_both="${both:+1}" '
     function fail(m) { print "  " m; bad = 1 }
     function cell(s,   a) { split(s, a, "|"); gsub(/^[ \t]+|[ \t]+$/, "", a[3]); return a[3] }
     BEGIN { n = split(req, R, "|"); h = 0; sec = "" }
     /^## / {
-      if (open) fail("finding " lastf " has no Screenshot path")
+      if (open) fail("finding " lastf " has no evidence line (Screenshot or Diff)")
       open = 0
       name = substr($0, 4)
       if (name == "Ranking") { sec = "Ranking"; next }
       h++; H[h] = name; sec = name; next
     }
     sec == "Findings" && /^[0-9]+\. / {
-      if (open) fail("finding " lastf " has no Screenshot path")
+      if (open) fail("finding " lastf " has no evidence line (Screenshot or Diff)")
       nf++; lastf = nf; open = 1; next
     }
-    sec == "Findings" && /^[ ]*Screenshot: [^ ]+\.png[ ]*$/ { open = 0; next }
+    sec == "Findings" && /^[ ]*Screenshot: [^ ]+\.png[ ]*$/ { if (!open) fail("finding " lastf " has more than one evidence line"); open = 0; shots++; next }
+    sec == "Findings" && /^[ ]*Diff: [^ :]+:[0-9]+[ ]*$/ { if (!open) fail("finding " lastf " has more than one evidence line"); open = 0; diffs++; next }
     sec == "Rubric scores" && /^\| G[0-9]+ / {
       g++; s = cell($0)
       if (s !~ /^[1-5]$/) fail("rubric score out of range: " $0)
@@ -85,10 +86,11 @@ validate_critique() {
       verdict = $2
     }
     END {
-      if (open) fail("finding " lastf " has no Screenshot path")
+      if (open) fail("finding " lastf " has no evidence line (Screenshot or Diff)")
       if (h != n) fail("expected " n " headings, found " h)
       else for (i = 1; i <= n; i++) if (H[i] != R[i]) fail("heading " i " is \"" H[i] "\", expected \"" R[i] "\"")
       if (nf < 1) fail("no numbered findings")
+      if (need_both && (shots < 1 || diffs < 1)) fail("expected at least one Screenshot and one Diff finding")
       if (g != 10) fail("expected 10 gate rows, found " g + 0)
       if (p != 5) fail("expected 5 principle rows, found " p + 0)
       if (v != 1) fail("expected exactly one Verdict line, found " v + 0)
@@ -114,7 +116,7 @@ check_not() {
 }
 
 if [ "${1-}" = "--validate-critique" ]; then
-  validate_critique "${2:?file required}"
+  validate_critique "${2:?file required}" "${3-}"
   exit $?
 fi
 
@@ -194,7 +196,10 @@ core_before_scoring() {
   [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]
 }
 check "critic: core tension comes before scoring" core_before_scoring "$CRITIC"
-check "critic: findings without a screenshot are invalid" has "$CRITIC" "without a screenshot path is invalid"
+check "critic: finding with neither Screenshot nor Diff is invalid" \
+  bash -c 'grep -Fq "Screenshot: .atelier/renders/" "$1" && grep -Fq "Diff: <file>:<line>" "$1" && grep -Fq "A finding with neither is invalid" "$1"' _ "$CRITIC"
+check "critic: never claims to have run a tool"  has "$CRITIC" "Never claim to have run a tool"
+check "critic: reads .atelier/tests.json"        has "$CRITIC" ".atelier/tests.json"
 check "critic: diverge mode ranking"             bash -c 'grep -Fq "Diverge mode" "$1" && grep -Fq "Ranking" "$1"' _ "$CRITIC"
 
 # ---- wrap command -----------------------------------------------------------
@@ -253,7 +258,7 @@ build_loop_steps() {
 }
 build_cap() { grep -Fq 'At most 3 Builder passes in total' "$BUILD"; }
 build_report() {
-  grep -Fq 'Run /wrap to close.' "$BUILD" && grep -Fq 'screenshot path' "$BUILD" && grep -Fq 'assumptions count' "$BUILD"
+  grep -Fq 'Run /wrap to close.' "$BUILD" && grep -Fq 'evidence line' "$BUILD" && grep -Fq 'assumptions count' "$BUILD"
 }
 build_no_pr_no_server() {
   ! grep -Fq 'gh pr create' "$BUILD" && grep -Fq 'never creates a PR' "$BUILD" && grep -Fq 'Do not start one' "$BUILD"
@@ -296,7 +301,7 @@ ranking_last_optional() {
   last=$(awk '/^# Example/{exit} /^## /{print substr($0,4)}' "$CRITIQUE_TEMPLATE" | tail -1)
   [ "$last" = "Ranking" ] && grep -Fq "Optional. Diverge mode only" "$CRITIQUE_TEMPLATE"
 }
-example_validates() { validate_critique <(awk 'f; /^# Example/{f=1}' "$CRITIQUE_TEMPLATE"); }
+example_validates() { validate_critique <(awk 'f; /^# Example/{f=1}' "$CRITIQUE_TEMPLATE") both; }
 template_gate_names() {
   local i
   for i in 1 2 3 4 5 6 7 8 9 10; do grep -q "^| G$i " "$CRITIQUE_TEMPLATE" || return 1; done
@@ -311,7 +316,7 @@ check "template: G1 to G10 and P1 to P5 rows"    template_gate_names
 check "template: ends with a Verdict line"       template_verdict_line
 check "template: worked example validates"       example_validates
 check "assumptions template: ids A1 and A2"      assumptions_ids
-check "fixture: critique-good.md validates"      validate_critique "$FIX/critique-good.md"
+check "fixture: critique-good.md validates, with both evidence kinds" validate_critique "$FIX/critique-good.md" both
 for f in "$FIX"/critique-bad-*.md; do
   check_not "fixture: $(basename "$f") is rejected" validate_critique "$f"
 done
