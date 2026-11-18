@@ -1,3 +1,8 @@
+---
+description: Brand and marketing design, covering identity systems, campaigns, landing pages, social, OOH and print.
+model: opus
+---
+
 # Brand Design Skill
 
 ## Overview

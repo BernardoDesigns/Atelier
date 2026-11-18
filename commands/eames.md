@@ -1,3 +1,8 @@
+---
+description: Product UI design work, covering wireframes, specs, flows and component explorations.
+model: opus
+---
+
 # Product Design Skill
 
 ## What This Skill Does
