@@ -11,7 +11,7 @@ export class UnreachableError extends Error {}
 
 const VIEWPORT_HEIGHT = 800;
 const NAV_TIMEOUT = 15000;
-const STEP_TIMEOUT = 5000;
+const STEP_TIMEOUT = Number(process.env.ATELIER_RENDER_STEP_TIMEOUT_MS) || 5000;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -85,11 +85,41 @@ const applyBody = (theme) => `
   if (!location.pathname.endsWith('iframe.html')) el.classList.toggle('dark', ${theme === 'dark'});
   el.setAttribute('data-theme', '${theme}');`;
 
+// Storybook reports some play and render errors only on its addons channel, with no error display (for
+// example `parameters.throwPlayFunctionExceptions: false` logs the error and the render still ends on
+// "finished"). The channel is created with a plain assignment to window.__STORYBOOK_ADDONS_CHANNEL__, so a
+// setter on that name hooks it the moment it exists, before any render. Errors land in
+// window.__atelierStoryErrors. Events and payloads checked against Storybook 10.6.7 (see waitUntilReady).
+const CHANNEL_HOOK = `(() => {
+  const errors = (window.__atelierStoryErrors = []);
+  const hooked = new WeakSet();
+  const hook = (ch) => {
+    if (!ch || typeof ch.on !== 'function' || hooked.has(ch)) return;
+    hooked.add(ch);
+    const msg = (p) => (p && (p.message || p.title || p.name)) || '';
+    ch.on('playFunctionThrewException', (p) => errors.push('play function threw: ' + msg(p)));
+    ch.on('storyThrewException', (p) => errors.push('story threw: ' + msg(p)));
+    ch.on('storyErrored', (p) => errors.push('story errored: ' + msg(p)));
+    ch.on('unhandledErrorsWhilePlaying', (p) => errors.push('unhandled errors while playing: ' + msg(Array.isArray(p) ? p[0] : p)));
+    ch.on('storyFinished', (p) => { if (p && p.status === 'error') errors.push('storyFinished reported status "error"'); });
+  };
+  try {
+    let value = window.__STORYBOOK_ADDONS_CHANNEL__;
+    Object.defineProperty(window, '__STORYBOOK_ADDONS_CHANNEL__', {
+      configurable: true,
+      get: () => value,
+      set: (v) => { value = v; hook(v); },
+    });
+    hook(value);
+  } catch {}
+})();`;
+
 // Installed with addInitScript. An init script can run before <html> exists, so
 // when it is missing we watch the document and apply the markers the moment the
 // element is created, which is before the page's own scripts run.
 function initScript(theme) {
-  return `(() => {
+  return `${CHANNEL_HOOK}
+  (() => {
     const apply = () => {${applyBody(theme)}};
     if (document.documentElement) { apply(); return; }
     const mo = new MutationObserver(() => {
@@ -102,7 +132,23 @@ function initScript(theme) {
 // Re-applied after load and setup, in case the page or a setup step changed them.
 const reapplyScript = (theme) => `(() => {${applyBody(theme)}})();`;
 
-const KILL_MOTION = '*,*::before,*::after{transition:none!important;animation:none!important}';
+// Motion is settled, not removed: removing a CSS animation reverts the element to its base style, which is
+// not the end state (a sheet that slides in with `forwards` would be shot off-screen). So, in the page:
+//   - finite animations and transitions are finished (jump to their end state; a fill-forwards animation
+//     keeps holding it),
+//   - infinite animations (skeleton pulse, spinner) cannot finish; they are paused at currentTime 0, i.e.
+//     their first keyframe, and that frame is what is shot.
+// Then transitions are switched off so nothing starts moving again. Animations are not killed with
+// `animation: none`, and the screenshot is taken with animations 'allow' so Playwright does not cancel the
+// held frame.
+const SETTLE_MOTION = `(() => {
+  for (const a of document.getAnimations()) {
+    const t = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+    if (t && t.endTime === Infinity) { a.pause(); a.currentTime = 0; }
+    else { try { a.finish(); } catch { a.pause(); } }
+  }
+})();`;
+const NO_TRANSITIONS = '*,*::before,*::after{transition:none!important}';
 const STORY_TIMEOUT = Number(process.env.ATELIER_RENDER_STORY_TIMEOUT_MS) || 10000;
 
 const isStoryFrame = (url, baseUrl) => new URL(url, baseUrl).pathname.endsWith('iframe.html');
@@ -157,6 +203,10 @@ async function applyHover(page, target, isStory) {
       }
     });
   }
+  // parameters.harness.hover: a selector, true (first interactive), false (no hover at all, name fallback
+  // included) or "" (a mistake, reported).
+  if (want === false) return;
+  if (want === '') throw new Error('parameters.harness.hover is an empty string: use a selector, true or false');
   let selector = typeof want === 'string' && want ? want : null;
   if (!selector && (want === true || HOVER_STATE.test(target.state))) selector = FIRST_INTERACTIVE;
   if (!selector) return;
@@ -168,8 +218,8 @@ async function applyHover(page, target, isStory) {
   if (!loc) throw none();
   try {
     await loc.hover({ timeout: STEP_TIMEOUT });
-  } catch {
-    throw none();
+  } catch (err) {
+    throw new Error(`Hover on ${selector === FIRST_INTERACTIVE ? 'the first-interactive fallback' : selector} failed: ${String(err.message).split('\n')[0]}`);
   }
 }
 
@@ -211,9 +261,16 @@ async function waitUntilReady(page, target, baseUrl) {
   if (await page.evaluate(() => document.body.classList.contains('sb-show-errordisplay'))) {
     throw new Error('Storybook story did not render: error display is showing');
   }
-  // Finished phase: Storybook's current render goes ... playing -> played -> completed. 'errored' means the
-  // render or the play function threw, which is a failed capture. If the preview global is absent (not a
-  // real Storybook frame) the content checks above are all there is.
+  // Finished phase. Checked against Storybook 10.6.7 (StoryRender.render, storybook/dist/_browser-chunks/
+  // chunk-M6YZR3ZW.js ~1650-1715): a story runs
+  //   preparing, loading, beforeEach, rendering, playing, played, completing, completed, afterEach, finished
+  // and "finished" is the resting phase. "completed" and "errored" last microseconds, but Storybook 8 stops at
+  // "completed", so any of finished, aborted, errored or completed ends the wait; after a completed or errored
+  // we give "finished" up to 500ms more (best effort, never fails the shot). A phase alone cannot tell a play
+  // or render error any more (a thrown play goes errored then finished), so errors are read from the
+  // error display (renderException calls view.showErrorDisplay -> body.sb-show-errordisplay) and from the
+  // channel hook (see CHANNEL_HOOK). If the preview global is absent (not a real Storybook frame) the content
+  // checks above are all there is.
   const phase = () => {
     const r = window.__STORYBOOK_PREVIEW__ && window.__STORYBOOK_PREVIEW__.currentRender;
     return r ? r.phase : null;
@@ -223,7 +280,7 @@ async function waitUntilReady(page, target, baseUrl) {
     await page.waitForFunction(
       () => {
         const r = window.__STORYBOOK_PREVIEW__ && window.__STORYBOOK_PREVIEW__.currentRender;
-        return !!r && (r.phase === 'completed' || r.phase === 'errored');
+        return !!r && ['finished', 'aborted', 'errored', 'completed'].includes(r.phase);
       },
       null,
       { timeout: STORY_TIMEOUT },
@@ -231,9 +288,17 @@ async function waitUntilReady(page, target, baseUrl) {
   } catch {
     throw new Error(`Storybook story did not finish: render phase is "${await page.evaluate(phase)}" after ${STORY_TIMEOUT}ms (play function still running?)`);
   }
-  if ((await page.evaluate(phase)) === 'errored') {
-    throw new Error('Storybook story errored: the play function or render threw (render phase "errored")');
+  await page
+    .waitForFunction(() => ['finished', 'aborted'].includes(window.__STORYBOOK_PREVIEW__.currentRender.phase), null, { timeout: 500 })
+    .catch(() => {});
+  const final = await page.evaluate(phase);
+  if (final === 'aborted') throw new Error('Storybook story aborted: the render was cancelled before it finished (render phase "aborted")');
+  if (await page.evaluate(() => document.body.classList.contains('sb-show-errordisplay'))) {
+    throw new Error('Storybook story errored: error display is showing');
   }
+  const reported = await page.evaluate(() => (window.__atelierStoryErrors || [])[0] || null);
+  if (reported) throw new Error(`Storybook story errored: ${reported}`);
+  if (final === 'errored') throw new Error('Storybook story errored: render phase ended on "errored"');
 }
 
 // Refuses symbolic links for the out dir and the slug folder (a missing path is fine).
@@ -314,11 +379,12 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
                 if (isStory) await assertStoryTheme(page, theme, 3000);
                 await applySetup(page, target.setup);
                 await applyHover(page, target, isStory);
-                // Motion is switched off only now, after the finished phase, so the shot is of the end state.
-                await page.addStyleTag({ content: KILL_MOTION });
+                // Motion is settled only now, after the finished phase (and after hover, which can start transitions).
+                await page.evaluate(SETTLE_MOTION);
+                await page.addStyleTag({ content: NO_TRANSITIONS });
                 await page.evaluate(reapplyScript(theme));
                 if (isStory) await assertStoryTheme(page, theme, 0);
-                await page.screenshot({ path: path.join(slugDir, file), fullPage: true, animations: 'disabled' });
+                await page.screenshot({ path: path.join(slugDir, file), fullPage: true, animations: 'allow' });
               } catch (err) {
                 shot.status = 'error';
                 shot.error = String(err.message).split('\n')[0];

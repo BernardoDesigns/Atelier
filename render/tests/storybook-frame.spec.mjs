@@ -62,7 +62,33 @@ test('a play function error is a failed capture (status error), not a shot', asy
   expect(res.code, res.stdout + res.stderr).toBe(0);
   for (const s of byState(manifest, 'bad')) {
     expect(s.status).toBe('error');
-    expect(s.error).toMatch(/errored: the play function or render threw/);
+    expect(s.error).toMatch(/error display is showing/);
+  }
+  expect(byState(manifest, 'fine').every((s) => s.status === 'ok')).toBe(true);
+});
+
+test('a play error with no error display (throwPlayFunctionExceptions:false) is still error, via the channel', async () => {
+  const { manifest } = await render('quiet', [story('q', 'quiet--story'), story('fine', 'fine--story')]);
+  for (const s of byState(manifest, 'q')) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/play function threw: quiet boom in play/);
+  }
+  expect(byState(manifest, 'fine').every((s) => s.status === 'ok')).toBe(true);
+});
+
+test('storyFinished with status error and nothing on screen is error', async () => {
+  const { manifest } = await render('finerr', [story('f', 'finerr--story')]);
+  for (const s of manifest.shots) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/storyFinished reported status "error"/);
+  }
+});
+
+test('a render that ends on the aborted phase is error', async () => {
+  const { manifest } = await render('abort', [story('ab', 'abort--story'), story('fine', 'fine--story')]);
+  for (const s of byState(manifest, 'ab')) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/aborted/);
   }
   expect(byState(manifest, 'fine').every((s) => s.status === 'ok')).toBe(true);
 });
@@ -95,6 +121,30 @@ test('hover is a real pointer move: named state, story parameter, and setup step
   expect(lines.some((l) => l.startsWith('FAIL plain.'))).toBe(false);
 });
 
+test('parameters.harness.hover = false turns the state-name fallback off; "" is an error', async () => {
+  const { res, manifest } = await render('hoveroff', [
+    story('x-hover', 'hovernone--story'),
+    story('y-hover', 'hoverempty--story'),
+  ]);
+  expect(res.stdout).not.toContain('FAIL x-hover');
+  expect(byState(manifest, 'x-hover').every((s) => s.status === 'ok')).toBe(true);
+  for (const s of byState(manifest, 'y-hover')) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/parameters\.harness\.hover is an empty string/);
+  }
+});
+
+test('a hover that cannot be performed keeps the cause (covered by an overlay), not "no element matched"', async () => {
+  const { manifest } = await render('hovercover', [story('c-hover', 'hovercover--story')], {
+    env: { ATELIER_RENDER_STEP_TIMEOUT_MS: '400' },
+  });
+  for (const s of manifest.shots) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/^Hover on .* failed: /);
+    expect(s.error).not.toMatch(/no hoverable element matched/);
+  }
+});
+
 test('hover requested but nothing to hover is error, not a silent un-hovered shot', async () => {
   const { manifest } = await render('nohover', [story('x-hover', 'plain--story')]);
   for (const s of manifest.shots) {
@@ -108,12 +158,15 @@ test('the capture path never clicks or presses the mouse (frame adds an empty bu
   expect(res.stdout).not.toContain('button-name');
 });
 
-test('animations are at their end state in the shot', async () => {
-  const { res, out } = await render('anim', [story('pulse', 'anim--box'), story('still', 'static--box')]);
+test('finite animations show their END state (not the base style); an infinite one is held at its first frame', async () => {
+  const { res, out } = await render('anim', [
+    story('end', 'endblue--box'), story('blue', 'solidblue--box'),
+    story('loop', 'loopgreen--box'), story('green', 'solidgreen--box'),
+  ]);
   expect(res.code, res.stdout + res.stderr).toBe(0);
-  const a = await png(out, 'anim', 'pulse.light.sm.png');
-  const b = await png(out, 'anim', 'still.light.sm.png');
-  expect(a.equals(b)).toBe(true);
+  const same = async (x, y) => (await png(out, 'anim', `${x}.light.sm.png`)).equals(await png(out, 'anim', `${y}.light.sm.png`));
+  expect(await same('end', 'blue')).toBe(true);
+  expect(await same('loop', 'green')).toBe(true);
 });
 
 test('full-page shots at the requested width; a fixed 100vh element stays viewport sized', async () => {
