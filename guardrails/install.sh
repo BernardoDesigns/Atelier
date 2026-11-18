@@ -76,13 +76,16 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # Write in place (not mv) so a symlinked file stays a symlink, after a backup.
+# <file> <new content> <what changed, for the message> <backup label>
+# The backup label ends up in the file name: guardrails (plain install),
+# guardrails-enforce, guardrails-relax.
 save() {
-    local file=$1 merged=$2 label=$3
+    local file=$1 merged=$2 label=$3 blabel=${4:-guardrails}
     if [ "$merged" = "$(jq . "$file")" ]; then
         echo "$label already up to date in $file, leaving it"
     else
         local backup
-        if ! backup=$(atelier_backup_copy "$file" guardrails); then
+        if ! backup=$(atelier_backup_copy "$file" "$blabel"); then
             echo "ERROR: no backup of $file could be made, so it was left untouched." >&2
             exit 1
         fi
@@ -116,7 +119,7 @@ if [ "$RELAX" -eq 1 ]; then
                 else . end)
             | if (.hooks // null) == {} then del(.hooks) else . end
         ' "$SETTINGS"); then
-        save "$SETTINGS" "$RELAXED" "relaxed guardrails (build-session hooks removed)"
+        save "$SETTINGS" "$RELAXED" "relaxed guardrails (build-session hooks removed)" guardrails-relax
     else
         echo "ERROR: $SETTINGS is not valid JSON, left it alone. Fix it and re-run."
     fi
@@ -153,6 +156,7 @@ if MERGED=$(jq \
                {matcher: "Bash", hooks: [{type: "command", command: $nc}]}])
     ' "$SETTINGS"); then
     LABEL="guardrails"
+    BLABEL="guardrails"
     if [ "$ENFORCE" -eq 1 ]; then
         # PreToolUse hooks get the same fail-closed wrapper as the two hooks above.
         # The Stop hook and the fast gate get a fail-open one (warn, exit 1).
@@ -177,12 +181,13 @@ if MERGED=$(jq \
                 | .hooks.Stop = (keep("Stop") + [{hooks: [{type: "command", command: $dc}]}])
             ' <<<"$MERGED"); then
             LABEL="guardrails and build-session hooks (--enforce)"
+            BLABEL="guardrails-enforce"
         else
             echo "ERROR: couldn't add the build-session hooks, left $SETTINGS alone."
             exit 1
         fi
     fi
-    save "$SETTINGS" "$MERGED" "$LABEL"
+    save "$SETTINGS" "$MERGED" "$LABEL" "$BLABEL"
 else
     echo "ERROR: $SETTINGS is not valid JSON, left it alone. Fix it and re-run."
 fi
