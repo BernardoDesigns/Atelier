@@ -80,6 +80,10 @@ check("SKILL.md has frontmatter", bool(fm))
 fmt = fm.group(1) if fm else ""
 check("frontmatter name is spec", re.search(r"^name: spec$", fmt, flags=re.M) is not None)
 check("frontmatter has a description", re.search(r"^description: \S", fmt, flags=re.M) is not None)
+desc = (re.search(r"^description: (.*)$", fmt, flags=re.M) or [None, ""])[1]
+check("description limits the trigger to explicit requests",
+      "Do not use it on your own initiative" in desc and "/spec" in desc)
+check("description has no vague-idea trigger", "vague idea that needs pinning down" not in desc)
 check("SKILL.md states the refusal rule",
       "No SPEC.md is written while `Acceptance criteria` or `States to cover` is empty" in skill)
 check("SKILL.md names all eight headings", all(("**" + h + ".**") in skill for h in HEADINGS))

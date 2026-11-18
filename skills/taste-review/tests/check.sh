@@ -293,6 +293,10 @@ check("gen-state --sync adds a missing item as pending and keeps cut keys",
 # ---------- 4. SKILL.md text ----------
 skill = read(here + "/../SKILL.md")
 fm = re.match(r"^---\n(.*?)\n---\n", skill, flags=re.S)
+desc = (re.search(r"^description: (.*)$", fm.group(1), re.M) or [None, ""])[1] if fm else ""
+check("description limits the trigger to explicit requests",
+      "Do not use it on your own initiative" in desc and "/taste-review" in desc
+      and "wants to approve" not in desc)
 check("SKILL.md has name and description frontmatter",
       bool(fm) and re.search(r"^name: taste-review$", fm.group(1), re.M) is not None
       and re.search(r"^description: \S", fm.group(1), re.M) is not None)

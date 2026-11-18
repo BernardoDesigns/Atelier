@@ -1,6 +1,6 @@
 ---
 name: spec
-description: Interview the user until there is enough to write a complete SPEC.md for a UI build, then write it into the current repo. Use when someone wants to spec a feature, screen or flow before building, says "write a spec", "spec this out", or hands over a vague idea that needs pinning down. Works on its own or when called from the Eames command.
+description: Interviews the user, then writes a complete SPEC.md for a UI build into the current repo. Use only when the user types /spec, explicitly asks to write or draft a spec ("write a spec", "spec this out"), or the Eames command hands off to it. Do not use it on your own initiative for a vague idea or a general design question.
 ---
 
 # Spec interview
