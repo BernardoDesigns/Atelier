@@ -15,8 +15,8 @@ Everything in this release is opt-in. Nothing changes how Claude Code behaves un
 
 - `failures.md`: 24 known traps, each with the trap, how it shows up and what to do instead, all marked draft until reviewed.
 - `templates/SPEC.md`: the SPEC template with the eight contract headings, the standard states and the four protected paths.
-- `spec` skill (`skills/spec/`): an interview that refuses to write a SPEC.md while acceptance criteria or states are missing, then writes it into the current repo. It runs when you type `/spec` or ask for a spec.
-- `taste-review` skill (`skills/taste-review/`): reviews every draft item one at a time, keeps its state on a long-lived `taste-review` branch, and finishes with one pull request. Ships `taste-review/state.json` with every item pending.
+- `spec` skill (`skills/spec/`): an interview that refuses to write a SPEC.md while acceptance criteria or states are missing, then writes it into the current repo. It runs only when you type `/spec`, ask for a spec in so many words, or Eames hands off to it. It does not start on its own.
+- `taste-review` skill (`skills/taste-review/`): reviews every draft item one at a time, keeps its state on a long-lived `taste-review` branch, and finishes with one pull request. Ships `taste-review/state.json` with every item pending. It runs only when you type `/taste-review` or ask for a taste review, never on its own.
 - `setup.sh` links `skills/spec` and `skills/taste-review` into `~/.claude/skills/` one folder at a time, beside whatever is already there. A real folder or a link to somewhere else with the same name is left alone with a warning. Like the `~/.claude/atelier` link, it skips this from a git worktree. Linking makes `/spec` and `/taste-review` available in every session, and both run only when asked.
 - `packaging/build.sh`: builds `dist/eames.zip` and `dist/rand.zip` as claude.ai skill uploads. Each zip holds one folder with `SKILL.md`, `taste.md` and `conventions.md`, and two runs give identical bytes. `dist/` is git-ignored.
 - `packaging/tests/check.sh`: checks the model frontmatter on the three commands, the zip contents and build determinism.
