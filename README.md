@@ -47,7 +47,7 @@ Session debrief ──▶ proposes learnings ──▶ I approve which ones to k
 
 ## Shared rules: `global/CLAUDE.md`
 
-`global/CLAUDE.md` holds the rules the agents share: who owns which verb (Eames and the Critic judge, Impeccable polishes code), when to ask and when to ship, and where the contract files live. It's short on purpose, because it loads into every session in every repo.
+`global/CLAUDE.md` holds the rules the agents share: verb ownership, when to ask and when to ship, and pointers to the contract files. It's short on purpose, because it loads into every session in every repo. It also points at `failures.md` and a Critic agent; both arrive in later releases and aren't in the repo yet.
 
 To use it, add one line to your own `~/.claude/CLAUDE.md`:
 
@@ -134,13 +134,14 @@ bash setup.sh
 
 Then open a new terminal. `setup.sh`:
 
-- symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies, and `~/.claude/atelier` to the checkout
-- carries a helper that will link single agent and skill files into `~/.claude/agents/` and `~/.claude/skills/` beside whatever is already there, without replacing those folders (nothing uses it yet)
+- symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies, and `~/.claude/atelier` to the checkout (run it from the main checkout, not a git worktree; it skips that link from a worktree and says so)
 - adds a source line to `.zshrc`
 - adds the Aurora billboard and Sketchpad to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
 - merges the guardrails into `~/.claude/settings.json`: ask before destructive commands, before any write outside the current repo, and before curl/wget reaches anything but localhost or a `cc` tunnel
 - builds the Aurora HUD and starts it at login (skip with `bash setup.sh --no-hud`)
 - backs up any existing file it would replace (timestamped), and is safe to re-run
+
+**Heads up on the guardrails.** `setup.sh` now edits `~/.claude/settings.json`, so it applies to every repo on the machine. It adds ask rules for destructive commands, a few allow rules for curl to local hosts only, and two hooks: one for writes outside the current repo, one for curl or wget to anything that isn't local. It also removes the broad allow rules listed in `guardrails/permissions-retired.json`, from that file and from `~/.claude/settings.local.json`. Each file that changes is backed up first, beside the original, as `.bak.<date>-<time>`. The hooks block rather than pass if their script or python3 is missing. To undo, put the backup back.
 
 ## Keeping machines in sync
 
