@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-18
+
+This release fixes how `setup.sh` backs up your settings. Nothing new is installed.
+
+### Fixed
+
+- `setup.sh` could lose the backup of your original `~/.claude/settings.json`. It edits that file in two steps, and each step saved a backup named with the time down to the second. When both steps ran in the same second, the second backup replaced the first, so the newest backup was the file as it stood halfway through setup, not as you had it before. Now no backup ever replaces another one. Each step puts its own label on the end of the name, and if a name is somehow taken, a number is added (`-2`, `-3`). The names look like this:
+  - `settings.json.bak.20261118-101530-aurora-mods` (the step that wires in the Aurora billboard and Sketchpad)
+  - `settings.json.bak.20261118-101530-guardrails` (the guardrails step; `settings.local.json` gets the same label)
+  - `commands.bak.<date>-<time>-commands` and `.dev-aliases.sh.bak.<date>-<time>-aliases` for the two other things `setup.sh` can move aside
+  Every backup still starts with `.bak.` and the date and time, so the undo commands from 1.1.0 work as written. `setup.sh` also prints each backup path as it makes it, and at the end lists, under "Your files as they were before this run", the backup that holds each file as it was before the run. Restoring one puts back that file's contents only; for `commands` and `.dev-aliases.sh`, which are links into the repo after setup, remove the link first and then move the backup back. Running `guardrails/install.sh` on its own uses the same names and prints the backup path for each file it changes; that end-of-run list is only printed by `setup.sh`. If a backup can't be made, the file is left untouched: `setup.sh` skips that step and lists it at the end, and `guardrails/install.sh` stops with an error. What gets installed has not changed.
+
 ## [1.2.0] - 2026-11-18
 
 Everything in this release is opt-in. Nothing changes how Claude Code behaves unless you use it.
@@ -113,6 +125,7 @@ Everything in this release is opt-in. Nothing changes how Claude Code behaves un
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
+[1.2.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.1.0
 [1.0.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.1
