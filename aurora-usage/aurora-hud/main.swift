@@ -12,7 +12,9 @@
 //
 // Build:  swiftc -O main.swift -o AuroraHUD      (needs Xcode Command Line Tools)
 // Use:    stays hidden until a limit crosses its line (5h at 75%, 7d at 90% by
-//         default), and only shows while the Claude desktop app is open
+//         default; `aurora profile <name>` swaps in other lines and pause points,
+//         which say "Time to stop" in words), and only shows while the Claude
+//         desktop app is open
 //         (✕ hides it until Claude next launches).
 //         Click to collapse/expand, click ↻ to refresh, drag to move, right-click
 //         for Refresh, themes, each limit's line, "Hide until…" and Quit.
@@ -235,6 +237,18 @@ enum Prefs {
     /// While a limit is snoozed, it can't raise the HUD until it reaches this level.
     static func snoozedUntil(_ k: LimitKind) -> Double? { level("snooze", k) }
     static func setSnoozedUntil(_ k: LimitKind, _ v: Double?) { setLevel("snooze", k, v) }
+
+    /// Where a profile says to stop, not just look. Nil when the limit has none.
+    /// Set by `aurora profile <name>`; the HUD only reads it.
+    static func pauseAt(_ k: LimitKind) -> Double? {
+        guard let p = level("pauseAt", k), p > 0, p < Gate.off else { return nil }
+        return p
+    }
+    /// Extra words for a limit's heads-up, like the Fable reminder on 7d.
+    static func note(_ k: LimitKind) -> String? {
+        (SharedFile.read()["note"] as? [String: Any])?[k.rawValue] as? String
+    }
+    static var profile: String { (SharedFile.read()["profile"] as? String) ?? "default" }
 }
 
 /// The two plan limits the HUD watches. The weekly one climbs slowly and can sit
@@ -255,8 +269,9 @@ func levelLabel(_ v: Double) -> String {
 // Same rules as the mod's hooks/gate.ts.
 // Works like a low-fuel light, one per limit: the HUD stays out of sight until
 // either limit crosses its own line. "Hide until…" snoozes the limits that raised
-// it until each reaches its next step (90, then 95), or drops back under its line
-// (a reset), whichever comes first.
+// it until each reaches its next step (its pause point, 90, then 95), or drops
+// back under its line (a reset), whichever comes first. A profile's pause point
+// always raises it and can't be snoozed: that's the "time to stop" signal.
 
 enum Gate {
     static let steps: [Double] = [90, 95]
@@ -270,7 +285,7 @@ enum Gate {
             let reading = u.problem == nil ? k.reading(u) : nil
             let v = decide(peak: reading, showAt: Prefs.showAt(k), snoozedUntil: Prefs.snoozedUntil(k))
             Prefs.setSnoozedUntil(k, v.snooze)
-            if v.show { raised.insert(k) }
+            if v.show || isPaused(k, reading) { raised.insert(k) }
         }
         return raised
     }
@@ -283,14 +298,21 @@ enum Gate {
         return (true, nil)
     }
 
-    static func nextStep(after peak: Double, showAt: Double) -> Double {
-        steps.first { $0 > peak && $0 > showAt } ?? untilReset
+    /// At or past its pause point. A snooze or an "Off" line doesn't hide this.
+    static func isPaused(_ k: LimitKind, _ reading: Double?) -> Bool {
+        guard let p = Prefs.pauseAt(k), let r = reading else { return false }
+        return r >= p
+    }
+
+    /// A snooze waits for the pause point first, when there is one, then 90 and 95.
+    static func nextStep(after peak: Double, showAt: Double, pauseAt: Double? = nil) -> Double {
+        ((pauseAt.map { [$0] } ?? []) + steps).sorted().first { $0 > peak && $0 > showAt } ?? untilReset
     }
 }
 
 // MARK: - The panel
 
-let EXPANDED = NSSize(width: 312, height: 82)
+let EXPANDED = NSSize(width: 336, height: 82)
 let COLLAPSED = NSSize(width: 226, height: 30)
 
 // The icon buttons, in both sizes: refresh, minimize/maximize, and close
@@ -414,8 +436,10 @@ final class HUDView: NSView {
         shape.fill()
 
         // The border warms up past 90% so the panel nudges you from your peripheral vision.
+        // A pause point lights it too, and the footer says why in words.
         let peak = max(usage.fiveHour ?? 0, usage.sevenDay ?? 0)
-        (peak >= 90 ? color(th.hot, 0.7) : NSColor.white.withAlphaComponent(0.08)).setStroke()
+        let hot = peak >= 90 || !pausedLimits().isEmpty
+        (hot ? color(th.hot, 0.7) : NSColor.white.withAlphaComponent(0.08)).setStroke()
         shape.lineWidth = 1
         shape.stroke()
 
@@ -436,8 +460,46 @@ final class HUDView: NSView {
     /// so a glance shows which one raised the HUD.
     func isPast(_ k: LimitKind) -> Bool {
         let line = Prefs.showAt(k)
-        if line <= 0 { return true }
+        if line <= 0 || Gate.isPaused(k, k.reading(usage)) { return true }
         return (k.reading(usage) ?? 0) >= line
+    }
+
+    func pausedLimits() -> [LimitKind] {
+        guard usage.problem == nil else { return [] }
+        return LimitKind.allCases.filter { Gate.isPaused($0, $0.reading(usage)) }
+    }
+
+    /// "⏸ Time to stop · 7d hit 75%": the pause point in words, not just color.
+    func stopLine() -> String? {
+        let stop = pausedLimits()
+        guard !stop.isEmpty else { return nil }
+        // Both at once drops "hit" so the line still fits beside the buttons.
+        let what = stop.count == 1
+            ? "\(stop[0].rawValue) hit \(Int(Prefs.pauseAt(stop[0]) ?? 0))%"
+            : stop.map { "\($0.rawValue) \(Int(Prefs.pauseAt($0) ?? 0))%" }.joined(separator: " · ")
+        return "⏸ Time to stop · " + what
+    }
+
+    /// The heads-up note of a limit past its real line but not paused.
+    func activeNote() -> String? {
+        guard usage.problem == nil else { return nil }
+        for k in LimitKind.allCases {
+            let line = Prefs.showAt(k)
+            guard let note = Prefs.note(k), !note.isEmpty, line > 0, line < Gate.off,
+                  !Gate.isPaused(k, k.reading(usage)), (k.reading(usage) ?? 0) >= line else { continue }
+            return note
+        }
+        return nil
+    }
+
+    /// Steps the font down until the string fits, so long notes stay whole.
+    private func fitted(_ s: String, _ c: NSColor, bold: Bool, width: CGFloat) -> NSAttributedString {
+        for size: CGFloat in [12, 11, 10] {
+            let f = NSFont.monospacedSystemFont(ofSize: size, weight: bold ? .bold : .regular)
+            let a = NSAttributedString(string: s, attributes: [.font: f, .foregroundColor: c])
+            if a.size().width <= width || size == 10 { return a }
+        }
+        return text(s, c, bold: bold)
     }
 
     private func dimmed(_ k: LimitKind, _ draw: () -> Void) {
@@ -481,17 +543,39 @@ final class HUDView: NSView {
                     from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
     }
 
+    // Room left of the buttons, which share the footer's row.
+    private var footerWidth: CGFloat { rect(.refresh).minX - 14 - 6 }
+
     private func drawFooter(_ th: Theme) {
+        // A pause point outranks everything but an active refresh: it's the one
+        // line that means stop, so it reads in words, bold, in the hot color.
+        if !refreshing, let stop = stopLine() {
+            fitted(stop, color(th.hot), bold: true, width: footerWidth).draw(at: NSPoint(x: 14, y: 57))
+            return
+        }
         let foot: String
+        var tint = color(th.mute, 0.7)
+        let lines = "5h \(levelLabel(Prefs.showAt(.fiveHour))) · 7d \(levelLabel(Prefs.showAt(.sevenDay)))"
         if refreshing { foot = "Refreshing…" }
         else if refreshFailed { foot = "Refresh didn't finish · try again" }
-        else if usage.isStale { foot = "Last reading \(duration(usage.sampleAge)) ago" }
-        else { foot = "Shows at 5h \(levelLabel(Prefs.showAt(.fiveHour))) · 7d \(levelLabel(Prefs.showAt(.sevenDay)))" }
-        let stale = usage.isStale && !refreshing
-        text(foot, stale ? color(th.warn, 0.9) : color(th.mute, 0.7)).draw(at: NSPoint(x: 14, y: 57))
+        else if usage.isStale { foot = "Last reading \(duration(usage.sampleAge)) ago"; tint = color(th.warn, 0.9) }
+        else if let note = activeNote() { foot = note; tint = color(th.warn) }
+        else if Prefs.profile != "default" { foot = "\(Prefs.profile) · \(lines)" }
+        else { foot = "Shows at " + lines }
+        fitted(foot, tint, bold: false, width: footerWidth).draw(at: NSPoint(x: 14, y: 57))
     }
 
     private func drawCollapsed(_ th: Theme) {
+        // Paused: the pill says stop and shows only the limits at their pause point.
+        let stop = pausedLimits()
+        if !stop.isEmpty {
+            let what = stop.count == 1
+                ? "\(stop[0].rawValue) \(Int((stop[0].reading(usage) ?? 0).rounded()))%"
+                : stop.map { $0.rawValue }.joined(separator: "+")
+            fitted("⏸ Stop · " + what, color(th.hot), bold: true, width: rect(.refresh).minX - 20)
+                .draw(at: NSPoint(x: 14, y: 7))
+            return
+        }
         var x: CGFloat = 14
         for (i, k) in LimitKind.allCases.enumerated() {
             let pct = k.reading(usage)
@@ -633,6 +717,12 @@ final class HUDView: NSView {
             menu.addItem(showItem)
         }
 
+        // A pause point can't be snoozed; say so instead of leaving Hide missing.
+        for k in pausedLimits() {
+            menu.addItem(NSMenuItem(title: "⏸ \(k.rawValue) at its pause point · stays up until reset",
+                                    action: nil, keyEquivalent: ""))
+        }
+
         // "Hide until 5h hits 90% or 7d resets": names only the limits holding the HUD up.
         let holding = snoozable()
         if !holding.isEmpty {
@@ -667,8 +757,9 @@ final class HUDView: NSView {
         LimitKind.allCases.compactMap { k in
             let line = Prefs.showAt(k)
             guard line > 0, line < Gate.off, Prefs.snoozedUntil(k) == nil,
-                  let reading = k.reading(usage), reading >= line else { return nil }
-            return (k, Gate.nextStep(after: reading, showAt: line))
+                  let reading = k.reading(usage), reading >= line,
+                  !Gate.isPaused(k, reading) else { return nil }
+            return (k, Gate.nextStep(after: reading, showAt: line, pauseAt: Prefs.pauseAt(k)))
         }
     }
 

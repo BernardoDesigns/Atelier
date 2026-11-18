@@ -15,7 +15,10 @@ import {
   isRaised,
   levelLabel,
   lineOf,
+  noteFor,
   parseLevel,
+  pauseOf,
+  pausedLimits,
   snoozable,
   toastLevels,
   type Readings,
@@ -111,7 +114,12 @@ function readings(fiveHour: Limit | null | undefined, sevenDay: Limit | null | u
 // idle session's own numbers can be hours old. Only writes when a snooze changed.
 async function syncGate($: EngineInterface): Promise<Gate> {
   const shared = await readShared($)
-  const g: Gate = { showAt: shared.showAt ?? {}, snooze: shared.snooze ?? {} }
+  const g: Gate = {
+    showAt: shared.showAt ?? {},
+    pauseAt: shared.pauseAt ?? {},
+    note: shared.note ?? {},
+    snooze: shared.snooze ?? {},
+  }
   const r = readings(shared.fiveHour, shared.sevenDay, await $.clock.now())
 
   const snooze: Gate['snooze'] = {}
@@ -121,7 +129,7 @@ async function syncGate($: EngineInterface): Promise<Gate> {
   }
   if (LIMITS.some(k => snooze[k] !== g.snooze[k])) await share($, { snooze })
 
-  const next: Gate = { showAt: g.showAt, snooze }
+  const next: Gate = { ...g, snooze }
   await update($, gate, () => next)
   if (shared.fiveHour || shared.sevenDay) {
     await update($, snapshot, s =>
@@ -178,12 +186,22 @@ export const register: Register = on => {
       ['7d', 'weekly', snap.sevenDay],
     ] as const) {
       if (!lim) continue
-      for (const t of toastLevels(lineOf(g, key))) {
-        const key = `${label}:${t}:${lim.resetsAt ?? ''}`
-        if (lim.percent >= t && !toasted.has(key)) {
-          toasted.add(key)
-          $.ui.toast(`Heads up: ${label} limit at ${Math.round(lim.percent)}%`)
+      const line = lineOf(g, key)
+      const pause = pauseOf(g, key)
+      const once = (level: number, text: string) => {
+        const id = `${label}:${level}:${lim.resetsAt ?? ''}`
+        if (lim.percent >= level && !toasted.has(id)) {
+          toasted.add(id)
+          $.ui.toast(text)
         }
+      }
+      // The pause toast goes first, so a jump straight past both lines leads with stop.
+      if (pause !== undefined) {
+        once(pause, `⏸ Pause point: ${label} limit at ${Math.round(lim.percent)}%. Time to stop.`)
+      }
+      for (const t of toastLevels(line, pause)) {
+        const note = t === line && !(pause !== undefined && lim.percent >= pause) ? g.note?.[key] : undefined
+        once(t, `Heads up: ${label} limit at ${Math.round(lim.percent)}%${note ? `. ${note}` : ''}`)
       }
     }
     return next(e)
@@ -228,8 +246,16 @@ export const register: Register = on => {
     if (sub === 'hide') {
       const g = await syncGate($)
       const shared = await readShared($)
-      const holding = snoozable(g, readings(shared.fiveHour, shared.sevenDay, await $.clock.now()))
-      if (holding.length === 0) return { text: 'Nothing to hide: no limit is holding it up.' }
+      const r = readings(shared.fiveHour, shared.sevenDay, await $.clock.now())
+      const holding = snoozable(g, r)
+      if (holding.length === 0) {
+        const stop = pausedLimits(g, r)
+        return {
+          text: stop.length
+            ? `${stop.join(' and ')} ${stop.length > 1 ? 'are' : 'is'} at a pause point, which doesn't hide. It clears at the reset, or switch profiles with: aurora profile default`
+            : 'Nothing to hide: no limit is holding it up.',
+        }
+      }
       await share($, { snooze: { ...g.snooze, ...Object.fromEntries(holding) } })
       await syncGate($)
       const parts = holding.map(([k, n]) => (n > 100 ? `${k} resets` : `${k} hits ${n}%`))
@@ -238,13 +264,20 @@ export const register: Register = on => {
 
     const current = await read($, theme)
     const g = await read($, gate)
+    const profile = (await readShared($)).profile ?? 'default'
+    const pauses = LIMITS.flatMap(k => {
+      const p = pauseOf(g, k)
+      return p === undefined ? [] : [`${k} ${p}%`]
+    })
     const list = names
       .map(n => `${n === current ? '●' : '○'} ${n.padEnd(7)} ${THEMES[n]!.label}`)
       .join('\n')
     return {
       text:
         `Themes (current: ${current})\n${list}\n\n` +
-        `Shows at 5h ${levelLabel(lineOf(g, '5h'))} · 7d ${levelLabel(lineOf(g, '7d'))}\n\n` +
+        `Profile ${profile} (switch with: aurora profile <name>)\n` +
+        `Shows at 5h ${levelLabel(lineOf(g, '5h'))} · 7d ${levelLabel(lineOf(g, '7d'))}\n` +
+        `Pause at ${pauses.length ? pauses.join(' · ') : 'none'}\n\n` +
         `/billboard theme <name>   switch theme\n` +
         `/billboard bars thin|block   bar style\n` +
         `/billboard show 5h|7d <percent|always|off>   when a limit shows\n` +
@@ -291,7 +324,7 @@ export const register: Register = on => {
       </Text>
     )
 
-    const segment = (label: LimitKey, lim: Limit, dim: boolean) => {
+    const segment = (label: LimitKey, lim: Limit, dim: boolean, note?: string) => {
       const left = lim.resetsAt ? Date.parse(lim.resetsAt) - t : NaN
       return (
         <Text>
@@ -301,6 +334,7 @@ export const register: Register = on => {
               {' '}⏰{fmtDuration(left)}
             </Text>
           )}
+          {note && <Text color={th.warn}> · {note}</Text>}
         </Text>
       )
     }
@@ -314,9 +348,20 @@ export const register: Register = on => {
     // always show.
     const g = await read($, gate)
     const r: Readings = { '5h': fiveHour?.percent, '7d': sevenDay?.percent }
+    // A pause point leads the band in words, not just color, so it reads as
+    // "stop" even in mono or on a narrow window.
+    const stop = pausedLimits(g, r)
+    if (stop.length) {
+      const what = stop.map(k => `${k} hit ${pauseOf(g, k)}%`).join(', ')
+      parts.push(
+        <Text color={th.hot} weight="bold">
+          ⏸ Time to stop · {what}
+        </Text>,
+      )
+    }
     if (isRaised(g, r)) {
-      if (fiveHour) parts.push(segment('5h', fiveHour, !isPast(g, '5h', r)))
-      if (sevenDay) parts.push(segment('7d', sevenDay, !isPast(g, '7d', r)))
+      if (fiveHour) parts.push(segment('5h', fiveHour, !isPast(g, '5h', r), noteFor(g, '5h', r)))
+      if (sevenDay) parts.push(segment('7d', sevenDay, !isPast(g, '7d', r), noteFor(g, '7d', r)))
     }
     // Past 100% on either window, Max keeps going on usage credits. That's money,
     // so it shows even when the limit is snoozed or off.

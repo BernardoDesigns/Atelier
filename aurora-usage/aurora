@@ -1,0 +1,75 @@
+#!/bin/bash
+# aurora: switch Aurora Usage threshold profiles.
+#
+#   aurora profile             list profiles, mark the active one
+#   aurora profile fable-run   apply a profile
+#   aurora profile default     back to the everyday lines
+#
+# Profiles live in profiles.json next to this script. Applying one writes its
+# heads-up lines (showAt), pause points (pauseAt) and heads-up notes into the
+# shared file ~/.claude/aurora-usage.json and clears any snoozes. The billboard and the HUD
+# both pick it up within 30 seconds. Every other key in the file stays.
+# No network, no tokens: this only touches that one file.
+
+set -euo pipefail
+
+SELF=$(realpath "$0")
+PROFILES="$(dirname "$SELF")/profiles.json"
+SHARED="$HOME/.claude/aurora-usage.json"
+
+command -v jq >/dev/null 2>&1 || { echo "aurora needs jq: brew install jq" >&2; exit 1; }
+
+lvl() { jq -r --arg k "$2" '.[$k] // empty | if . <= 0 then "always" elif . >= 101 then "off" else "\(.)%" end' <<<"$1"; }
+
+describe() {
+    local name=$1 p show pause
+    p=$(jq -c --arg n "$name" '.[$n]' "$PROFILES")
+    show=$(jq -c '.showAt' <<<"$p"); pause=$(jq -c '.pauseAt // {}' <<<"$p")
+    printf '  heads-up  5h %-6s 7d %s\n' "$(lvl "$show" 5h)" "$(lvl "$show" 7d)"
+    if [ "$pause" = "{}" ]; then
+        echo "  pause     none"
+    else
+        printf '  pause     5h %-6s 7d %s\n' "$(lvl "$pause" 5h)" "$(lvl "$pause" 7d)"
+    fi
+    jq -r '.note // {} | to_entries[] | "  note      \(.key): \(.value)"' <<<"$p"
+}
+
+list() {
+    local active
+    active=$(jq -r '.profile // "default"' "$SHARED" 2>/dev/null || echo default)
+    for name in $(jq -r 'keys_unsorted[]' "$PROFILES"); do
+        if [ "$name" = "$active" ]; then printf '● %s (active)\n' "$name"; else printf '○ %s\n' "$name"; fi
+        echo "  $(jq -r --arg n "$name" '.[$n].description // ""' "$PROFILES")"
+        describe "$name"
+    done
+}
+
+apply() {
+    local name=$1
+    if ! jq -e --arg n "$name" 'has($n)' "$PROFILES" >/dev/null; then
+        echo "No profile \"$name\". Try: $(jq -r 'keys_unsorted | join(", ")' "$PROFILES")" >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$SHARED")"
+    local current='{}'
+    [ -s "$SHARED" ] && current=$(jq -c . "$SHARED" 2>/dev/null || echo '{}')
+    local next
+    next=$(jq --arg n "$name" --slurpfile p "$PROFILES" '
+        . + { v: 1, profile: $n, showAt: $p[0][$n].showAt, pauseAt: ($p[0][$n].pauseAt // {}),
+              note: ($p[0][$n].note // {}), snooze: {} }
+    ' <<<"$current")
+    # Temp file + rename in the same folder, so a reader never sees half a file.
+    local tmp="$SHARED.tmp.$$"
+    printf '%s\n' "$next" > "$tmp" && mv -f "$tmp" "$SHARED"
+    echo "Aurora profile: $name"
+    describe "$name"
+    echo "  (billboard and HUD pick this up within 30s; snoozes cleared)"
+}
+
+case "${1:-}" in
+    profile)
+        if [ -n "${2:-}" ]; then apply "$2"; else list; fi ;;
+    *)
+        echo "Usage: aurora profile [name]" >&2
+        exit 1 ;;
+esac
