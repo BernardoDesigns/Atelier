@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixture home</title>
+<style>
+  :root { --bg: #ffffff; --fg: #1a1a1a; }
+  html.dark { --bg: #111111; --fg: #f2f2f2; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; }
+</style>
+</head>
+<body>
+  <main>
+    <h1>Fixture home</h1>
+    <p>Plain readable text in both themes.</p>
+    <button id="open" type="button">Open</button>
+    <p id="panel" hidden>Panel is open</p>
+    <label for="name">Name</label>
+    <input id="name" type="text">
+  </main>
+  <script>
+    document.getElementById('open').addEventListener('click', () => {
+      document.getElementById('panel').hidden = false;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "atelier-render",
+  "private": true,
+  "type": "module",
+  "description": "Atelier render harness: screenshots every target x 2 themes x 3 breakpoints.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1",
+    "playwright": "^1.65.1"
+  }
+}

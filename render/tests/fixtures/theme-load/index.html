@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme at load</title>
+<style>
+  body { margin: 0; padding: 24px; background: #ffffff; color: #111111; font-family: system-ui, sans-serif; }
+  html.dark body { background: #111111; color: #f2f2f2; }
+</style>
+<script>
+  // Runs while the page loads. In a dark colour scheme the harness must already have put the
+  // "dark" class and data-theme="dark" on <html>. If either marker is missing right now, the page
+  // adds an image with no alt attribute, which axe always reports as critical (image-alt).
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var root = document.documentElement;
+  var markersAtLoad = root.classList.contains('dark') && root.getAttribute('data-theme') === 'dark';
+  var lateMarkers = prefersDark && !markersAtLoad;
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('seen').textContent = 'Markers at load: ' + (markersAtLoad ? 'yes' : 'no');
+    if (lateMarkers) {
+      var img = document.createElement('img');
+      img.src = '/pic.png';
+      img.width = 20;
+      img.height = 20;
+      document.body.appendChild(img);
+    }
+  });
+</script>
+</head>
+<body>
+  <main>
+    <h1>Theme at load</h1>
+    <p id="seen"></p>
+  </main>
+</body>
+</html>

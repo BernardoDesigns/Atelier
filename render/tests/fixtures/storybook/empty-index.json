@@ -1,0 +1,14 @@
+{
+  "v": 5,
+  "entries": {
+    "example-button--docs": {
+      "type": "docs",
+      "id": "example-button--docs",
+      "name": "Docs",
+      "title": "Example/Button",
+      "importPath": "./src/stories/Button.stories.ts",
+      "storiesImports": [],
+      "tags": ["autodocs"]
+    }
+  }
+}
