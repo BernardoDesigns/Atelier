@@ -1,0 +1,38 @@
+{
+  "v": 5,
+  "entries": {
+    "example-button--primary": {
+      "type": "story",
+      "id": "example-button--primary",
+      "name": "Primary",
+      "title": "Example/Button",
+      "importPath": "./src/stories/Button.stories.ts",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "example-button--secondary": {
+      "type": "story",
+      "id": "example-button--secondary",
+      "name": "Secondary",
+      "title": "Example/Button",
+      "importPath": "./src/stories/Button.stories.ts",
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "example-button--docs": {
+      "type": "docs",
+      "id": "example-button--docs",
+      "name": "Docs",
+      "title": "Example/Button",
+      "importPath": "./src/stories/Button.stories.ts",
+      "storiesImports": [],
+      "tags": ["dev", "test", "autodocs"]
+    },
+    "forms-input--with.dots v2": {
+      "type": "story",
+      "id": "forms-input--with.dots v2",
+      "name": "With dots",
+      "title": "Forms/Input",
+      "importPath": "./src/stories/Input.stories.ts",
+      "tags": ["dev", "test"]
+    }
+  }
+}
