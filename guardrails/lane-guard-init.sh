@@ -7,7 +7,7 @@
 # rules: /auth/**, /api/**, /payments/**, /lib/shared/**) into
 # <host-repo>/.claude/settings.json under permissions.deny. Creates the file if it's missing, keeps every other key
 # and every existing deny rule (in its original order), and backs up an existing
-# file as settings.json.bak.<timestamp> before changing it. Running it twice
+# file as settings.json.bak.<timestamp>-lane-guard before changing it. Running it twice
 # changes nothing.
 #
 # These are project-scope rules on purpose: a user-scope deny on api/ or auth/
@@ -18,9 +18,14 @@
 # Per-repo extras go in <host-repo>/.claude/lane-rules.json and are enforced by
 # lane-guard.sh. They add to these rules, they never replace them.
 
-SRC="$(cd "$(dirname "$0")" && pwd)/lane-guard-deny.json"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+SRC="$HERE/lane-guard-deny.json"
 
 die() { echo "lane-guard-init: $*" >&2; exit 1; }
+
+# Backup naming lives beside this script, same as install.sh.
+if [ -r "$HERE/backup-lib.sh" ]; then . "$HERE/backup-lib.sh"; fi
+type atelier_backup_copy >/dev/null 2>&1 || die "$HERE/backup-lib.sh is missing or broken, so no backup can be made. Nothing written."
 
 command -v jq >/dev/null 2>&1 || die "needs jq (brew install jq)"
 [ -n "$1" ] || die "usage: lane-guard-init.sh <host-repo>"
@@ -57,8 +62,7 @@ fi
 
 mkdir -p "$repo/.claude" || die "couldn't create $repo/.claude"
 if [ -s "$settings" ]; then
-    backup="$settings.bak.$(date +%Y%m%d-%H%M%S)"
-    cp "$settings" "$backup" || die "couldn't back up $settings"
+    backup=$(atelier_backup_copy "$settings" lane-guard) || die "couldn't back up $settings, left it untouched"
     echo "Backed up to $backup"
 fi
 printf '%s\n' "$merged" >"$settings"
