@@ -109,7 +109,7 @@ Then open a new terminal. `setup.sh`:
 - symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies
 - adds a source line to `.zshrc`
 - adds the Aurora billboard and Sketchpad to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
-- merges the guardrails into `~/.claude/settings.json`: ask before destructive commands, and before any write outside the current repo
+- merges the guardrails into `~/.claude/settings.json`: ask before destructive commands, before any write outside the current repo, and before curl/wget reaches anything but localhost or a `cc` tunnel
 - builds the Aurora HUD and starts it at login (skip with `bash setup.sh --no-hud`)
 - backs up any existing file it would replace (timestamped), and is safe to re-run
 
@@ -128,5 +128,5 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `aurora-usage/aurora-billboard/` | Usage billboard mod for Claude Code |
 | `aurora-usage/aurora-hud/` | Floating usage HUD for macOS (`main.swift` + build scripts) |
 | `sketchpad/` | Side conversation mod for Claude Code, for shaping prompts |
-| `guardrails/` | Ask rules for destructive commands, the outside-repo write hook, and its installer |
+| `guardrails/` | Ask and allow rules, the outside-repo write hook, the curl/wget host hook, and the installer |
 | `setup.sh` | Idempotent installer |

@@ -10,5 +10,6 @@
   "Bash(git restore:*)",
   "Bash(git stash drop:*)",
   "Bash(git stash clear:*)",
-  "Bash(find * -delete*)"
+  "Bash(find * -delete*)",
+  "Bash(pip3 install:*)"
 ]
