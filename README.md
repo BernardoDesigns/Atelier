@@ -20,6 +20,8 @@ Three slash commands in `commands/` that work as one system: a router, two speci
 
 Named after Charles Eames and Paul Rand, because each agent takes on a point of view, not just a task list.
 
+All three commands carry `model: opus` in their frontmatter, so the turn that runs the command is routed to Opus. It applies to that turn only, not to the rest of the conversation.
+
 ### How the system works
 
 ```
@@ -43,6 +45,32 @@ Session debrief ──▶ proposes learnings ──▶ I approve which ones to k
 
 ---
 
+## Shared rules: `global/CLAUDE.md`
+
+`global/CLAUDE.md` holds the rules the agents share: verb ownership, when to ask and when to ship, and pointers to the contract files. It's short on purpose, because it loads into every session in every repo. It also points at `failures.md` and a Critic agent; both arrive in later releases and aren't in the repo yet.
+
+To use it, add one line to your own `~/.claude/CLAUDE.md`:
+
+```
+@~/.claude/atelier/global/CLAUDE.md
+```
+
+`setup.sh` creates the `~/.claude/atelier` link to your checkout. Personal rules stay in your own file, which is never part of this repo.
+
+### The contract files
+
+Three files at the root hold the standards the agents work to:
+
+| File | What it is |
+|---|---|
+| `quality.md` | Production-grade rubric: gates G1 to G10 and principles P1 to P5 |
+| `taste.md` | Judgment items, interpreted rather than followed literally |
+| `conventions.md` | Literal standards, each answerable yes or no |
+
+`taste.md` and `conventions.md` are drafts until each item has been reviewed.
+
+---
+
 ## Daily rhythm
 
 From inside any project with a `package.json` and a `dev` script:
@@ -55,7 +83,7 @@ cc        # starts the dev server + a Cloudflare tunnel, then launches Claude Co
 - The public tunnel URL is copied to the clipboard and opened in the browser, so I can share a live preview right away. `DEV_OPEN=local` opens `localhost` instead (skips Chrome's Local Network Access prompt), `DEV_OPEN=none` opens nothing.
 - The tunnel dials whichever loopback address the server actually answers on (`127.0.0.1` or `::1`), so it stays steady whether the project is static, Next or Vite.
 - Works the same on a fresh start or a resume (`cc --resume`, `cc --continue`).
-- The port is auto-detected from `package.json` (3000 for Next, 5173 for Vite).
+- The port is auto-detected: a `-p` or `--port` in the `dev` script wins, otherwise 5173 if the script mentions Vite and 3000 if not. With no `dev` script it serves the folder statically on 8000.
 
 | Command | What it does |
 |---|---|
@@ -106,12 +134,22 @@ bash setup.sh
 
 Then open a new terminal. `setup.sh`:
 
-- symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies
+- symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies, and `~/.claude/atelier` to the checkout (run it from the main checkout, not a git worktree; it skips that link from a worktree and says so)
 - adds a source line to `.zshrc`
 - adds the Aurora billboard and Sketchpad to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
 - merges the guardrails into `~/.claude/settings.json`: ask before destructive commands, before any write outside the current repo, and before curl/wget reaches anything but localhost or a `cc` tunnel
 - builds the Aurora HUD and starts it at login (skip with `bash setup.sh --no-hud`)
 - backs up any existing file it would replace (timestamped), and is safe to re-run
+
+**Heads up on the guardrails.** The network hook is a `python3` script. If `python3` is missing, every Bash tool call is blocked ("Atelier network guardrail failed, so this is blocked. Check python3, or re-run guardrails/install.sh") until you install it or remove the hook. `setup.sh` also edits `~/.claude/settings.json` now, so it applies to every repo on the machine. It adds ask rules for destructive commands, a few allow rules for curl to local hosts only, and two hooks: one for writes outside the current repo, one for curl or wget to anything that isn't local. It removes the broad allow rules listed in `guardrails/permissions-retired.json`, from that file and from `~/.claude/settings.local.json`. A file that changes is backed up beside the original as `.bak.<date>-<time>`; no backup means that file wasn't touched. To undo, restore the newest backup and start a new Claude Code session:
+
+```bash
+cp "$(ls -t ~/.claude/settings.json.bak.* | head -1)" ~/.claude/settings.json
+# only if a settings.local.json backup exists:
+cp "$(ls -t ~/.claude/settings.local.json.bak.* | head -1)" ~/.claude/settings.local.json
+```
+
+Open the backup first: if it still mentions `net-host-guard`, take the next one down. This puts back the permission rules and hooks only; the symlinks `setup.sh` made and the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS` stay.
 
 ## Keeping machines in sync
 
@@ -124,6 +162,10 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `commands/design-director.md` | Router agent and the shared session debrief protocol |
 | `commands/eames.md` | Product design specialist |
 | `commands/rand.md` | Brand design specialist |
+| `quality.md` | Production-grade rubric (gates G1 to G10, principles P1 to P5) |
+| `taste.md` | Judgment items, each tagged with its source |
+| `conventions.md` | Literal standards, each with a yes/no check |
+| `global/CLAUDE.md` | Shared agent rules, imported from your own CLAUDE.md |
 | `dev-aliases.sh` | `cc`, `devup`, `devdown` |
 | `aurora-usage/aurora-billboard/` | Usage billboard mod for Claude Code |
 | `aurora-usage/aurora-hud/` | Floating usage HUD for macOS (`main.swift` + build scripts) |

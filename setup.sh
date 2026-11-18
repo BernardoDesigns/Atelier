@@ -35,6 +35,57 @@ fi
 
 echo "Done! ~/.claude/commands -> $REPO_DIR/commands"
 
+# --- Atelier home: ~/.claude/atelier -> the main checkout ---
+# Agents and commands run inside other repos, so they reach Atelier's files
+# (contract files, templates) through this one fixed path. A linked git
+# worktree gets deleted eventually, so the link is never made from one. Only a
+# symlink is ever replaced; anything else sitting there is left alone.
+ATELIER_LINK="$CLAUDE_DIR/atelier"
+GIT_DIR_ABS="$(cd "$REPO_DIR" 2>/dev/null && cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
+GIT_COMMON_ABS="$(cd "$REPO_DIR" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P)"
+if [ -n "$GIT_DIR_ABS" ] && [ "$GIT_DIR_ABS" != "$GIT_COMMON_ABS" ]; then
+    echo "WARNING: $REPO_DIR is a linked git worktree, so ~/.claude/atelier was not created or changed. Run setup.sh from the main checkout for this step."
+elif [ -e "$ATELIER_LINK" ] && [ ! -L "$ATELIER_LINK" ]; then
+    echo "WARNING: $ATELIER_LINK exists and isn't a symlink, left it alone. Move it aside and re-run setup.sh."
+else
+    if [ -L "$ATELIER_LINK" ] && [ "$(readlink "$ATELIER_LINK")" != "$REPO_DIR" ]; then
+        echo "WARNING: $ATELIER_LINK pointed at $(readlink "$ATELIER_LINK"), repointing it to $REPO_DIR"
+    fi
+    if ln -sfn "$REPO_DIR" "$ATELIER_LINK"; then
+        echo "Done! ~/.claude/atelier -> $REPO_DIR"
+    else
+        echo "WARNING: couldn't create the link $ATELIER_LINK"
+    fi
+fi
+
+# --- Helper: link ONE file or folder into a directory we don't own ---
+# ~/.claude/agents and ~/.claude/skills hold other tools' files, so Atelier adds
+# its links beside them. Never moves, replaces or deletes the directory itself.
+#   link_into <absolute path of a file or folder in this repo> <target dir>
+# The source must be an absolute path. Returns non-zero when it skips (missing
+# source, couldn't create the dir, something not ours in the way), so a caller
+# running under set -e must handle that.
+# Links when the destination is absent or already a link into this repo.
+# A real file or folder, or a link pointing elsewhere, is left with a warning.
+# The calls (agents/*.md, skills/*) arrive in later releases.
+link_into() {
+    local src=$1 dir=$2 dest
+    dest="$dir/$(basename "$src")"
+    if [ ! -e "$src" ]; then
+        echo "WARNING: $src doesn't exist, nothing linked into $dir"
+        return 1
+    fi
+    mkdir -p "$dir" || { echo "WARNING: couldn't create $dir, skipped $dest"; return 1; }
+    if [ ! -e "$dest" ] && [ ! -L "$dest" ]; then
+        ln -sfn "$src" "$dest"
+    elif [ -L "$dest" ] && [[ "$(readlink "$dest")" == "$REPO_DIR/"* ]]; then
+        ln -sfn "$src" "$dest"
+    else
+        echo "WARNING: $dest exists and isn't ours, left it alone"
+        return 1
+    fi
+}
+
 # --- dev-aliases.sh: symlink into home + wire .zshrc ---
 ALIASES_LINK="$HOME/.dev-aliases.sh"
 
@@ -128,6 +179,9 @@ else
 fi
 
 # --- Guardrails: ask before destructive commands and writes outside the repo ---
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "WARNING: python3 not found. The network guardrail is a python3 script, so it will block every Bash tool call in Claude Code until python3 is installed. Continuing with the install anyway."
+fi
 bash "$REPO_DIR/guardrails/install.sh"
 
 # --- Aurora HUD: build the floating usage panel and start it at login ---

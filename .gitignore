@@ -22,3 +22,6 @@ aurora-usage/aurora-hud/AuroraHUD
 *.p12
 id_rsa*
 id_ed25519*
+
+# Agent worktrees (Claude Code creates them here)
+.claude/worktrees/
