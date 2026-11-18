@@ -1,0 +1,14 @@
+{
+  "default": {
+    "description": "Everyday lines: 5h heads-up at 75%, 7d at 90%, no pause points",
+    "showAt": { "5h": 75, "7d": 90 },
+    "pauseAt": {},
+    "note": {}
+  },
+  "fable-run": {
+    "description": "Multi-day Fable build. Fable caps at 50% of weekly and has no gauge of its own, so 7d warns at 45%",
+    "showAt": { "5h": 70, "7d": 45 },
+    "pauseAt": { "5h": 85, "7d": 75 },
+    "note": { "7d": "Fable cap may be near: check /usage" }
+  }
+}

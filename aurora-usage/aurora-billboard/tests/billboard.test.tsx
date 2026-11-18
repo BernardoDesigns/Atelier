@@ -334,3 +334,119 @@ test('a limit set to off never toasts or raises, but credits still show', async 
   expect(await ui.find({ type: 'Text', text: /⚡ using credits/ })).toBeTruthy()
   await ui.unmount()
 })
+
+// ---- Profiles and pause points ----
+// What `aurora profile <name>` writes into the shared file, mirroring
+// aurora-usage/profiles.json. Mods can't import JSON, so keep these in step.
+const PROFILES = {
+  default: { showAt: { '5h': 75, '7d': 90 }, pauseAt: {}, note: {} },
+  'fable-run': {
+    showAt: { '5h': 70, '7d': 45 },
+    pauseAt: { '5h': 85, '7d': 75 },
+    note: { '7d': 'Fable cap may be near: check /usage' },
+  },
+}
+const FABLE = { profile: 'fable-run', ...PROFILES['fable-run'], snooze: {} }
+const NOTE = 'Fable cap may be near: check /usage'
+
+test('fable-run: 7d raises at 45% with the Fable note, 5h stays quiet below 70', async ($, on) => {
+  stubEngine(on, usageAt(40, 46), seeded(FABLE))
+  await start($)
+  const ui = await mountBand($)
+  expect(await ui.find({ type: 'Text', text: /46%/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: new RegExp(NOTE) })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /Time to stop/ })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('fable-run: under both heads-up lines nothing shows', async ($, on) => {
+  stubEngine(on, usageAt(69, 44), seeded(FABLE))
+  await start($)
+  const ui = await mountBand($)
+  expect(await ui.find({ type: 'Text', text: /44%/ })).toBeFalsy()
+  expect(await ui.find({ type: 'Text', text: /Time to stop/ })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('a pause point leads the band in words and swaps out the note', async ($, on) => {
+  stubEngine(on, usageAt(40, 76), seeded(FABLE))
+  await start($)
+  const ui = await mountBand($)
+  // The styled run itself, not the truncating Text wrapped around the whole band.
+  const stop = (await ui.findAll({ type: 'Text', text: /⏸ Time to stop · 7d hit 75%/ })).find((x: any) => x.props.weight)
+  expect(stop?.props.weight).toBe('bold')
+  expect(await ui.find({ type: 'Text', text: new RegExp(NOTE) })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('a pause point shows through a snooze and an off line', async ($, on) => {
+  stubEngine(on, usageAt(86, 10), seeded({ ...FABLE, showAt: { '5h': 101, '7d': 45 }, snooze: { '5h': 101 } }))
+  await start($)
+  const ui = await mountBand($)
+  expect(await ui.find({ type: 'Text', text: /Time to stop · 5h hit 85%/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('hide waits for the pause point first, and a paused limit can\'t be hidden', async ($, on) => {
+  const files = seeded(FABLE)
+  stubEngine(on, usageAt(10, 50), files)
+  await start($)
+  const first = await $.command.run({ command: 'billboard', args: 'hide' } as any)
+  expect(first.text).toContain('7d hits 75%')
+
+  await measure($, usageAt(10, 75))
+  const paused = await $.command.run({ command: 'billboard', args: 'hide' } as any)
+  expect(paused.text).toContain("7d is at a pause point")
+  expect(paused.text).toContain('aurora profile default')
+  const ui = await mountBand($)
+  expect(await ui.find({ type: 'Text', text: /Time to stop/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('fable-run toasts: heads-up with the note, then a stop toast at the pause point, once each', async ($, on) => {
+  const toasts: string[] = []
+  stubEngine(on, usageAt(10, 10), seeded(FABLE), toasts)
+  await start($)
+
+  await measure($, usageAt(10, 44))
+  expect(toasts).toHaveLength(0)
+  await measure($, usageAt(10, 46))
+  await measure($, usageAt(10, 50))
+  expect(toasts).toEqual([`Heads up: weekly limit at 46%. ${NOTE}`])
+  await measure($, usageAt(86, 76))
+  expect(toasts).toEqual([
+    `Heads up: weekly limit at 46%. ${NOTE}`,
+    '⏸ Pause point: 5-hour limit at 86%. Time to stop.',
+    'Heads up: 5-hour limit at 86%',
+    '⏸ Pause point: weekly limit at 76%. Time to stop.',
+  ])
+})
+
+test('jumping straight past heads-up and pause leads with stop and drops the note', async ($, on) => {
+  const toasts: string[] = []
+  stubEngine(on, usageAt(10, 10), seeded(FABLE), toasts)
+  await start($)
+  await measure($, usageAt(10, 80))
+  expect(toasts).toEqual(['⏸ Pause point: weekly limit at 80%. Time to stop.', 'Heads up: weekly limit at 80%'])
+})
+
+test('/billboard lists the profile and its pause points', async ($, on) => {
+  stubEngine(on, usageAt(10, 10), seeded(FABLE))
+  await start($)
+  const res = await $.command.run({ command: 'billboard', args: '' } as any)
+  expect(res.text).toContain('Profile fable-run')
+  expect(res.text).toContain('Shows at 5h 70% · 7d 45%')
+  expect(res.text).toContain('Pause at 5h 85% · 7d 75%')
+})
+
+test('the default profile keeps today\'s lines and has no pause point', async ($, on) => {
+  const toasts: string[] = []
+  stubEngine(on, usageAt(99, 99), seeded({ profile: 'default', ...PROFILES.default }), toasts)
+  await start($)
+  const ui = await mountBand($)
+  expect(await ui.find({ type: 'Text', text: /Time to stop/ })).toBeFalsy()
+  await ui.unmount()
+  const res = await $.command.run({ command: 'billboard', args: '' } as any)
+  expect(res.text).toContain('Shows at 5h 75% · 7d 90%')
+  expect(res.text).toContain('Pause at none')
+})
