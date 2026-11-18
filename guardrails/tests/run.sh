@@ -19,6 +19,7 @@ conventions-injector=bash '$G/conventions-injector.sh'
 fast-gate=bash '$G/fast-gate.sh'
 lane-guard=bash '$G/lane-guard.sh'
 dod-gate=bash '$G/dod-gate.sh'
+pr-gate=bash '$G/pr-gate.sh'
 "
 
 pass=0; fail=0

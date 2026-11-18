@@ -36,7 +36,7 @@ norm() { # <file> <guardrails-dir>: absolute checkout path -> __G__
 S() { echo "$1/.claude/settings.json"; }
 hashf() { shasum "$1" | cut -d' ' -f1; }
 jeq() { [ "$(jq -S . "$1")" = "$(jq -S . "$2")" ]; }
-NEWPATHS='conventions-injector\.sh|lane-guard\.sh|fast-gate\.sh|dod-gate\.sh'
+NEWPATHS='conventions-injector\.sh|lane-guard\.sh|fast-gate\.sh|dod-gate\.sh|pr-gate\.sh'
 
 # 1. default run equals the baseline captured from the original installer
 h=$(newhome)
@@ -49,7 +49,7 @@ default_state="$ROOT/default-state.json"; cp "$(S "$h")" "$default_state"
 # 2. default installs none of the new hooks
 ! grep -qE "$NEWPATHS" "$(S "$h")"; check default-installs-no-new-hooks $?
 
-# 3. enforce adds the four hooks with the right events and matchers
+# 3. enforce adds the five hooks with the right events and matchers
 h=$(newhome)
 inst "$h" "$INSTALL" --enforce >/dev/null 2>&1; code=$?
 s=$(S "$h")
@@ -58,23 +58,28 @@ jq -e '
   cmd("PreToolUse"; "Write|Edit"; "/guardrails/conventions-injector.sh")
   and cmd("PreToolUse"; "Write|Edit|NotebookEdit"; "/guardrails/lane-guard.sh")
   and cmd("PostToolUse"; "Write|Edit"; "/guardrails/fast-gate.sh")
+  and cmd("PreToolUse"; "Bash"; "/guardrails/pr-gate.sh")
+  and cmd("PreToolUse"; "Bash"; "/guardrails/net-host-guard.py")
   and ([.hooks.Stop[].hooks[].command | select(contains("/guardrails/dod-gate.sh"))] | length == 1)
   and ([.hooks.PreToolUse[].hooks[].command | select(contains("outside-repo-guard.sh"))] | length == 1)
   and ([.hooks.PreToolUse[].hooks[].command | select(contains("net-host-guard.py"))] | length == 1)
 ' "$s" >/dev/null 2>&1
-check enforce-adds-four-hooks $? "exit $code"
+check enforce-adds-five-hooks $? "exit $code"
 
-# 4. every new command is fail-closed (exit 2 with a message when the script is missing)
-n=$(jq -r '[.hooks[][] | .hooks[].command | select(test("conventions-injector|lane-guard|fast-gate|dod-gate"))
+# 4. PreToolUse hooks fail closed (exit 2); Stop and PostToolUse fail open (exit 1, never exit 2)
+n=$(jq -r '[.hooks.PreToolUse[].hooks[].command | select(test("conventions-injector|lane-guard|pr-gate"))
             | select(contains("exit 2") and contains("[ -x"))] | length' "$s")
-[ "$n" -eq 4 ]; check enforce-commands-are-fail-closed $? "$n of 4 wrapped"
+[ "$n" -eq 3 ]; check enforce-pretooluse-commands-fail-closed $? "$n of 3 wrapped"
+n=$(jq -r '[(.hooks.PostToolUse[], .hooks.Stop[]) | .hooks[].command | select(test("fast-gate|dod-gate"))
+            | select(contains("exit 1") and (contains("exit 2") | not) and contains("[ -x"))] | length' "$s")
+[ "$n" -eq 2 ]; check enforce-stop-and-posttooluse-commands-fail-open $? "$n of 2 wrapped"
 
 # 5. enforce twice: no duplicates, second run changes nothing
 before=$(hashf "$s")
 inst "$h" "$INSTALL" --enforce >/dev/null 2>&1
 after=$(hashf "$s")
-dups=$(jq -r '[.hooks[][] | .hooks[].command | select(test("conventions-injector|lane-guard|fast-gate|dod-gate"))] | length' "$s")
-[ "$before" = "$after" ] && [ "$dups" -eq 4 ]; check enforce-is-idempotent $? "4 expected, got $dups"
+dups=$(jq -r '[.hooks[][] | .hooks[].command | select(test("conventions-injector|lane-guard|fast-gate|dod-gate|pr-gate"))] | length' "$s")
+[ "$before" = "$after" ] && [ "$dups" -eq 5 ]; check enforce-is-idempotent $? "5 expected, got $dups"
 enforced_hash=$(hashf "$s")
 
 # 6. enforce then relax is jq-equal to the pre-enforce file; user keys and hooks survive
@@ -112,10 +117,10 @@ check both-flags-rejected $? "exit $code"
 inst "$h" "$INSTALL" --nope >/dev/null 2>&1; code=$?
 [ "$code" -ne 0 ] && [ "$(hashf "$(S "$h")")" = "$before" ]; check unknown-flag-rejected $? "exit $code"
 
-# 12. default and --relax call no new script: run both from a copy with the four scripts moved away
+# 12. default and --relax call no new script: run both from a copy with the five scripts moved away
 mkdir -p "$ROOT/c1" "$ROOT/c2" && cp -R "$G" "$ROOT/c1/guardrails"
 mkdir -p "$ROOT/gcopy-away"
-for f in conventions-injector lane-guard fast-gate dod-gate; do mv "$ROOT/c1/guardrails/$f.sh" "$ROOT/gcopy-away/"; done
+for f in conventions-injector lane-guard fast-gate dod-gate pr-gate; do mv "$ROOT/c1/guardrails/$f.sh" "$ROOT/gcopy-away/"; done
 h=$(newhome)
 inst "$h" "$ROOT/c1/guardrails/install.sh" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] && [ "$(norm "$(S "$h")" "$ROOT/c1/guardrails")" = "$(jq -S . "$FX/baseline-settings.json")" ]
@@ -129,10 +134,17 @@ inst "$h" "$ROOT/c1/guardrails/install.sh" --relax >/dev/null 2>&1; code=$?
 h=$(newhome)
 cp -R "$G" "$ROOT/c2/guardrails"
 inst "$h" "$ROOT/c2/guardrails/install.sh" --enforce >/dev/null 2>&1
-mv "$ROOT/c2/guardrails/dod-gate.sh" "$ROOT/gcopy-away/dod-gate.sh.2"
-cmd=$(jq -r '.hooks.Stop[].hooks[].command | select(contains("dod-gate"))' "$(S "$h")")
-msg=$(bash -c "$cmd" 2>&1 </dev/null); code=$?
-[ "$code" -eq 2 ] && grep -qi 'missing' <<<"$msg"; check missing-script-fails-closed $? "exit $code: $msg"
+for f in dod-gate fast-gate pr-gate lane-guard conventions-injector; do mv "$ROOT/c2/guardrails/$f.sh" "$ROOT/gcopy-away/$f.sh.2"; done
+for f in pr-gate lane-guard conventions-injector; do
+    cmd=$(jq -r --arg f "$f" '.hooks.PreToolUse[].hooks[].command | select(contains($f))' "$(S "$h")")
+    msg=$(bash -c "$cmd" 2>&1 </dev/null); code=$?
+    [ "$code" -eq 2 ] && grep -qi 'missing' <<<"$msg"; check "missing-$f-fails-closed" $? "exit $code: $msg"
+done
+for f in dod-gate fast-gate; do
+    cmd=$(jq -r --arg f "$f" '(.hooks.Stop[], .hooks.PostToolUse[]) | .hooks[].command | select(contains($f))' "$(S "$h")")
+    msg=$(bash -c "$cmd" 2>&1 </dev/null); code=$?
+    [ "$code" -eq 1 ] && grep -qi 'missing' <<<"$msg"; check "missing-$f-fails-open" $? "exit $code: $msg"
+done
 
 # 14. nothing leaked into the installer's repo settings, and the real settings file is untouched
 real_after=$(shasum "$REAL_SETTINGS" 2>/dev/null | cut -d' ' -f1)

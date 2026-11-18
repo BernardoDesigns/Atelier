@@ -1,28 +1,26 @@
 #!/bin/bash
-# Stop hook: definition-of-done gate for build sessions.
+# Stop hook: definition-of-done NUDGE for build sessions.
 #
-# In a build session (<cwd>/.atelier/session.json exists) the session can't end
-# until all four artefacts exist:
+# In a build session (<cwd>/.atelier/session.json exists) it refuses to let the
+# session stop while any of four artefacts is missing (screenshots, assumptions,
+# a passing test run, a reviewed critique; see dod-check.sh). Every missing item
+# is listed in one message on stderr and the hook exits 2.
 #
-#   screenshots  .atelier/renders/<slug>/manifest.json with at least one .png beside it
-#   assumptions  .atelier/assumptions.md, non-empty
-#   tests        .atelier/tests.json reporting {"pass": true}
-#   critique     .atelier/critique.md, non-empty, with a line starting "Verdict:"
-#
-# Every missing item is listed in one message on stderr and the hook exits 2.
-# Everything present: exit 0, no output.
+# THIS IS A NUDGE, NOT THE HARD GATE. It refuses once per stop attempt and then
+# yields: when stop_hook_active is true it exits 0. That is deliberate. The
+# Builder has to be able to stop to ask the user a question, and a Stop hook that
+# never yields would loop forever. The hard gate is pr-gate.sh, which blocks
+# `gh pr create` until the same artefacts exist and never yields.
 #
 # Outside a build session it does nothing (exit 0, no output), so it can't trap
-# an unrelated session. It also exits 0 when stop_hook_active is true, so one
-# refusal can never become a loop.
+# an unrelated session.
 #
-# THERE IS NO OVERRIDE. No override file, no environment variable, no flag. The
-# ways out are: meet the gate, remove .atelier/session.json by hand, or run
-# guardrails/install.sh --relax.
+# No override file, no environment variable, no flag. The ways out are: meet the
+# gate, remove .atelier/session.json by hand, or run guardrails/install.sh --relax.
 #
-# Fails closed inside a build session: unreadable stdin exits 2. install.sh wraps
-# this script so a missing script exits 2 too. Reads only .atelier/. Writes
-# nothing.
+# Inside a build session unreadable stdin exits 2. If this script is missing,
+# install.sh's wrapper warns and exits 1 (non-blocking), so a missing file can
+# never trap a session. Reads only .atelier/. Writes nothing.
 
 input=$(cat)
 valid=1
@@ -43,34 +41,17 @@ if [ "$valid" -ne 1 ]; then
     exit 2
 fi
 
-missing=""
-
-shots=0
-for m in "$a"/renders/*/manifest.json; do
-    [ -f "$m" ] || continue
-    for p in "$(dirname "$m")"/*.png; do
-        [ -f "$p" ] && { shots=1; break 2; }
-    done
-done
-[ "$shots" -eq 1 ] || missing="$missing
-- screenshots: no .atelier/renders/<slug>/manifest.json with at least one .png beside it. Run the render harness."
-
-[ -s "$a/assumptions.md" ] || missing="$missing
-- assumptions: .atelier/assumptions.md is missing or empty. Log every unspecified choice and invented component."
-
-jq -e '.pass == true' "$a/tests.json" >/dev/null 2>&1 || missing="$missing
-- tests: .atelier/tests.json is missing or doesn't report {\"pass\": true}. Run the tests and record the result."
-
-if [ ! -s "$a/critique.md" ] || ! grep -qE '^Verdict:' "$a/critique.md"; then
-    missing="$missing
-- critique: .atelier/critique.md is missing, empty, or has no line starting 'Verdict:'. Get the Critic's review and save it."
+# shellcheck source=dod-check.sh
+if ! . "$(dirname "$0")/dod-check.sh"; then
+    echo "Atelier definition-of-done gate: dod-check.sh is missing; restore it or re-run guardrails/install.sh. Not blocking." >&2
+    exit 1
 fi
-
-[ -n "$missing" ] || exit 0
+dod_missing "$a"
+[ -n "$DOD_MISSING" ] || exit 0
 
 {
     echo "Atelier definition of done: this build session can't end yet. Missing:"
-    printf '%s\n' "$missing" | sed '/^$/d'
+    printf '%s\n' "$DOD_MISSING"
     echo "Finish these. If you cannot, tell the user; only the user can end a build session without them."
 } >&2
 exit 2

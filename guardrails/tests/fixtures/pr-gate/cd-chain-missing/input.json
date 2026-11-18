@@ -1,0 +1,1 @@
+{"cwd":"{{CWD}}","tool_name":"Bash","tool_input":{"command":"cd sub && gh pr create --fill"}}

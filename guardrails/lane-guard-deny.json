@@ -1,14 +1,10 @@
 {
   "permissions": {
     "deny": [
-      "Edit(auth/**)",
-      "Write(auth/**)",
-      "Edit(api/**)",
-      "Write(api/**)",
-      "Edit(payments/**)",
-      "Write(payments/**)",
-      "Edit(lib/shared/**)",
-      "Write(lib/shared/**)"
+      "Edit(/auth/**)",
+      "Edit(/api/**)",
+      "Edit(/payments/**)",
+      "Edit(/lib/shared/**)"
     ]
   }
 }

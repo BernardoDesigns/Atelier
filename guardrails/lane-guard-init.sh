@@ -3,8 +3,9 @@
 #
 #   guardrails/lane-guard-init.sh <host-repo>
 #
-# Unions the rules in lane-guard-deny.json into <host-repo>/.claude/settings.json
-# under permissions.deny. Creates the file if it's missing, keeps every other key
+# Unions the rules in lane-guard-deny.json (four project-root-anchored Edit
+# rules: /auth/**, /api/**, /payments/**, /lib/shared/**) into
+# <host-repo>/.claude/settings.json under permissions.deny. Creates the file if it's missing, keeps every other key
 # and every existing deny rule (in its original order), and backs up an existing
 # file as settings.json.bak.<timestamp> before changing it. Running it twice
 # changes nothing.
@@ -40,9 +41,13 @@ else
     current='{}'
 fi
 
-merged=$(jq --slurpfile add "$SRC" '
+# The first draft wrote unanchored Edit/Write rules ("Edit(auth/**)" matches an
+# auth directory at any depth, and Edit rules already cover every file-editing
+# tool). Those eight are removed if found, so older repos upgrade cleanly.
+OLD='["Edit(auth/**)","Write(auth/**)","Edit(api/**)","Write(api/**)","Edit(payments/**)","Write(payments/**)","Edit(lib/shared/**)","Write(lib/shared/**)"]'
+merged=$(jq --slurpfile add "$SRC" --argjson old "$OLD" '
     ($add[0].permissions.deny) as $new
-    | .permissions.deny = ((.permissions.deny // []) as $have | $have + ($new - $have))
+    | .permissions.deny = (((.permissions.deny // []) - $old) as $have | $have + ($new - $have))
 ' <<<"$current") || die "couldn't merge into $settings, left it alone"
 
 if [ -f "$settings" ] && [ "$merged" = "$current" ]; then

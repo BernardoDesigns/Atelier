@@ -20,15 +20,16 @@ hash() { shasum "$1" | cut -d' ' -f1; }
 
 PATHS="auth api payments lib/shared"
 
-# 1. fresh repo gets all four paths, Edit and Write
+# 1. fresh repo gets exactly the four anchored Edit rules
 r=$(newrepo)
 bash "$INIT" "$r" >/dev/null 2>&1; code=$?
 missing=""
 for p in $PATHS; do
-    for t in Edit Write; do
-        jq -e --arg r "$t($p/**)" '.permissions.deny | index($r)' "$r/.claude/settings.json" >/dev/null 2>&1 || missing="$missing $t($p/**)"
+    for t in Edit; do
+        jq -e --arg r "$t(/$p/**)" '.permissions.deny | index($r)' "$r/.claude/settings.json" >/dev/null 2>&1 || missing="$missing $t(/$p/**)"
     done
 done
+[ "$(jq '.permissions.deny | length' "$r/.claude/settings.json")" -eq 4 ] || missing="$missing (not exactly 4 rules)"
 check fresh-repo-has-all-four-paths $((code + ${#missing})) "exit $code, missing:$missing"
 
 # 2. twice is byte-identical and makes no backup
@@ -40,16 +41,23 @@ baks=$(ls "$r/.claude" | grep -c '\.bak\.')
 
 # 3. unrelated keys and existing deny order survive; backup written
 r=$(newrepo); mkdir -p "$r/.claude"
-printf '%s\n' '{"model":"sonnet","permissions":{"allow":["Bash(ls)"],"deny":["Read(.env)","Edit(auth/**)"]},"hooks":{"Stop":[]}}' > "$r/.claude/settings.json"
+printf '%s\n' '{"model":"sonnet","permissions":{"allow":["Bash(ls)"],"deny":["Read(.env)","Edit(auth/**)","Write(api/**)","Edit(/api/**)"]},"hooks":{"Stop":[]}}' > "$r/.claude/settings.json"
 bash "$INIT" "$r" >/dev/null 2>&1
 s="$r/.claude/settings.json"
 jq -e '.model == "sonnet" and .permissions.allow == ["Bash(ls)"] and .hooks == {"Stop":[]}
-       and .permissions.deny[0] == "Read(.env)" and .permissions.deny[1] == "Edit(auth/**)"
-       and ([.permissions.deny[] | select(. == "Edit(auth/**)")] | length) == 1
-       and (.permissions.deny | index("Write(lib/shared/**)"))' "$s" >/dev/null 2>&1
+       and .permissions.deny[0] == "Read(.env)" and .permissions.deny[1] == "Edit(/api/**)"
+       and ([.permissions.deny[] | select(. == "Edit(/api/**)")] | length) == 1 and (.permissions.deny | length) == 5
+       and (.permissions.deny | index("Edit(/lib/shared/**)")) and ((.permissions.deny | index("Edit(auth/**)")) == null) and ((.permissions.deny | index("Write(api/**)")) == null)' "$s" >/dev/null 2>&1
 check keeps-unrelated-keys-and-dedupes $?
 baks=$(ls "$r/.claude" | grep -c '^settings.json.bak\.')
 [ "$baks" -eq 1 ]; check existing-file-is-backed-up $? "backups: $baks"
+
+# 3b. a repo initialised with the first draft (eight unanchored rules) is upgraded cleanly
+r=$(newrepo); mkdir -p "$r/.claude"
+printf '%s\n' '{"permissions":{"deny":["Read(.env)","Edit(auth/**)","Write(auth/**)","Edit(api/**)","Write(api/**)","Edit(payments/**)","Write(payments/**)","Edit(lib/shared/**)","Write(lib/shared/**)"]}}' > "$r/.claude/settings.json"
+bash "$INIT" "$r" >/dev/null 2>&1
+jq -e '.permissions.deny == ["Read(.env)","Edit(/auth/**)","Edit(/api/**)","Edit(/payments/**)","Edit(/lib/shared/**)"]' "$r/.claude/settings.json" >/dev/null 2>&1
+check old-form-rules-upgraded $?
 
 # 4. non-git dir: non-zero, nothing written
 d=$(mktemp -d "$ROOT/plain.XXXXXX")

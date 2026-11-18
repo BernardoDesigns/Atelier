@@ -8,6 +8,8 @@
 #   env               optional KEY=VALUE lines exported for the hook ({{CWD}} expands)
 #   stderr.contains   optional, one fixed string per line that stderr must contain
 #   stdout.contains   optional, same for stdout
+#   setup.sh          optional, run inside the temp repo before the hook
+#   stdout.absent     optional, fixed strings that stdout must NOT contain
 #   silent            optional marker: stdout and stderr must both be empty
 #   after.sh          optional, run inside the temp repo after the hook; non-zero = FAIL
 #
@@ -41,6 +43,7 @@ run_case() { # <hook-cmd> <case-dir>
     [ -e "$repo/.git" ] || git -C "$repo" init -q
     repo=$(cd "$repo" && pwd -P)
 
+    [ -f "$dir/setup.sh" ] && (cd "$repo" && bash "$dir/setup.sh") >/dev/null 2>&1
     input=$(<"$dir/input.json")
     input=${input//\{\{CWD\}\}/$repo}
     out="$tmp/stdout"; err="$tmp/stderr"
@@ -63,6 +66,12 @@ run_case() { # <hook-cmd> <case-dir>
     [ "$got" = "$want" ] || why="expected $want, got $got"
     if [ -z "$why" ] && [ -f "$dir/silent" ] && { [ -s "$out" ] || [ -s "$err" ]; }; then
         why="expected no output at all"
+    fi
+    if [ -z "$why" ] && [ -f "$dir/stdout.absent" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            [ -n "$line" ] || continue
+            grep -qiF -- "$line" "$out" && { why="stdout should not contain: $line"; break; }
+        done <"$dir/stdout.absent"
     fi
     for kind in stdout stderr; do
         if [ -z "$why" ] && [ -f "$dir/$kind.contains" ]; then

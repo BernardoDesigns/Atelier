@@ -1,0 +1,1 @@
+- Chose a 2-column layout; spec was silent.
