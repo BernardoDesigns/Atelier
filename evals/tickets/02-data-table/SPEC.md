@@ -45,7 +45,7 @@ None, first build.
 - G1 System fidelity: every component missing from the host design system manifest is listed in the assumptions log and approved at `/wrap`.
 - G2 Types: `tsc --noEmit` exits 0 under strict, and no `any` appears in changed files.
 - G3 Lint and format: the host eslint and prettier exit 0 on changed files.
-- G4 Tests: a component test exists for each state above, and `.atelier/tests.json` reports `"pass": true`.
+- G4 Tests: a component test exists for each state above, a Playwright e2e test covers the happy path and one error path, and `.atelier/tests.json` reports `"pass": true`.
 - G5 Accessibility: axe reports 0 serious or critical violations in every shot, the table and pagination work by keyboard alone, and focus is visible on every control.
 - G6 Visual: a render shot exists for each state in `light` and `dark` at `sm` 375, `md` 768 and `lg` 1280.
 - G7 Lane: no changed file sits under a protected path.

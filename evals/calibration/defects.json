@@ -5,7 +5,9 @@
     "what": "A new StatusTag component is written in the inventory folder for the status column. It duplicates the badge component, is not in the design system manifest, and is not listed in the assumptions log.",
     "where": "app/inventory/status-tag.tsx",
     "breaks": "G1",
-    "severity": "high"
+    "severity": "high",
+    "detected_by": "critic-diff",
+    "evidence": "app/inventory/status-tag.tsx:1, new component file whose name is not in the manifest"
   },
   {
     "id": "D02",
@@ -13,7 +15,9 @@
     "what": "The inventory fixture types the item list as any, and the changed page reads fields from it without a type.",
     "where": "lib/data/items.ts",
     "breaks": "G2",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "script",
+    "evidence": "tsc --noEmit under strict fails on the any annotation in lib/data/items.ts"
   },
   {
     "id": "D03",
@@ -21,7 +25,9 @@
     "what": "A changed settings line is longer than the prettier width, so the format check fails on that file.",
     "where": "app/settings/page.tsx",
     "breaks": "G3",
-    "severity": "low"
+    "severity": "low",
+    "detected_by": "script",
+    "evidence": "prettier --check fails on app/settings/page.tsx for an over-width line"
   },
   {
     "id": "D04",
@@ -29,7 +35,9 @@
     "what": "The empty state of the inventory table has no component test. The loading and error states do have one.",
     "where": "components/ui/table.test.tsx",
     "breaks": "G4",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "critic-diff",
+    "evidence": "components/ui/table.test.tsx: no test case in the diff for the empty state"
   },
   {
     "id": "D05",
@@ -37,7 +45,9 @@
     "what": "The confirm dialog does not trap focus. Tab moves from the Retire button to the page behind the dialog.",
     "where": "components/ui/dialog.tsx",
     "breaks": "G5",
-    "severity": "high"
+    "severity": "high",
+    "detected_by": "critic-diff",
+    "evidence": "components/ui/dialog.tsx: open handler has no focus trap or Tab wrap logic"
   },
   {
     "id": "D06",
@@ -45,7 +55,9 @@
     "what": "At the md breakpoint, 768 wide, the inventory table drops the shelf location column with no horizontal scroll. The populated state in the render shot is missing a field the SPEC shows.",
     "where": "app/inventory/page.tsx",
     "breaks": "G6",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "critic-screenshot",
+    "evidence": ".atelier/renders/<slug>/populated.light.md.png: shelf location column missing"
   },
   {
     "id": "D07",
@@ -53,7 +65,9 @@
     "what": "The date helper in the shared library is edited as part of an inventory change. The SPEC does not list the shared library as in scope.",
     "where": "lib/shared/format.ts",
     "breaks": "G7",
-    "severity": "high"
+    "severity": "high",
+    "detected_by": "script",
+    "evidence": "lane guard blocks the edit to lib/shared/format.ts, a protected path not in SPEC scope"
   },
   {
     "id": "D08",
@@ -61,7 +75,9 @@
     "what": "A helper file keeps an unused export and a commented-out block left over from an earlier attempt.",
     "where": "app/inventory/helpers.ts",
     "breaks": "G8",
-    "severity": "low"
+    "severity": "low",
+    "detected_by": "critic-diff",
+    "evidence": "app/inventory/helpers.ts: unused export and commented-out block in the diff"
   },
   {
     "id": "D09",
@@ -69,7 +85,9 @@
     "what": "One PR carries the settings form, the onboarding flow and the notification page. The diff is about 900 changed lines, no split is proposed, and the work has no feature flag.",
     "where": "app/settings/**, app/onboarding/**, app/notifications/**",
     "breaks": "G9",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "script",
+    "evidence": "PR line count script reports about 900 changed lines, above the 400 line bar"
   },
   {
     "id": "D10",
@@ -77,7 +95,9 @@
     "what": "The notification page has no visual hierarchy. Group headings and switch labels share one size and weight, so the page reads as one flat list.",
     "where": "app/notifications/page.tsx",
     "breaks": "G10",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "critic-screenshot",
+    "evidence": ".atelier/renders/<slug>/loaded.light.lg.png: group headings same size and weight as switch labels"
   },
   {
     "id": "D11",
@@ -85,15 +105,19 @@
     "what": "The inventory error state says Request failed (500) and offers no retry, so the counter tech is left stuck at the desk.",
     "where": "app/inventory/page.tsx",
     "breaks": "P1",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "critic-screenshot",
+    "evidence": ".atelier/renders/<slug>/error.light.md.png: error text shown, no retry button"
   },
   {
     "id": "D12",
     "kind": "defect",
-    "what": "The Retire action in the row menu uses a different red from the destructive button in the confirm dialog.",
+    "what": "The Retire button that opens the confirm dialog uses a different red from the destructive confirm button inside the dialog.",
     "where": "app/inventory/row-actions.tsx",
     "breaks": "P2",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "critic-screenshot",
+    "evidence": ".atelier/renders/<slug>/open.light.md.png: Retire trigger and dialog confirm button in two different reds"
   },
   {
     "id": "D13",
@@ -101,7 +125,9 @@
     "what": "The onboarding review step shows each value twice, once in a card and again in a summary sentence below it.",
     "where": "app/onboarding/review.tsx",
     "breaks": "P3",
-    "severity": "low"
+    "severity": "low",
+    "detected_by": "critic-screenshot",
+    "evidence": ".atelier/renders/<slug>/review.light.md.png: each value appears in a card and in the summary sentence"
   },
   {
     "id": "D14",
@@ -109,15 +135,19 @@
     "what": "The settings page sets three hex colour values inline instead of using the semantic colour tokens.",
     "where": "app/settings/page.tsx",
     "breaks": "P4",
-    "severity": "medium"
+    "severity": "medium",
+    "detected_by": "critic-diff",
+    "evidence": "app/settings/page.tsx:line with three hex literals in style props"
   },
   {
     "id": "D15",
     "kind": "defect",
-    "what": "The success message after onboarding reads Record created. It does not name the new staff member.",
+    "what": "The success state after onboarding reads Record created. It does not name the new staff member.",
     "where": "app/onboarding/page.tsx",
     "breaks": "P5",
-    "severity": "low"
+    "severity": "low",
+    "detected_by": "critic-screenshot",
+    "evidence": ".atelier/renders/<slug>/success.light.md.png: message reads Record created with no name"
   },
   {
     "id": "X01",

@@ -93,6 +93,21 @@ for path in ticket_files:
     report(not bare, name + ": each state is a bare name on its own line",
            "odd lines: %s" % bare)
 
+    dod_lines = []
+    inside = False
+    for line in lines:
+        if line.startswith("## "):
+            inside = line[3:].strip() == "Definition of done"
+            continue
+        if inside:
+            dod_lines.append(line)
+    dod_text = "\n".join(dod_lines)
+    dod_gates = {int(g) for g in re.findall(r"\bG([0-9]+)\b", dod_text)}
+    missing_g = [g for g in range(1, 11) if g not in dod_gates]
+    report(not missing_g, name + ": Definition of done mentions G1 to G10",
+           "missing G%s" % missing_g)
+    report("Playwright" in dod_text, name + ": Definition of done names the Playwright e2e test")
+
     if os.path.basename(os.path.dirname(path)).startswith("02-"):
         for needed in ("loading", "empty", "error", "paginated"):
             report(needed in states, name + ": states include " + needed)
@@ -213,6 +228,7 @@ report(12 <= len(defects) <= 15, "12 to 15 seeded defects",
        "found %d" % len(defects))
 
 DEFECT_FIELDS = ["id", "what", "where", "breaks", "severity"]
+DETECTED_VALUES = ("critic-screenshot", "critic-diff", "script")
 for d in defects:
     label = str(d.get("id", "?"))
     missing = [f for f in DEFECT_FIELDS if f not in d]
@@ -225,6 +241,10 @@ for d in defects:
            label + ": breaks names one ID that exists in quality.md",
            "got %r" % (breaks,))
     report(bool(str(d.get("where", "")).strip()), label + ": where is set")
+    report(d.get("detected_by") in DETECTED_VALUES,
+           label + ": detected_by is critic-screenshot, critic-diff or script",
+           "got %r" % (d.get("detected_by"),))
+    report(bool(str(d.get("evidence", "")).strip()), label + ": evidence is set")
 
 covered = {d.get("breaks") for d in defects}
 missing_gates = sorted(GATES - covered, key=lambda g: int(g[1:]))
@@ -233,6 +253,10 @@ report(not missing_gates, "defects cover every gate G1 to G10",
 covered_principles = {p for p in covered if isinstance(p, str) and p.startswith("P")}
 report(len(covered_principles) >= 2, "defects cover at least two principles",
        "covered: %s" % sorted(covered_principles))
+
+critic_shots = sum(1 for d in defects if d.get("detected_by") == "critic-screenshot")
+report(critic_shots >= 6, "at least six defects are critic-screenshot",
+       "found %d" % critic_shots)
 
 report(len(decoys) == 3, "exactly 3 decoys", "found %d" % len(decoys))
 for d in decoys:

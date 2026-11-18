@@ -19,6 +19,7 @@ The counter lead adds someone between customers, so every step has to be quick t
 - While the record saves, the Finish button shows a pending state and cannot be pressed twice.
 - When saving fails, the person stays on the review step and sees the error above the Finish button.
 - Values typed on a step survive a round trip to the review step and back.
+- After Finish succeeds, the page shows a success message that names the new staff member.
 
 ## States to cover
 
@@ -27,6 +28,7 @@ The counter lead adds someone between customers, so every step has to be quick t
 - review
 - submitting
 - submit failed
+- success
 
 ## Visual baseline
 
