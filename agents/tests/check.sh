@@ -383,6 +383,14 @@ wrap_checks_owner() {
     && grep -Fq 'Never close or edit another session' "$WRAP"
 }
 check "wrap: says plainly when the build belongs to another session" wrap_checks_owner
+build_archives_old() {
+  grep -Fq 'moves them to `.atelier/archive/` when it opens the new build' "$BUILD" \
+    && grep -Fq 'nothing from an earlier build can satisfy the gates' "$BUILD"
+}
+check "build: says an earlier build's artefacts are archived on open" build_archives_old
+check "builder: archive/ is earlier output, not to be read or used" \
+  has "$BUILDER" '`.atelier/archive/` holds earlier builds'"'"' output'
+check "builder: says not to read the archive" has "$BUILDER" 'do not read it or use anything in it'
 check "build: diverge mode ranks with one Critic call" build_diverge
 check "build: under 60 lines"                    test "$(wc -l < "$BUILD")" -lt 60
 

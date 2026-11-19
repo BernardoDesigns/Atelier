@@ -18,7 +18,7 @@ Before the Builder starts, bind a marker to this session. Skip this in diverge m
 ~/.claude/atelier/guardrails/session-open.sh <SPEC path> <branch>
 ```
 
-   The guardrail hook notes which session runs it, and the script writes `.atelier/session.json` as `{"spec":...,"branch":...,"sessionId":...}`. The `sessionId` is what makes the gates apply to this session and no other.
+   The guardrail hook notes which session runs it, and the script writes `.atelier/session.json` as `{"spec":...,"branch":...,"sessionId":...}`. The `sessionId` is what makes the gates apply to this session and no other. If an earlier build left artefacts in `.atelier/`, the script moves them to `.atelier/archive/` when it opens the new build, so nothing from an earlier build can satisfy the gates.
 3. If it exits non-zero, stop and tell the user what it printed. "Already open ... belongs to another session" means someone else's build is open in this checkout: do not touch it. "Couldn't tell which session is calling" means the enforce hooks aren't installed (`guardrails/install.sh --enforce`).
 4. Read the marker back: `jq -r '.sessionId // empty' .atelier/session.json`. If that prints nothing, stop and tell the user the build session is not bound to this session, so the gates would not apply. Do not start the Builder.
 

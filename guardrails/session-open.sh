@@ -21,9 +21,19 @@
 #   - marker owned by another session: never touched, exit 1, says so
 #   - no claim at all: exit 1 (the enforce hooks aren't installed, or the command
 #     wasn't the bare script call); nothing is written
-# Exit 0 prints one line "opened: ..."; every refusal prints why on stderr.
-# Needs jq. Writes only <dir>/.atelier/session.json (via a temp file) and
-# deletes the claim.
+#
+# Archive: opening a build when no session.json is present first moves whatever
+# an earlier build left in <dir>/.atelier/ (everything except archive/ itself)
+# into .atelier/archive/<UTC timestamp>-<branch of the closed build, or unknown>/,
+# so the gates can't be satisfied by the previous build's screenshots, tests or
+# critique. Moved with mv, never deleted; a name that exists gets a -2, -3 suffix.
+# Refreshing your own marker, and every refusal, archive nothing. If any move
+# fails the script stops (exit 2) and writes no marker.
+#
+# Exit 0 prints "opened: ..." (after an "archived ..." line when it archived);
+# every refusal prints why on stderr.
+# Needs jq. Writes <dir>/.atelier/session.json (via a temp file), moves old
+# artefacts into .atelier/archive/, and deletes the claim.
 
 spec=${1:-}; branch=${2:-}; dir=${3:-.}
 if [ -z "$spec" ] || [ -z "$branch" ] || [ $# -gt 3 ]; then
@@ -63,6 +73,32 @@ if [ -f "$marker" ]; then
     if [ "$mspec" != "$spec" ]; then
         echo "session-open: a build marker for a different spec ($mspec) already exists here. Stop and ask the user; do not overwrite it." >&2
         exit 1
+    fi
+fi
+
+if [ ! -f "$marker" ] && [ -d "$a" ]; then
+    # The claim is already consumed above, so anything left is an earlier build's.
+    left=$(find "$a" -mindepth 1 -maxdepth 1 ! -name archive 2>/dev/null | head -n 1)
+    if [ -n "$left" ]; then
+        cb=""
+        [ -f "$a/session.closed.json" ] && cb=$(jq -r 'if (.branch | type) == "string" then .branch else "" end' "$a/session.closed.json" 2>/dev/null)
+        cb=$(printf '%s' "$cb" | tr -c 'A-Za-z0-9._-' '-')
+        [ -n "$cb" ] || cb=unknown
+        base="$(date -u +%Y%m%dT%H%M%SZ)-$cb"
+        mkdir -p "$a/archive" || { echo "session-open: couldn't create $a/archive, so nothing was archived and no build was opened." >&2; exit 2; }
+        name=$base; n=1
+        until mkdir "$a/archive/$name" 2>/dev/null; do
+            [ -e "$a/archive/$name" ] || { echo "session-open: couldn't create $a/archive/$name, so nothing was archived and no build was opened." >&2; exit 2; }
+            n=$((n + 1)); name="$base-$n"
+        done
+        while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            mv "$entry" "$a/archive/$name/" || {
+                echo "session-open: couldn't move $entry into $a/archive/$name/. No build was opened. Part of the old artefacts may already be in that folder; sort it out by hand, then open again." >&2
+                exit 2
+            }
+        done < <(find "$a" -mindepth 1 -maxdepth 1 ! -name archive)
+        echo "archived the previous build's artefacts to .atelier/archive/$name/"
     fi
 fi
 
