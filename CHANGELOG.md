@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The five benchmark tickets say the new flag defaults to on, as a kill switch, and that a test turning it off with the host's `overrideFlags` proves the flag-off behaviour. Flags are fixed at build time, so a default-off flag would hide the feature from the e2e build and the render harness. Their G9 lines also gain the split clause from `quality.md` ("or a split is proposed in the PR").
+- Ticket 02 (inventory table) is checked against the host and tightened: the shelf location it asked for is now the day rate, the category filter is cut (the ticket keeps the status filter), sort is links with a defined order, the stacked layout and the flag are specified, every state has a URL, and the item name truncates at 768 instead of stacking.
 
 ## [2.0.0] - 2026-11-19
 
