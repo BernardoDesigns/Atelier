@@ -101,7 +101,7 @@ fi
 # running under set -e must handle that.
 # Links when the destination is absent or already a link into this repo.
 # A real file or folder, or a link pointing elsewhere, is left with a warning.
-# Skills are linked below; agents/*.md arrive in a later release.
+# Skills and the Builder and Critic agents are linked below.
 link_into() {
     local src=$1 dir=$2 dest
     dest="$dir/$(basename "$src")"
@@ -130,6 +130,24 @@ else
     for SKILL in spec taste-review; do
         if link_into "$REPO_DIR/skills/$SKILL" "$CLAUDE_DIR/skills"; then
             echo "Done! ~/.claude/skills/$SKILL -> $REPO_DIR/skills/$SKILL"
+        fi
+    done
+fi
+
+# --- Agents: link the Builder and the Critic into ~/.claude/agents/, file by file ---
+# Same rules as the skills: beside whatever is there, never replacing the
+# directory, not from a linked git worktree. A link that already points at the
+# right file is fine and is left alone; a real file or a link elsewhere is
+# skipped with a warning by link_into.
+if [ "$IN_LINKED_WORKTREE" = 1 ]; then
+    echo "WARNING: $REPO_DIR is a linked git worktree, so the builder and critic agents were not linked into ~/.claude/agents. Run setup.sh from the main checkout for this step."
+else
+    for AGENT in builder critic; do
+        AGENT_LINK="$CLAUDE_DIR/agents/$AGENT.md"
+        if [ -L "$AGENT_LINK" ] && [ "$(readlink "$AGENT_LINK")" = "$REPO_DIR/agents/$AGENT.md" ]; then
+            echo "Already linked: ~/.claude/agents/$AGENT.md -> $REPO_DIR/agents/$AGENT.md"
+        elif link_into "$REPO_DIR/agents/$AGENT.md" "$CLAUDE_DIR/agents"; then
+            echo "Done! ~/.claude/agents/$AGENT.md -> $REPO_DIR/agents/$AGENT.md"
         fi
     done
 fi
@@ -243,10 +261,38 @@ fi
 if ! command -v python3 >/dev/null 2>&1; then
     echo "WARNING: python3 not found. The network guardrail is a python3 script, so it will block every Bash tool call in Claude Code until python3 is installed. Continuing with the install anyway."
 fi
-if ! bash "$REPO_DIR/guardrails/install.sh"; then
+# --enforce also installs the five build-session hooks (conventions injector,
+# fast gate, lane guard, Stop gate, PR gate). The build-session hooks only act
+# in a session that opened a build with /build (the marker .atelier/session.json,
+# bound to that session), and the lane guard only acts in a repo that has run
+# guardrails/lane-guard-init.sh. To undo just those five hooks:
+#     bash guardrails/install.sh --relax
+if ! bash "$REPO_DIR/guardrails/install.sh" --enforce; then
     SKIPPED="$SKIPPED
   - guardrails (guardrails did not finish; any file it updated is listed above with its backup)"
     echo "WARNING: the guardrails step did not complete."
+fi
+
+# --- Render harness: the dependencies /build needs to take screenshots ---
+# Installs into render/ only (node_modules and a Chromium download, about 150MB).
+# Runs when npm exists. A failure never fails setup: it prints the commands to
+# run by hand. Idempotent: npm install and playwright install both do nothing
+# when everything is already there. Skip it with: bash setup.sh --no-render
+# (or ATELIER_SKIP_RENDER=1). Put --no-hud first if you pass both.
+RENDER_CMD="cd $REPO_DIR/render && npm install && npx playwright install chromium"
+SKIP_RENDER="${ATELIER_SKIP_RENDER:-0}"
+for ARG in "$@"; do [ "$ARG" = "--no-render" ] && SKIP_RENDER=1; done
+if [ "$SKIP_RENDER" = 1 ]; then
+    echo "Skipped the render harness install. Before /build can render, run:"
+    echo "    $RENDER_CMD"
+elif ! command -v npm >/dev/null 2>&1; then
+    echo "WARNING: npm not found, so the render harness dependencies were not installed. Before /build can render, install Node and run:"
+    echo "    $RENDER_CMD"
+elif (cd "$REPO_DIR/render" && npm install && npx playwright install chromium); then
+    echo "Done! Render harness dependencies are installed in $REPO_DIR/render"
+else
+    echo "WARNING: the render harness install failed. Everything else is set up. Before /build can render, run:"
+    echo "    $RENDER_CMD"
 fi
 
 # --- Aurora HUD: build the floating usage panel and start it at login ---

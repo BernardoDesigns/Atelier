@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-19
+
+Atelier now has a working make, render, judge loop. `/build` runs a Builder agent, a render harness and a Critic agent over a SPEC, and `/wrap` closes the session. The Decision Log debrief is retired. The loop is proven end to end on one benchmark ticket.
+
+**Drafts.** Every item in `taste.md`, `conventions.md` and `failures.md` and every threshold in `quality.md` is marked draft until the owner's review, which happens in v2.0.x. Treat them as working rules, not settled standards.
+
+### Breaking changes
+
+- `setup.sh` now installs the enforcing hooks (`guardrails/install.sh --enforce`). Undo them with `bash guardrails/install.sh --relax`, which removes exactly those five hooks and nothing else. What they do, and where:
+  - In a session that opened a build with `/build` (the marker `.atelier/session.json`, bound to that session), the conventions are injected before UI file edits, the fast gate runs after each Write or Edit, a Bash command that writes a file into the repo is blocked with a pointer to Write and Edit, the Stop gate nudges once while artefacts are missing, and `gh pr create` is blocked until screenshots, assumptions, a recorded passing test run, a reviewed critique and a clean lane (no changed file under a protected path) exist.
+  - Other sessions in the same checkout are not affected.
+  - The lane guard denies edits to `auth/`, `api/`, `payments/` and `lib/shared/` only in a repo where you ran `guardrails/lane-guard-init.sh`.
+- The Decision Log debrief is retired from `/design-director`, `/eames` and `/rand`. They no longer read memory files at session start, run a Session Debrief, consolidate a Decision Log or call `figma_execute`. The contract files (`quality.md`, `taste.md`, `conventions.md`, `failures.md`) and `/wrap` replace it: `/wrap` proposes learnings, and they reach the contract files only through a pull request. Existing memory files and `next-session-starter.md` are no longer read or written; nothing deletes them.
+- An existing claude.ai upload of Eames or Rand must be re-uploaded (see Changed).
+
+### Added
+
+- The build loop:
+  - Builder agent (`agents/builder.md`, Sonnet): reads a SPEC in a fresh session, keeps an assumptions log, renders every state, supports diverge mode. It creates and changes files only with Write and Edit, runs its tests through `guardrails/run-tests.sh`, and before every hand-back reports source lines and total lines. Over about 400 lines of source it hands back a split proposal instead of continuing.
+  - Critic agent (`agents/critic.md`, Opus, read-only): scores the ten gates and five principles, leads with the core tension, cites evidence for every finding, ranks options in diverge mode.
+  - `/build <SPEC>`: opens the build session, runs the Builder, then the Critic, and repeats on `revise` for at most 3 Builder passes, then reports. It never creates a PR.
+  - `/wrap`: a five-step close. Critic review, assumption check, a one-line verdict grammar, learning proposals, then the build PR. Learning proposals go to a pull request in the Atelier repo, never into the working tree. The PR carries valid source tags, regenerated `taste-review/state.json` and runs `skills/taste-review/tests/check.sh` before the commit. The learning worktree lives under `~/.claude/atelier/.claude/worktrees/`. The session marker is renamed to `.atelier/session.closed.json` at the end.
+  - Output templates `templates/assumptions.md` and `templates/critique.md`, and `agents/tests/check.sh`.
+- `render/`, a self-contained render harness. It reads `.atelier/render-plan.json` and writes every target in 2 themes at 3 breakpoints (375, 768, 1280) as PNGs, plus `manifest.json` and `axe.json`, under `.atelier/renders/<slug>/`.
+  - Runs axe on every shot and exits 1 when any serious or critical violation exists, naming the shot.
+  - Shoots at exactly the requested width, at full document height. A page that overflows horizontally is reported as a fact: each shot carries `overflowX` (and `overflowBy`, naming the element that reaches furthest) in the manifest, the manifest has a top-level `overflow` count, and each overflowing shot prints an `OVERFLOW` line. Overflow is information for the Critic, not a failure.
+  - A `storybook` subcommand turns a Storybook `index.json` into a render plan, skipping docs and test entries. Storybook targets pick the theme through the `globals=theme:dark|light` URL global, fail the shot if `<html>` does not end up with the matching `dark` class, wait for the story's `finished` phase, and fail a shot when the render is aborted or Storybook reports a play or render error.
+  - Motion is settled, not removed. Hover states use a real pointer move; the harness never clicks before shooting. Each run clears its own slug's earlier PNGs, manifest and axe.json.
+  - It never starts a server. With nothing at the base URL it exits 2 with one line.
+- Build-session guardrails in `guardrails/`, installed only by `guardrails/install.sh --enforce` and acting only in the session that opened the build (`atelier_is_build_session` in `session-lib.sh`: the marker's `sessionId` must equal the hook input's `session_id`; a marker bound to another session, with no `sessionId`, or unreadable hook input all mean the hook does nothing):
+  - `conventions-injector.sh`: a PreToolUse hook that, when the model writes a `.tsx`, `.css`, `.svg` or `.html` file, adds one compact `C<n>: <rule>` line per item of `conventions.md` once per session, then a one-line reminder. It never blocks a write.
+  - `fast-gate.sh`: a PostToolUse hook that runs `tsc --noEmit` and eslint on edited `.ts`, `.tsx`, `.js` and `.jsx` files and returns any errors to the model.
+  - `dod-gate.sh`: a Stop hook that refuses to stop while the definition of done is unmet. A nudge: it refuses once, then yields, and stays silent while the Builder or Critic subagent is still running.
+  - `pr-gate.sh`: a PreToolUse hook on Bash and the hard gate. It blocks `gh pr create` until five things exist, checked by one shared script (`dod-check.sh`): screenshots, assumptions, a passing test run recorded by `run-tests.sh` (a hand-written `tests.json` does not count), a reviewed critique, and a clean lane (no changed file under `auth/`, `api/`, `payments/`, `lib/shared/` or a `protected` pattern in `.claude/lane-rules.json`, read from git so it holds however the file was written). No override.
+  - The same hook blocks Bash commands that write into the repo: `>` and `>>` redirects, `tee`, `sed -i`, `perl -i`, and inline scripts (`python3 -`, `python3 -c`, `node -e`, `ruby -e`, `perl -e`) that call a file write. Git, gh, npm, npx, node, the render harness, `.atelier/`, temp paths and anything outside the repo pass. It is a nudge; the lane check is the backstop.
+  - `lane-guard.sh`: a PreToolUse hook that blocks writes to paths in a repo's `.claude/lane-rules.json`, sharing its matching with the lane check through `lane-lib.sh`. `lane-guard-init.sh` applies four project-root-anchored deny rules (`auth/`, `api/`, `payments/`, `lib/shared/`) to one repo's `.claude/settings.json`, and removes the unanchored rules an earlier draft wrote.
+  - `session-open.sh`, `session-close.sh`, `session-claim.sh`: `/build` and `/wrap` bind and close the marker through these. Opening a new build archives the previous build's artefacts (nothing is deleted) to `.atelier/archive/<timestamp>-<branch>/`, so an old build can't satisfy the gates. The gates read nothing under `archive/`.
+  - `run-tests.sh <command>` runs the test command and records `.atelier/tests.json`.
+  - PreToolUse hooks fail closed if their script goes missing. The Stop hook and fast gate fail open.
+- `guardrails/install.sh --enforce` and `--relax` (not both). With no flag it behaves as before. Their backups carry their own label (`-guardrails-enforce`, `-guardrails-relax`). `lane-guard-init.sh` names its backup `-lane-guard`.
+- `guardrails/VETTING.md`: read every script before installing any third-party skill, mod or MCP server.
+- `packaging/tests/retire-check.sh`: fails if `commands/` still mentions the Decision Log, a debrief, `update_doc`, a token budget, `figma_execute`, `next-session-starter` or consolidation, if a design command refers to memory files, or if `eames.md` or `rand.md` does not point at `~/.claude/atelier/taste.md`.
+- A `wrap:<yyyy-mm-dd>` source tag (optionally ` finding <n>` or ` assumption A<n>`) for contract items born from a `/wrap` verdict. The taste-review check accepts it and still rejects free text.
+- Tests: `guardrails/tests/run.sh` (hook fixtures, installer, lane init, session scripts, loop gaps), `agents/tests/check.sh`, all run against temp directories.
+- `setup.sh` links `agents/builder.md` and `agents/critic.md` into `~/.claude/agents/` file by file, beside whatever is there. A link that already points at the right file is left alone, and a real file or a link elsewhere is skipped with a warning. Like the other links, it skips this from a git worktree. It also runs the render harness install (`npm install` and a Chromium download inside `render/` only) when `npm` exists, and prints the two commands to run otherwise.
+
+### Changed
+
+- The three design commands name the contract files (`taste.md`, `conventions.md`, `quality.md`) and point at `/wrap` for session close. Figma write guidance in `/eames` and `/rand` names the Figma MCP `use_figma` tool in place of `figma_execute`.
+- Packaging for claude.ai now translates `commands/eames.md` and `commands/rand.md` instead of copying them. The Contract files sentence names `taste.md` and `conventions.md` as bare file names, the `quality.md` mention is stripped (it is the bar for the Claude Code build loop and is not bundled), and the Closing a Session section, the trailing `$ARGUMENTS` section and the `figma-use` line are dropped. The bundled `taste.md` and `conventions.md` are copies minus the sentence "Every item is a draft until `/taste-review` approves it.". Re-upload `dist/eames.zip` and `dist/rand.zip` (rebuild with `bash packaging/build.sh`) to pick this up; each zip still holds exactly `SKILL.md`, `taste.md` and `conventions.md`. The build fails with a clear message if a translation finds nothing to change or a built file still holds `~/.claude/`, `figma-use`, `.atelier/session.json`, `$ARGUMENTS` or a Claude Code slash command. `packaging/tests/check.sh` asserts all of it, including negative builds.
+- The five benchmark tickets now fit the proving ground host. No ticket asks for a hosted preview URL: the render shots under `.atelier/renders/<slug>/` (every state, light and dark, at 375, 768 and 1280), listed or linked in the PR description, are the preview. Each ticket says how its Playwright e2e test is met through the host's own e2e script, and that the feature ships behind a flag read with `isEnabled` from the host's `lib/flags.ts`, with nothing rendered when the flag is off. Tickets 01 (settings form), 02 (inventory table) and 05 (notification preferences) are rewritten as changes to existing screens, so every acceptance criterion is something the screen does not already do.
+- `quality.md` G4 says `.atelier/tests.json` is recorded by `run-tests.sh`, never written by hand. G9 counts source lines only (tests, stories and fixtures don't count), accepts the render shots as the preview until preview deployments arrive, and adds the flag-off rule. IDs, order and format are unchanged. `agents/builder.md` and `commands/build.md` report source lines and total lines.
+
+### Removed
+
+- Session Debrief Protocol, entry format and consolidation pass from `commands/design-director.md`.
+- Session Debrief sections from `commands/eames.md` and `commands/rand.md`.
+- Session-start memory reads and the 25-entry consolidation prompt from all three commands.
+
+### What's next
+
+- v2.0.x: the remaining four benchmark tickets run through the loop, a Critic calibration run against the seeded defects, and the owner's `/taste-review` of the draft rules.
+- v2.1 (planned): hosted preview deployments, a feature-flag provider, and a `NEXT.md` handoff note written by `/wrap` (where the session stopped, the first command for next time, any open question).
+
 ## [1.2.1] - 2026-11-18
 
 This release fixes how `setup.sh` backs up your settings. Nothing new is installed.
@@ -131,6 +195,7 @@ Everything in this release is opt-in. Nothing changes how Claude Code behaves un
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
+[2.0.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.0
 [1.2.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.0
 [1.1.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.1.0
