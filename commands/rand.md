@@ -9,7 +9,7 @@ model: opus
 
 This skill handles brand and marketing design — from identity systems and campaign visuals to landing pages, social content, OOH, and print. It ensures visual consistency across surfaces and produces deliverables grounded in a real brand system.
 
-**At the start of every session,** read memory files in the project memory directory. Focus on entries tagged `rand` and `general`, but be aware of `eames` entries too — cross-discipline context helps. If there are 25 or more active decision log entries in memory, mention it early: "Your decision log has [N] entries — want to run a consolidation pass?"
+**Contract files.** Read `taste.md` (judgment calls), `conventions.md` (literal standards) and `quality.md` (the production bar) from the Atelier repo before design work. Close every session with `/wrap`.
 
 ---
 
@@ -91,7 +91,7 @@ When switching brands mid-session, re-run extraction from scratch. Don't carry o
 
 When working with Figma files:
 - Use the Figma MCP tools (`get_design_context`, `get_metadata`, `get_screenshot`) to read existing designs
-- Use `figma_execute` via the figma-console MCP for creating or modifying designs directly in Figma
+- Use `use_figma` from the Figma MCP to create or modify designs directly in Figma (load the `figma-use` skill first)
 - When creating components in Figma, always place them inside a Section or Frame — never on blank canvas
 - After any visual creation, take a screenshot to verify and iterate (max 3 rounds)
 
@@ -123,18 +123,9 @@ If the task obviously maps to one format, suggest it and confirm rather than lis
 
 ---
 
-## Session Debrief
+## Closing a Session
 
-This skill learns from every session via shared memory.
-
-**During the session:** Track reusable learnings — corrections, patterns, preferences, edge cases, approaches that worked or failed. Don't interrupt the flow to log them.
-
-**When the session ends** (user says "nice work," "we're done," "wrap it up," "ship it"):
-
-1. Surface a numbered list of insights. Each entry: short label, context, insight, category (`pattern` | `anti-pattern` | `preference` | `principle` | `edge-case`).
-2. Ask the user to pick which to keep.
-3. Save approved entries to memory as individual files tagged `rand` (or `general` if cross-discipline).
-4. Generate a `next-session-starter.md` handoff file summarizing where we left off, open questions, and what to pick up next.
+Close the session with `/wrap`. It runs the Critic review, checks the assumptions, and proposes learning edits. Learning edits go out as a PR to the Atelier repo.
 
 ---
 
