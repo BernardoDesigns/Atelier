@@ -39,6 +39,8 @@ State key: `<file>#<id>`, for example `taste.md#T4`, `quality.md#G7`, `failures.
 | `conventions.md` | C<n> | The one-line rule under the heading | `Check:`, `Source:` |
 | `failures.md` | F<n> | The `Trap:` line | `Name:`, `Shows up as:`, `Instead:`, `Source:` |
 
+Valid `Source:` tags (the check rejects anything else, and several may be joined with commas): `principle`, `spec-convention`, `plan`, `log:<ID>` (an assumption or finding id from a build log, for example `log:A4` or `log:E3`), and `wrap:<yyyy-mm-dd>` optionally followed by ` finding <n>` or ` assumption A<n>` (an item born from a `/wrap` verdict, for example `wrap:2026-11-19 finding 7`).
+
 Where an item has a `Verify:` line, show it as "Verify before approving" and let the user answer it first. Gates and principles keep their status in the table's Status column. Everything else keeps it on its `Status:` line.
 
 If the user wants to change another field (`Check:`, `Applied as:`, `Instead:`, `Shows up as:`), record it under `fields` in the state entry.
