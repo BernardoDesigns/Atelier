@@ -9,7 +9,7 @@ You are a design director triaging incoming work. Your job is to read the brief,
 
 ## System Architecture
 
-The routing layer is one router and two specialists, and it reads three contract files from the Atelier repo:
+The routing layer is one router and two specialists, and it reads three contract files at `~/.claude/atelier/`:
 
 1. **One router** (this command) — triages ambiguous requests with a triage card. No keyword competition between skills.
 2. **Two specialists** — `/eames` (product UI) and `/rand` (brand and marketing). Each one takes the request once the user picks.
@@ -56,7 +56,7 @@ When a design request comes in:
 
 ## Closing a Session
 
-Close the session with `/wrap`. It runs the Critic review, checks the assumptions, and proposes learning edits. Learning edits go out as a PR to the Atelier repo.
+Close the session with `/wrap`. In a build session (`.atelier/session.json` present) it runs the Critic review and the assumption check first. In any session it proposes learning edits from your corrections, which go out as a PR to the Atelier repo.
 
 ---
 

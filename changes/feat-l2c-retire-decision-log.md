@@ -2,7 +2,7 @@
 
 ### Breaking changes
 
-- `/design-director`, `/eames` and `/rand` no longer read memory files at session start, run a Session Debrief, consolidate a Decision Log or call `figma_execute`. Close a session with `/wrap` instead.
+- `/design-director`, `/eames` and `/rand` no longer read memory files at session start, run a Session Debrief, consolidate a Decision Log or call `figma_execute`. Close a session with `/wrap` instead. Existing memory files and `next-session-starter.md` are no longer read or written; nothing deletes them.
 
 ### Changed
 
@@ -19,7 +19,7 @@
 
 | Path | What |
 |---|---|
-| `packaging/tests/retire-check.sh` | Fails if `commands/` still mentions the Decision Log, debrief, `update_doc`, token budget or `figma_execute`, or if a design command still refers to memory files |
+| `packaging/tests/retire-check.sh` | Fails if `commands/` still mentions the Decision Log (either spelling), debrief, `update_doc`, token budget, `figma_execute`, `next-session-starter` or consolidation, if a design command still refers to memory files, or if `eames.md` or `rand.md` does not point at `~/.claude/atelier/taste.md` |
 
 Run `bash packaging/tests/retire-check.sh` to confirm the retirement.
 

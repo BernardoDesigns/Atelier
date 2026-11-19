@@ -13,7 +13,7 @@ fail() {
 
 echo "== retired terms in commands/"
 set +e
-hits="$(grep -r -i -n -E 'decision log|debrief|update_doc|token budget|figma_execute' "$commands/")"
+hits="$(grep -r -i -n -E 'decision[- ]log|debrief|update_doc|token budget|figma_execute|next-session-starter|consolidat' "$commands/")"
 rc=$?
 set -e
 if [ "$rc" -eq 0 ]; then
@@ -42,5 +42,11 @@ elif [ "$rc" -ne 1 ]; then
   fail "grep failed with status $rc"
 fi
 echo "ok   no memory-file references"
+
+echo "== specialists read the contract files from ~/.claude/atelier/"
+for name in eames rand; do
+  grep -q -F '~/.claude/atelier/taste.md' "$commands/$name.md" || fail "commands/$name.md does not point at ~/.claude/atelier/taste.md"
+  echo "ok   $name points at ~/.claude/atelier/taste.md"
+done
 
 echo "PASS packaging/tests/retire-check.sh"

@@ -9,7 +9,7 @@ model: opus
 
 This skill handles brand and marketing design — from identity systems and campaign visuals to landing pages, social content, OOH, and print. It ensures visual consistency across surfaces and produces deliverables grounded in a real brand system.
 
-**Contract files.** Read `taste.md` (judgment calls), `conventions.md` (literal standards) and `quality.md` (the production bar) from the Atelier repo before design work. Close every session with `/wrap`.
+**Contract files.** Before design work, read `~/.claude/atelier/taste.md` (judgment calls), `~/.claude/atelier/conventions.md` (literal standards) and `~/.claude/atelier/quality.md` (the production bar).
 
 ---
 
@@ -125,7 +125,7 @@ If the task obviously maps to one format, suggest it and confirm rather than lis
 
 ## Closing a Session
 
-Close the session with `/wrap`. It runs the Critic review, checks the assumptions, and proposes learning edits. Learning edits go out as a PR to the Atelier repo.
+Close the session with `/wrap`. In a build session (`.atelier/session.json` present) it runs the Critic review and the assumption check first. In any session it proposes learning edits from your corrections, which go out as a PR to the Atelier repo.
 
 ---
 

@@ -9,7 +9,7 @@ model: opus
 
 This skill produces product UI design work — wireframes, specs, flows, and component explorations. It thinks in terms of components, states, edge cases, and responsive behavior. Every deliverable is grounded in a 7-phase cyclical design process and five core design principles.
 
-**Contract files.** Read `taste.md` (judgment calls), `conventions.md` (literal standards) and `quality.md` (the production bar) from the Atelier repo before design work. Close every session with `/wrap`.
+**Contract files.** Before design work, read `~/.claude/atelier/taste.md` (judgment calls), `~/.claude/atelier/conventions.md` (literal standards) and `~/.claude/atelier/quality.md` (the production bar).
 
 ---
 
@@ -90,7 +90,7 @@ When working with Figma files:
 
 ## Closing a Session
 
-Close the session with `/wrap`. It runs the Critic review, checks the assumptions, and proposes learning edits. Learning edits go out as a PR to the Atelier repo.
+Close the session with `/wrap`. In a build session (`.atelier/session.json` present) it runs the Critic review and the assumption check first. In any session it proposes learning edits from your corrections, which go out as a PR to the Atelier repo.
 
 ---
 
