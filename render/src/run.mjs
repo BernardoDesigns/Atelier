@@ -148,6 +148,39 @@ const SETTLE_MOTION = `(() => {
     else { try { a.finish(); } catch { a.pause(); } }
   }
 })();`;
+
+// Measured right before the shot, after setup, hover and motion settling. Returns the document's scroll
+// width and height and, when the page is wider than the viewport, a description of the element that pushes
+// it out: the one whose right edge goes furthest past the viewport (first in document order on a tie, so
+// the outermost). Elements inside a clipping or scrolling ancestor (overflow other than visible) do not
+// widen the document and are skipped, so a table in its own scroll wrapper is not blamed.
+const MEASURE_PAGE = `((vw) => {
+  const de = document.documentElement, b = document.body;
+  const height = Math.max(de.scrollHeight, b ? b.scrollHeight : 0, de.clientHeight);
+  const scrollWidth = Math.ceil(Math.max(de.scrollWidth, b ? b.scrollWidth : 0));
+  let culprit = null;
+  if (scrollWidth > vw + 1) {
+    const clipped = (el) => {
+      for (let p = el.parentElement; p && p !== de; p = p.parentElement) {
+        if (getComputedStyle(p).overflowX !== 'visible') return true;
+      }
+      return false;
+    };
+    let best = null, bestRight = vw + 1;
+    for (const el of document.querySelectorAll('body, body *')) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.right <= bestRight) continue;
+      if (getComputedStyle(el).position === 'fixed' || clipped(el)) continue;
+      best = el; bestRight = r.right;
+    }
+    if (best) {
+      const cls = (best.getAttribute('class') || '').trim().split(/\\s+/)[0];
+      const slot = best.getAttribute('data-slot');
+      culprit = best.tagName.toLowerCase() + (best.id ? '#' + best.id : '') + (cls ? '.' + cls : '') + (slot ? '[data-slot="' + slot + '"]' : '');
+    }
+  }
+  return { scrollWidth, height, culprit };
+})`;
 const NO_TRANSITIONS = '*,*::before,*::after{transition:none!important}';
 const STORY_TIMEOUT = Number(process.env.ATELIER_RENDER_STORY_TIMEOUT_MS) || 10000;
 
@@ -384,7 +417,19 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
                 await page.addStyleTag({ content: NO_TRANSITIONS });
                 await page.evaluate(reapplyScript(theme));
                 if (isStory) await assertStoryTheme(page, theme, 0);
-                await page.screenshot({ path: path.join(slugDir, file), fullPage: true, animations: 'allow' });
+                // Full page, but clipped to the viewport width: with fullPage alone Chromium makes the PNG as wide
+                // as the document's scroll width when the page overflows horizontally. Playwright applies the
+                // clip in document coordinates and trims it to the full page size.
+                const m = await page.evaluate(`${MEASURE_PAGE}(${width})`);
+                const over = m.scrollWidth - width;
+                shot.overflowX = over > 1 ? over : 0;
+                if (shot.overflowX > 0 && m.culprit) shot.overflowBy = m.culprit;
+                await page.screenshot({
+                  path: path.join(slugDir, file),
+                  fullPage: true,
+                  clip: { x: 0, y: 0, width, height: Math.max(m.height, VIEWPORT_HEIGHT) },
+                  animations: 'allow',
+                });
               } catch (err) {
                 shot.status = 'error';
                 shot.error = String(err.message).split('\n')[0];

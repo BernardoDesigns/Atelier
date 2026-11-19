@@ -6,7 +6,7 @@
 // Exit codes: 0 ok, 1 axe found serious or critical violations, 2 bad plan, bad usage, nothing at the base URL, no shot rendered ok, or the run could not complete.
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { loadPlan, PlanError } from './src/plan.mjs';
+import { loadPlan, PlanError, BREAKPOINTS } from './src/plan.mjs';
 import { run, UnreachableError } from './src/run.mjs';
 import { failureLines } from './src/axe.mjs';
 import { indexToPlan, readIndex, writePlan } from './src/storybook.mjs';
@@ -53,6 +53,11 @@ async function renderCommand(argv) {
   if (!result.shots.some((s) => s.status === 'ok')) {
     // Files are already written; the caller must not read this as success.
     fail(`No shot rendered ok for ${plan.slug} (${result.shots[0].error || 'see manifest.json'}); see ${result.manifestPath}`, 2);
+  }
+  for (const s of result.shots) {
+    if (s.overflowX > 0) {
+      process.stdout.write(`OVERFLOW ${s.state}.${s.theme}.${s.bp}: page is ${s.overflowX}px wider than ${BREAKPOINTS[s.bp]}\n`);
+    }
   }
   const failures = failureLines(result.axe);
   for (const line of failures) process.stdout.write(line + '\n');
