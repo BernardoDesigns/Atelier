@@ -80,11 +80,22 @@ def expected_bundled(source):
 
 
 print(f"slash commands scanned for: {', '.join(SLASH)}")
-for name in ("eames", "rand"):
+DD_PHRASES = (
+    "The routing layer is one router and two specialists:\n",
+    "(this skill)",
+    "the Eames skill (product UI) and the Rand skill (brand and marketing)",
+    "load the chosen skill (Eames or Rand)",
+    "The router does not read them.",
+)
+DD_ABSENT = ("(this command)", "slash command", "three contract files", "Decision Log", "debrief", "/wrap")
+
+for name in ("eames", "rand", "design-director"):
+    router = name == "design-director"
+    bundled_files = () if router else BUNDLED
     path = os.path.join(dist, name + ".zip")
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
-        expected = [f"{name}/{f}" for f in ("SKILL.md", "conventions.md", "taste.md")]
+        expected = [f"{name}/SKILL.md"] if router else [f"{name}/{f}" for f in ("SKILL.md", "conventions.md", "taste.md")]
         check(names == expected, f"{path}: entries {names}, expected {expected}")
         check(all(not i.is_dir() for i in archive.infolist()), f"{name}.zip: directory entry")
         check(all(i.extra == b"" for i in archive.infolist()), f"{name}.zip: extra field")
@@ -92,7 +103,7 @@ for name in ("eames", "rand"):
 
         skill = archive.read(f"{name}/SKILL.md").decode("utf-8")
         scan(f"{name}/SKILL.md", skill, LITERAL_SKILL)
-        for bundled in BUNDLED:
+        for bundled in bundled_files:
             member = f"{name}/{bundled}"
             check(f"`{bundled}`" in skill, f"{name}/SKILL.md does not name {bundled}")
             check(member in names, f"{member} not in zip")
@@ -106,7 +117,16 @@ for name in ("eames", "rand"):
                 scan(member, data, LITERAL_BUNDLED)
         check(not any(n.endswith("/quality.md") for n in names), f"{name}.zip bundles quality.md")
         check("quality.md" not in skill, f"{name}/SKILL.md mentions quality.md")
-        check(CONTRACT in skill, f"{name}/SKILL.md lacks the exact Contract files sentence")
+        if router:
+            check(len(names) == 1, f"{name}.zip holds more than SKILL.md: {names}")
+            check(not any(n.endswith(("/taste.md", "/conventions.md")) for n in names), f"{name}.zip bundles a contract file")
+            check("**Figma" not in skill and "use_figma" not in skill, f"{name}/SKILL.md has figma text")
+            for phrase in DD_PHRASES:
+                check(phrase in skill, f"{name}/SKILL.md lacks {phrase!r}")
+            for phrase in DD_ABSENT:
+                check(phrase not in skill, f"{name}/SKILL.md still has {phrase!r}")
+        else:
+            check(CONTRACT in skill, f"{name}/SKILL.md lacks the exact Contract files sentence")
 
         try:
             fields, body = split(skill)
@@ -129,4 +149,4 @@ if failures:
         print(f"FAIL {message}")
     print(f"{len(failures)} assertion failure(s)")
     sys.exit(1)
-print(f"ok   eames.zip, rand.zip: {', '.join(BUNDLED)} plus SKILL.md; translation clean")
+print(f"ok   eames.zip, rand.zip: {', '.join(BUNDLED)} plus SKILL.md; design-director.zip: SKILL.md only; translation clean")

@@ -85,7 +85,7 @@ To turn the build-session hooks off, run `bash guardrails/install.sh --relax`. T
 
 - **`setup.sh` now installs the enforcing hooks.** In a session that opened a build with `/build`: conventions are injected before UI file edits, the fast gate runs after each Write or Edit, a Bash command that writes a file into the repo is blocked with a pointer to Write and Edit, the Stop gate nudges once while artefacts are missing, and `gh pr create` is blocked until screenshots, assumptions, a recorded passing test run, a reviewed critique and a clean lane (no changed file under a protected path) exist. Other sessions in the same checkout are not affected. The lane guard denies edits to `auth/`, `api/`, `payments/` and `lib/shared/` only in a repo where you ran `guardrails/lane-guard-init.sh`. To undo: `bash guardrails/install.sh --relax`.
 - **The Decision Log debrief is retired** from `/design-director`, `/eames` and `/rand`. No memory reads at session start, no Session Debrief, no consolidation pass. The contract files and `/wrap` replace it. Old memory files are no longer read or written, and nothing deletes them.
-- **Re-upload Eames and Rand to claude.ai.** The packaged skills are now translated from the commands, not copied. Run `bash packaging/build.sh` and upload `dist/eames.zip` and `dist/rand.zip`.
+- **Re-upload Eames, Rand and Design Director to claude.ai.** The packaged skills are now translated from the commands, not copied. Run `bash packaging/build.sh` and upload `dist/eames.zip`, `dist/rand.zip` and `dist/design-director.zip`. The Design Director on claude.ai from before 2.0.0 still describes the retired Decision Log.
 
 ---
 
@@ -144,7 +144,7 @@ Walks through every draft item in the contract files, one at a time, and records
 bash packaging/build.sh
 ```
 
-Builds `dist/eames.zip` and `dist/rand.zip`, one skill folder in each (`SKILL.md`, `taste.md`, `conventions.md`), and the same input gives the same bytes. The commands are translated for claude.ai, not copied: the Claude Code only parts (`/wrap`, the `~/.claude` paths, the `quality.md` mention) are dropped, and the bundled `taste.md` and `conventions.md` lose the `/taste-review` sentence. The build fails loudly if a translation finds nothing to change. `dist/` is git-ignored; the zips are build output. If you uploaded Eames or Rand before 2.0.0, upload the new zips. The zip layout is my assumption of what claude.ai wants, so upload one to confirm before you trust it.
+Builds `dist/eames.zip`, `dist/rand.zip` and `dist/design-director.zip`, one skill folder in each. Eames and Rand hold `SKILL.md`, `taste.md` and `conventions.md`. Design Director is a router, so it ships `SKILL.md` only. The same input gives the same bytes. The commands are translated for claude.ai, not copied: the Claude Code only parts (`/wrap`, the `~/.claude` paths, the `quality.md` mention) are dropped, and the bundled `taste.md` and `conventions.md` lose the `/taste-review` sentence. The build fails loudly if a translation finds nothing to change. `dist/` is git-ignored; the zips are build output. If you uploaded Eames, Rand or Design Director before 2.0.0, upload the new zips. The zip layout is my assumption of what claude.ai wants, so upload one to confirm before you trust it.
 
 ---
 
@@ -269,7 +269,7 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `skills/spec/` | `spec` skill: interview that produces a SPEC.md |
 | `skills/taste-review/` | `taste-review` skill: one-item-at-a-time review of the contract files |
 | `taste-review/state.json` | Review state, resumable on any machine |
-| `packaging/build.sh` | Builds the claude.ai skill zips for eames and rand into `dist/`. Run `bash packaging/build.sh`; the output is not committed |
+| `packaging/build.sh` | Builds the claude.ai skill zips for eames, rand and design-director into `dist/`. Run `bash packaging/build.sh`; the output is not committed |
 | `packaging/tests/` | `check.sh` checks the built zips, `retire-check.sh` fails if `commands/` still mentions the Decision Log, a debrief or memory files |
 | `evals/tickets/` | Five benchmark SPECs for the regression suite |
 | `evals/metrics/` | Per-run metrics schema, sample row and append-only log |

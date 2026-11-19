@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `packaging/build.sh` now also builds `dist/design-director.zip`, the claude.ai skill for Design Director. It holds `SKILL.md` only, because the router bundles no `taste.md` or `conventions.md`. The build translates the System Architecture section (no contract file paths, the specialists named as skills) and drops the Closing a Session and `$ARGUMENTS` sections. If you uploaded Design Director to claude.ai before 2.0.0, upload the new zip: the old one still describes the retired Decision Log. `dist/eames.zip` and `dist/rand.zip` are unchanged. `packaging/tests/check.sh` covers the new zip, including a negative build for each new translation.
+
 ## [2.0.0] - 2026-11-19
 
 Atelier now has a working make, render, judge loop. `/build` runs a Builder agent, a render harness and a Critic agent over a SPEC, and `/wrap` closes the session. The Decision Log debrief is retired. The loop is proven end to end on one benchmark ticket.
