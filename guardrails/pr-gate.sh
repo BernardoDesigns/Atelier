@@ -4,8 +4,9 @@
 # In THE build session (<cwd>/.atelier/session.json exists and its sessionId equals
 # the hook input's session_id; see session-lib.sh), a Bash command that
 # creates a pull request (`gh pr create`) is blocked (exit 2) until the same four
-# artefacts dod-gate.sh checks exist: screenshots, assumptions, a passing test
-# run, a reviewed critique. Both scripts source dod-check.sh so they can't drift.
+# requirements dod-gate.sh checks are met: screenshots, assumptions, a passing test
+# run, a reviewed critique, and lane (no protected path changed, by any means; read
+# from git). Both scripts source dod-check.sh so they can't drift.
 # The missing items are listed on stderr.
 #
 # dod-gate.sh (Stop) is only a nudge, because a Stop hook has to yield. This one
@@ -37,6 +38,43 @@
 # creating a PR, and a PR opened in the web UI. If the command can't be parsed
 # but contains the words gh pr create, it is treated as a PR create.
 #
+# Third job, same hook, build session only: the Bash WRITE NUDGE
+# (atelier_bash_write_nudge below). The Builder must create and change files with
+# the Write and Edit tools, because the conventions injector, the fast gate and the
+# lane guard only see those. A Bash command that obviously writes a file into the
+# repo is blocked (exit 2) with a message saying so. It is a nudge, not a wall: the
+# real backstop for protected paths is the "lane" requirement in dod-check.sh, so
+# a missed write is acceptable and a wrongly blocked command is not. Anything the
+# detector can't be sure about passes. The command is tokenised like the PR check
+# (heredoc bodies and # comments dropped first, quoted text is never an operator),
+# split into segments at ; && || | & ( ), and each segment is judged on its own.
+#
+# BLOCKED, when the target is a literal path inside the repo:
+#   - an output redirect: `> f`, `>> f`, `&> f`, `>| f`, with or without an fd
+#     (`1> f`). That covers `cat > f <<EOF`, `cat >> f`, `echo x > f`, `jq . > f`.
+#   - `tee [-a] f ...` (each file argument)
+#   - `sed -i ...` / `sed --in-place ...` / `sed -ni ...` (flag cluster with i),
+#     judged by the last non-option word
+#   - `perl -i ...` / `perl -pi ...` / `perl -i.bak ...`, same rule
+# NEVER BLOCKED:
+#   - segments whose program is git, gh, npm, npx, pnpm, yarn, bun or node (so
+#     scripts, the render harness `node .../render/cli.mjs`, and `git diff > x`
+#     are left alone), or a path under /atelier/render/
+#   - `2>&1`, `>&2`, `>&-` (fd duplication) and anything into /dev/ (/dev/null)
+#   - targets under .atelier/ (relative, or absolute with /.atelier/ in it)
+#   - targets under /tmp, /private/tmp, /var/folders, $TMPDIR's value, or any
+#     target with a $ variable or `...` / $(...) in it (`$(mktemp)`, `$TMPDIR/x`,
+#     `"$out"`: unknowable, so allowed), or with a glob, or starting with ~
+#   - targets outside the repo (absolute and not under the cwd, or `../x`)
+#   - relative targets after a `cd` / `pushd` earlier in the command
+#   - input redirects and heredocs themselves (`<`, `<<`, `<<<`); pipes into
+#     tail, head, grep and the like (no file is named)
+#   - a quoted ">" or "tee" (quotes make it an argument, not an operator)
+#   - a command that can't be parsed (unbalanced quotes) or a missing python3
+# `bash -c "..."`, `sh -c` and `eval` strings are judged the same way, 2 levels deep.
+# Known false negatives: python/node/ruby scripts that write files, `cp`, `mv`,
+# `dd of=`, `install`, `git apply`, `patch`, a heredoc body, backticks, aliases.
+#
 # Fails closed in the build session: a missing python3 or a missing dod-check.sh
 # exits 2. A missing session-lib.sh or session-claim.sh exits 2 too (PreToolUse).
 # install.sh wraps this script so a missing script exits 2 as well. Writes nothing
@@ -63,8 +101,187 @@ session_claim_record "$input" "$(cd "$(dirname "$0")" && pwd -P)"
 a="$cwd/.atelier"
 atelier_is_build_session "$a/session.json" "$input" || exit 0
 
+WRITE_DETECT='
+import os, posixpath, re, shlex, sys
+
+cmd = sys.stdin.read()
+cwd = os.path.normpath(sys.argv[1]) if len(sys.argv) > 1 else os.getcwd()
+EXEMPT = {"git", "gh", "npm", "npx", "pnpm", "yarn", "bun", "node"}
+SKIP = {"env", "sudo", "time", "command", "exec", "nohup", "!", "{", "then", "do", "else", "builtin"}
+SHELLS = {"bash", "sh", "zsh"}
+TEMPS = ("/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/")
+TMPDIR = os.environ.get("TMPDIR", "").rstrip("/")
+state = {"cd": False}
+
+
+def strip_heredocs(text):
+    out, pending = [], []
+    for line in text.split("\n"):
+        if pending:
+            if line.strip() == pending[0]:
+                pending.pop(0)
+            continue
+        out.append(line)
+        for m in re.finditer(r"<<(?!<)-?\s*([\x27\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", line):
+            pending.append(m.group(2))
+    return "\n".join(out)
+
+
+def prep(text):
+    # Newlines become ";" and # comments are dropped, both only outside quotes.
+    out, q, esc, prev = [], None, False, "\n"
+    skipping = False
+    for ch in text:
+        if skipping:
+            if ch == "\n":
+                skipping = False
+                out.append(";")
+                prev = ch
+            continue
+        if esc:
+            out.append(ch); esc = False; prev = ch; continue
+        if ch == "\\" and q != "\x27":
+            out.append(ch); esc = True; prev = ch; continue
+        if q:
+            if ch == q:
+                q = None
+            out.append(ch); prev = ch; continue
+        if ch in "\"\x27":
+            q = ch; out.append(ch); prev = ch; continue
+        if ch == "#" and (prev.isspace() or prev == ";"):
+            skipping = True; continue
+        out.append(";" if ch == "\n" else ch)
+        prev = ch
+    return "".join(out)
+
+
+def tokens(text):
+    lex = shlex.shlex(prep(strip_heredocs(text)), posix=False, punctuation_chars=";&|()<>")
+    lex.whitespace_split = True
+    lex.commenters = ""
+    return list(lex)
+
+
+def unq(t):
+    return t.replace("\"", "").replace("\x27", "")
+
+
+def is_break(t):
+    return re.fullmatch(r"[;&|()]+", t) is not None
+
+
+def is_redirect(t):
+    return re.fullmatch(r"[<>&|]+", t) is not None and ("<" in t or ">" in t)
+
+
+def into_repo(raw):
+    t = unq(raw)
+    if not t or "$" in t or "`" in t or re.search(r"[*?\[]", t) or t.startswith("~") or t.startswith("/dev/"):
+        return False
+    if t.startswith("/"):
+        p = posixpath.normpath(t)
+        if "/.atelier/" in p + "/" or p.startswith(TEMPS) or (TMPDIR and (p + "/").startswith(TMPDIR + "/")):
+            return False
+        return p == cwd or p.startswith(cwd.rstrip("/") + "/")
+    if state["cd"]:
+        return False
+    p = posixpath.normpath(t)
+    if p == ".." or p.startswith("../") or p == ".atelier" or p.startswith(".atelier/"):
+        return False
+    return True
+
+
+def judge(seg, depth):
+    words, redirs, i = [], [], 0
+    while i < len(seg):
+        t = seg[i]
+        if is_redirect(t):
+            tgt = seg[i + 1] if i + 1 < len(seg) and not is_redirect(seg[i + 1]) else None
+            redirs.append((t, tgt))
+            i += 2 if tgt is not None else 1
+            continue
+        words.append(t)
+        i += 1
+    j = 0
+    while j < len(words):
+        w = words[j]
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", w) or w in SKIP or (w.startswith("-") and j > 0 and words[j - 1] in SKIP):
+            j += 1
+            continue
+        break
+    if j >= len(words):
+        prog, args = "", []
+    else:
+        prog, args = unq(words[j]).rsplit("/", 1)[-1], words[j + 1:]
+        if "/atelier/render/" in unq(words[j]):
+            return None
+    if prog in ("cd", "pushd"):
+        state["cd"] = True
+        return None
+    if prog in EXEMPT:
+        return None
+    if depth < 2 and prog in SHELLS:
+        for k, a in enumerate(args):
+            if a.startswith("-") and not a.startswith("--") and "c" in a[1:] and k + 1 < len(args):
+                return scan(unq(args[k + 1]), depth + 1)
+    if depth < 2 and prog == "eval":
+        return scan(" ".join(unq(a) for a in args), depth + 1)
+    for op, tgt in redirs:
+        if ">" not in op or tgt is None:
+            continue
+        if op == ">&" and re.fullmatch(r"\d+|-", unq(tgt)):
+            continue
+        if into_repo(tgt):
+            return "a redirect (" + op + ") into " + unq(tgt)
+    opts = [a for a in args if a.startswith("-")]
+    files = [a for a in args if not a.startswith("-")]
+    if prog == "tee":
+        for f in files:
+            if into_repo(f):
+                return "tee into " + unq(f)
+    if prog in ("sed", "perl") and files:
+        inplace = any(a.startswith("--in-place") or re.fullmatch(r"-[A-Za-z]*i\S*", a) for a in opts)
+        if inplace and into_repo(files[-1]):
+            return prog + " -i on " + unq(files[-1])
+    return None
+
+
+def scan(text, depth=0):
+    try:
+        toks = tokens(text)
+    except ValueError:
+        return None
+    seg = []
+    for t in toks + [";"]:
+        if is_break(t):
+            if seg:
+                r = judge(seg, depth)
+                if r:
+                    return r
+            seg = []
+        else:
+            seg.append(t)
+    return None
+
+
+r = scan(cmd)
+print(r if r else "")
+'
+
+# Build-session nudge (see the header): sets WRITE_HIT to a short description of the
+# file write, or leaves it empty. Any trouble running the detector counts as no hit.
+atelier_bash_write_nudge() { # <command> <cwd>
+    WRITE_HIT=$(python3 -I -c "$WRITE_DETECT" "$2" <<<"$1" 2>/dev/null) || WRITE_HIT=""
+}
+
 command=$(jq -r '.tool_input.command // empty' <<<"$input")
 [ -n "$command" ] || exit 0
+
+atelier_bash_write_nudge "$command" "$cwd"
+if [ -n "$WRITE_HIT" ]; then
+    echo "Atelier write guard: this command writes a file into the repo ($WRITE_HIT). Write files with the Write or Edit tool so the conventions and the fast gate apply; redirects under .atelier/ and temp dirs are allowed. If this is a tool's own output (a formatter, an npm script, the render harness), run that tool rather than redirecting into the file." >&2
+    exit 2
+fi
 # Cheap prefilter: all three words must appear somewhere.
 grep -qE 'gh' <<<"$command" && grep -qE 'pr' <<<"$command" && grep -qE 'create' <<<"$command" || exit 0
 
