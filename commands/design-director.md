@@ -29,10 +29,10 @@ When a design request comes in:
 
 3. **Present a triage card.** Show the user a concise comparison:
 
-   **Eames (product-design) would focus on:**
+   **Eames (product UI) would focus on:**
    [3-4 bullet points specific to this request — interaction model, component states, edge cases, responsive behavior, information architecture]
 
-   **Rand (brand-design) would focus on:**
+   **Rand (brand and marketing) would focus on:**
    [3-4 bullet points specific to this request — visual identity, emotional register, brand consistency, conversion/persuasion, tone]
 
    **Your call — Eames or Rand?**
@@ -48,9 +48,9 @@ When a design request comes in:
 
 ## What Each Specialist Brings
 
-**Eames (product-design)** — Named after Charles Eames. Thinks in components, states, edge cases, and responsive behavior. Produces wireframes, design specs, user flows, component explorations, and engineering handoff docs. Grounded in a 7-phase cyclical design process and five core design principles. Strongest when the core challenge is interaction model, information architecture, or system-level component design. Blind spot: can under-index on emotional register and brand voice.
+**Eames (product UI)** — Named after Charles Eames. Thinks in components, states, edge cases, and responsive behavior. Produces wireframes, design specs, user flows, component explorations, and engineering handoff docs. Grounded in a 7-phase cyclical design process and five core design principles. Strongest when the core challenge is interaction model, information architecture, or system-level component design. Blind spot: can under-index on emotional register and brand voice.
 
-**Rand (brand-design)** — Named after Paul Rand. Thinks in visual identity, emotional register, brand consistency, and persuasion. Produces landing pages, brand identity systems, campaign visuals, pitch decks, social content, and marketing collateral. Works through explore/refine/polish phases with a multi-brand client system. Strongest when the core challenge is how something looks, feels, and communicates. Blind spot: can under-index on interaction states and engineering feasibility.
+**Rand (brand and marketing)** — Named after Paul Rand. Thinks in visual identity, emotional register, brand consistency, and persuasion. Produces landing pages, brand identity systems, campaign visuals, pitch decks, social content, and marketing collateral. Works through explore/refine/polish phases with a multi-brand client system. Strongest when the core challenge is how something looks, feels, and communicates. Blind spot: can under-index on interaction states and engineering feasibility.
 
 ---
 

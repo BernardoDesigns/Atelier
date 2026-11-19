@@ -39,6 +39,7 @@ FORBIDDEN_SKILL = (
     "Closing a Session",
     ".atelier/session.json",
     "$ARGUMENTS",
+    "quality.md",
 )
 # The bundled files get the same scan, with .atelier/ as a whole.
 FORBIDDEN_BUNDLED = ("~/.claude/", ".atelier/")
@@ -75,15 +76,25 @@ DD_THIS_COMMAND = "(this command)"
 DD_THIS_SKILL = "(this skill)"
 DD_SPECIALISTS_SOURCE = "`/eames` (product UI) and `/rand` (brand and marketing)"
 DD_SPECIALISTS_BUILT = "the Eames skill (product UI) and the Rand skill (brand and marketing)"
-DD_CONTRACT_START = "3. **Contract files** \u2014 "
-DD_CONTRACT_END = "Read the relevant one when a brief turns into build work."
+DD_CONTRACT_SOURCE = (
+    "3. **Contract files** \u2014 `taste.md` holds judgment calls, to be interpreted rather than followed word for word. "
+    "`conventions.md` holds literal standards, one rule with an exact value and a yes/no check. "
+    "`quality.md` holds what production grade means, with a pass bar for each gate. "
+    "Read the relevant one when a brief turns into build work."
+)
 DD_CONTRACT_BUILT = (
     "3. **Contract files** \u2014 each specialist skill carries its own `taste.md` (judgment calls, "
     "to be interpreted rather than followed word for word) and `conventions.md` (literal standards, "
     "one rule with an exact value and a yes/no check). The router does not read them."
 )
-DD_INVOKE_SOURCE = "invoke the chosen slash command (`/eames` or `/rand`)"
-DD_INVOKE_BUILT = "load the chosen skill (Eames or Rand)"
+DD_INVOKE_SOURCE = (
+    "Once the user picks, invoke the chosen slash command (`/eames` or `/rand`) "
+    "and proceed using its methodology entirely."
+)
+DD_INVOKE_BUILT = (
+    "Once the user picks, load the chosen skill (`eames` or `rand`) "
+    "and proceed using its methodology entirely. If that skill isn't installed, say so and stop."
+)
 
 CONTRACT_PATH = re.compile(r"~/\.claude/atelier/([A-Za-z0-9_.-]+)")
 FIGMA_SKILL_HINT = " (load the `figma-use` skill first)"
@@ -146,25 +157,6 @@ def replace_exact(body, source, built, label, what):
     if source not in body:
         sys.exit(f"{label}: the {what} wording is not there ({source[:70]!r}); the command was reworded, update build_skills.py")
     return body.replace(source, built)
-
-
-def translate_dd_contract_item(body, label):
-    """Targets: item 3 of Design Director's System Architecture list, the Contract files bullet.
-
-    The whole line goes, from "3. **Contract files**" to "...build work.", and
-    is replaced by a line saying each specialist skill carries its own files.
-    quality.md is named in the source line and does not survive.
-    """
-    lines = body.splitlines(keepends=True)
-    hits = [i for i, l in enumerate(lines) if l.startswith(DD_CONTRACT_START)]
-    if len(hits) != 1:
-        sys.exit(f"{label}: expected one '{DD_CONTRACT_START.strip()}' item, found {len(hits)}; the command was reworded, update build_skills.py")
-    line = lines[hits[0]]
-    text = line.rstrip("\r\n")
-    if not text.endswith(DD_CONTRACT_END) or not all(n in text for n in ("`taste.md`", "`conventions.md`", "`quality.md`")):
-        sys.exit(f"{label}: the Contract files item no longer names taste.md, conventions.md and quality.md and ends with {DD_CONTRACT_END!r}; update build_skills.py")
-    lines[hits[0]] = DD_CONTRACT_BUILT + line[len(text):]
-    return "".join(lines)
 
 
 def check_contract_paths(body, label, shipped=SHIPPED):
@@ -278,7 +270,7 @@ def translate_design_director(body, label):
     body = replace_exact(body, DD_ARCH_SOURCE, DD_ARCH_BUILT, label, "System Architecture intro")
     body = replace_exact(body, DD_THIS_COMMAND, DD_THIS_SKILL, label, "'(this command)'")
     body = replace_exact(body, DD_SPECIALISTS_SOURCE, DD_SPECIALISTS_BUILT, label, "specialists item")
-    body = translate_dd_contract_item(body, label)
+    body = replace_exact(body, DD_CONTRACT_SOURCE, DD_CONTRACT_BUILT, label, "Contract files item (item 3)")
     body = replace_exact(body, DD_INVOKE_SOURCE, DD_INVOKE_BUILT, label, "step 4 handoff")
     body = check_contract_paths(body, label, shipped=())
     body = translate_session_close(body, label)

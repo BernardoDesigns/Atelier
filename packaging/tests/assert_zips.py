@@ -84,10 +84,10 @@ DD_PHRASES = (
     "The routing layer is one router and two specialists:\n",
     "(this skill)",
     "the Eames skill (product UI) and the Rand skill (brand and marketing)",
-    "load the chosen skill (Eames or Rand)",
+    "Once the user picks, load the chosen skill (`eames` or `rand`) and proceed using its methodology entirely. If that skill isn't installed, say so and stop.",
     "The router does not read them.",
 )
-DD_ABSENT = ("(this command)", "slash command", "three contract files", "Decision Log", "debrief", "/wrap")
+DD_ABSENT = ("(this command)", "slash command", "three contract files", "(product-design)", "(brand-design)", "invoke the chosen", "Decision Log", "debrief", "/wrap")
 
 for name in ("eames", "rand", "design-director"):
     router = name == "design-director"

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `packaging/build.sh` now also builds `dist/design-director.zip`, the claude.ai skill for Design Director. It holds `SKILL.md` only, because the router bundles no `taste.md` or `conventions.md`. The build translates the System Architecture section (no contract file paths, the specialists named as skills) and drops the Closing a Session and `$ARGUMENTS` sections. If you uploaded Design Director to claude.ai before 2.0.0, upload the new zip: the old one still describes the retired Decision Log. `dist/eames.zip` and `dist/rand.zip` are unchanged. `packaging/tests/check.sh` covers the new zip, including a negative build for each new translation.
+- `packaging/build.sh` now also builds `dist/design-director.zip`, the claude.ai skill for Design Director. It holds `SKILL.md` only, because the router bundles no `taste.md` or `conventions.md`. The build translates the System Architecture section and the step 4 handoff (no contract file paths, the specialists named as skills) and drops the Closing a Session and `$ARGUMENTS` sections. If you uploaded Design Director to claude.ai before 2.0.0, upload the new zip: the old one still describes the retired Decision Log. `commands/design-director.md` now labels the specialists "Eames (product UI)" and "Rand (brand and marketing)" instead of the old skill names. `dist/eames.zip` and `dist/rand.zip` are unchanged. `packaging/tests/check.sh` covers the new zip, including a negative build for each new translation.
 
 ## [2.0.0] - 2026-11-19
 

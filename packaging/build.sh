@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build dist/eames.zip and dist/rand.zip, the claude.ai skill uploads.
+# Build dist/eames.zip, dist/rand.zip and dist/design-director.zip, the claude.ai skill uploads.
 # Each run stages into a fresh temp directory, which is left behind on purpose.
 set -euo pipefail
 

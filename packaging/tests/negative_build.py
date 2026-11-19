@@ -1,7 +1,7 @@
 """Negative build tests. Run as: python3 -I negative_build.py <repo> <build_skills.py>
 
-Each case builds from a temp copy of the repo's commands folder (with eames.md
-or taste.md reworded) and expects the build to exit non-zero with a message
+Each case builds from a temp copy of the repo's commands folder (with eames.md,
+design-director.md or taste.md reworded) and expects the build to exit non-zero with a message
 naming the cause. Temp dirs are TemporaryDirectory, so none are left behind.
 """
 
@@ -121,8 +121,12 @@ expect_fail(
     mutate_dd=lambda t: t.replace("`/eames` (product UI)", "`/eames` (product)"),
 )
 expect_fail(
-    "dd contract item reworded", "Contract files item",
+    "dd contract item end reworded", "Contract files item",
     mutate_dd=lambda t: t.replace("Read the relevant one when a brief turns into build work.", "Read them when needed."),
+)
+expect_fail(
+    "dd contract item middle reworded", "Contract files item",
+    mutate_dd=lambda t: t.replace("`quality.md` holds what production grade means", "`failures.md` holds traps. `quality.md` holds what production grade means"),
 )
 expect_fail(
     "dd contract item lost quality.md", "Contract files item",
@@ -137,6 +141,10 @@ expect_fail(
     mutate_dd=lambda t: t.replace("invoke the chosen slash command (`/eames` or `/rand`)", "hand off to the chosen specialist"),
 )
 expect_fail(
+    "dd step 4 handoff tail reworded", "step 4 handoff",
+    mutate_dd=lambda t: t.replace("proceed using its methodology entirely.", "proceed."),
+)
+expect_fail(
     "dd close section renamed", "Closing a Session",
     mutate_dd=lambda t: t.replace("## Closing a Session", "## Wrapping Up"),
 )
@@ -147,6 +155,10 @@ expect_fail(
 expect_fail(
     "dd contract path elsewhere in the body", "taste.md",
     mutate_dd=lambda t: t.replace("## How This Works", "Also read `~/.claude/atelier/taste.md`.\n\n## How This Works"),
+)
+expect_fail(
+    "dd bare quality.md elsewhere", "quality.md",
+    mutate_dd=lambda t: t.replace("## Triage Principles", "Check `quality.md`.\n\n## Triage Principles"),
 )
 expect_fail(
     "dd /wrap left in body", "/wrap",
