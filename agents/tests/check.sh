@@ -250,6 +250,38 @@ check "wrap: no-build path skips steps 1 to 3"   wrap_no_build_skips
 check "wrap: learning proposals name their target files" wrap_targets
 check "wrap: grammar example present"            wrap_example
 
+wrap_item_format() {
+  grep -Fq 'in the item format each file documents in its own header' "$WRAP" \
+    && grep -Fq '### F29' "$WRAP" && grep -Fq '### C71' "$WRAP" && grep -Fq '### T38' "$WRAP" \
+    && grep -Fq 'next free number' "$WRAP" && grep -Fq 'Status: draft' "$WRAP"
+}
+wrap_source_tag() {
+  grep -Fq 'Source: wrap:<yyyy-mm-dd> finding <n>' "$WRAP" && [ "$(grep -c '^Source: wrap:' "$WRAP")" -eq 3 ]
+}
+wrap_regen_state() {
+  grep -Fq 'python3 -I -B WT/skills/taste-review/tests/gen-state.py WT > WT/taste-review/state.json' "$WRAP" \
+    && grep -Fq 'gen-state.py --sync WT' "$WRAP"
+}
+wrap_runs_check_before_commit() {
+  local run say
+  run=$(grep -n '^bash WT/skills/taste-review/tests/check.sh$' "$WRAP" | cut -d: -f1)
+  say=$(grep -n 'Do not commit until the check passes' "$WRAP" | cut -d: -f1)
+  [ -n "$run" ] && [ -n "$say" ] && [ "$say" -gt "$run" ]
+}
+wrap_stages_by_name() {
+  grep -Fq 'each staged by name, never `git add -A`' "$WRAP" && grep -Fq '`taste-review/state.json`' "$WRAP"
+}
+wrap_worktree_location() {
+  grep -Fq '~/.claude/atelier/.claude/worktrees/learn-<yyyy-mm-dd>-<slug>' "$WRAP" \
+    && grep -Fq 'never under a temp or scratch directory' "$WRAP"
+}
+check "wrap: step 4 points at the item format and gives one example each for F, C and T" wrap_item_format
+check "wrap: step 4 uses the wrap source tag"    wrap_source_tag
+check "wrap: step 4 regenerates taste-review/state.json with the generator" wrap_regen_state
+check "wrap: step 4 runs the taste-review check and holds the commit until it passes" wrap_runs_check_before_commit
+check "wrap: step 4 stages both changed files by name" wrap_stages_by_name
+check "wrap: step 4 puts the learning worktree under the checkout, not a temp dir" wrap_worktree_location
+
 # ---- build command ----------------------------------------------------------
 
 build_frontmatter_desc_only() {

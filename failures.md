@@ -206,7 +206,7 @@ Name: Flag gates the control, not the layout
 Trap: A feature flag hides the button but the column, header or skeleton cell built for it still renders.
 Shows up as: An empty column or gap in production while the feature ships dark.
 Instead: Derive the layout from the flag (columns, headers, skeleton and message cells), and test the flag-off render.
-Source: log:/wrap 2026-11-19 finding 1
+Source: wrap:2026-11-19 finding 1
 Status: draft
 
 ### F26
@@ -214,7 +214,7 @@ Name: Pending state with nothing focusable
 Trap: Disabling every control in a dialog while a request is pending drops focus to body and breaks the trap.
 Shows up as: Tab leaves the dialog, or focus lands on the page, during a confirming state.
 Instead: Keep one control focusable (aria-disabled with an early-return handler) and move focus to it when pending starts.
-Source: log:/wrap 2026-11-19 finding 4
+Source: wrap:2026-11-19 finding 4
 Status: draft
 
 ### F27
@@ -222,7 +222,7 @@ Name: Only the error branch is handled
 Trap: A result type with more than success and error (loading, empty) gets handled as success-or-error, and the other branches fall through silently.
 Shows up as: A pending state that clears with no feedback.
 Instead: Treat every non-success result as the failed state, and test each branch.
-Source: log:/wrap 2026-11-19 finding 8
+Source: wrap:2026-11-19 finding 8
 Status: draft
 
 ### F28
@@ -230,5 +230,5 @@ Name: Centred story hides how a wide component behaves when narrow
 Trap: A width-dependent story rendered with Storybook's centered layout has no container to constrain it, so a wide table or grid sets the page width itself.
 Shows up as: The narrow render overflows the viewport sideways (the render manifest reports overflowX above 0 for the sm shot), and the component's own scroll or wrap behaviour is never exercised.
 Instead: Use layout fullscreen (or padded) for width-dependent stories so the component gets the viewport's width, and read overflowX in the render manifest for every sm shot.
-Source: log:/wrap 2026-11-19 finding 7
+Source: wrap:2026-11-19 finding 7
 Status: draft
