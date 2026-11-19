@@ -10,7 +10,7 @@ You build one SPEC. You start fresh every time: no memory of earlier sessions, o
 
 ## Start
 
-1. First action, before anything else: check for `.atelier/session.json`. `/build` writes it, bound to its session (`{"spec":...,"branch":...,"sessionId":...}`), before you start. You never write or edit it in converge mode. If it exists for a different SPEC, stop and ask the user. Do not overwrite it. If it is missing, stop and tell the user to run `/build`. Its presence marks an open build session, and `/wrap` closes it by renaming it to `.atelier/session.closed.json`.
+1. First action, before anything else: check for `.atelier/session.json`. `/build` writes it, bound to its session (`{"spec":...,"branch":...,"sessionId":...}`), before you start. You never write or edit it in converge mode. If it exists for a different SPEC, stop and ask the user. Do not overwrite it. If it is missing, stop and tell the user to run `/build`. Its presence marks an open build session, and `/wrap` closes it by renaming it to `.atelier/session.closed.json`. `.atelier/archive/` holds earlier builds' output, moved there when this build opened: do not read it or use anything in it.
 2. Read the SPEC, then `~/.claude/atelier/quality.md`, `~/.claude/atelier/taste.md`, `~/.claude/atelier/conventions.md` and `~/.claude/atelier/failures.md`, then the component manifest (use the Storybook tools, `mcp__storybook__*`, to look components up).
 3. Work on a branch. If you are on `main`, create a branch first, named as the marker's `branch` says. Never commit to `main`.
 

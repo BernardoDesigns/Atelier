@@ -133,5 +133,98 @@ expect "pr gate still blocks the owner" "$([ $code -eq 2 ]; echo $?)" "exit $cod
 hook "$r" sess-B "gh pr create --fill"; code=$?
 expect "pr gate lets another session through, silently" "$([ $code -eq 0 ] && [ ! -s "$ROOT/hook.out" ] && [ ! -s "$ROOT/hook.err" ]; echo $?)"
 
+# 10. archive of a finished build's artefacts on open
+FIX="$G/tests/fixtures/dod-gate/complete-session/repo/.atelier"
+closedrepo() { # [branch] -> repo holding a wrapped build's artefacts
+    local r
+    r=$(newrepo); mkdir -p "$r/.atelier"; cp -R "$FIX/." "$r/.atelier/"
+    rm -f "$r/.atelier/session.json"
+    echo "fast gate output" >"$r/.atelier/fast-gate.tsc.out"; echo stamp >"$r/.atelier/conventions-injected"
+    [ -n "${1:-}" ] && jq -n --arg b "$1" '{spec:"OLD.md",branch:$b,sessionId:"sess-old"}' >"$r/.atelier/session.closed.json"
+    echo "$r"
+}
+missing_of() { # <repo> -> dod_missing output, one line per missing requirement
+    ( . "$G/dod-check.sh"; dod_missing "$1/.atelier"; printf '%s\n' "$DOD_MISSING" )
+}
+r=$(closedrepo feat/old-thing)
+expect "archive: fixture build is complete before the open" "$([ -z "$(missing_of "$r")" ]; echo $?)" "$(missing_of "$r")"
+call "$r" sess-A "$OPEN" SPEC.md feat/new; code=$?
+out=$(cat "$ROOT/call.out")
+arch=$(ls "$r/.atelier/archive" 2>/dev/null)
+expect "archive: open succeeds and says what it archived, before opened:" \
+    "$([ $code -eq 0 ] && [ "$(sed -n 1p "$ROOT/call.out")" = "archived the previous build's artefacts to .atelier/archive/$arch/" ] && sed -n 2p "$ROOT/call.out" | grep -q '^opened: '; echo $?)" "exit $code: $out"
+expect "archive: only archive/ and the new session.json are left" \
+    "$([ "$(ls -A "$r/.atelier" | sort | tr '\n' ' ')" = "archive session.json " ]; echo $?)" "$(ls -A "$r/.atelier")"
+expect "archive: one folder, named <UTC timestamp>-<closed branch slug>" \
+    "$([ "$(printf '%s\n' "$arch" | wc -l | tr -d ' ')" = 1 ] && printf '%s' "$arch" | grep -Eq '^[0-9]{8}T[0-9]{6}Z-feat-old-thing$'; echo $?)" "$arch"
+expect "archive: everything came across (renders, notes, tests, closed marker, stamps)" \
+    "$(d="$r/.atelier/archive/$arch"; [ -d "$d/renders" ] && [ -f "$d/critique.md" ] && [ -f "$d/tests.json" ] && [ -f "$d/assumptions.md" ] && [ -f "$d/session.closed.json" ] && [ -f "$d/fast-gate.tsc.out" ] && [ -f "$d/conventions-injected" ]; echo $?)" "$(ls -A "$r/.atelier/archive/$arch")"
+expect "archive: new marker is bound to the opener" "$([ "$(sid_of "$r")" = sess-A ] && [ "$(jq -r .branch "$r/.atelier/session.json")" = feat/new ]; echo $?)"
+m=$(missing_of "$r")
+expect "archive: dod-check reports screenshots, assumptions, tests and critique missing again" \
+    "$(grep -q '^- screenshots:' <<<"$m" && grep -q '^- assumptions:' <<<"$m" && grep -q '^- tests:' <<<"$m" && grep -q '^- critique:' <<<"$m"; echo $?)" "$m"
+
+# the owner refreshing the same spec archives nothing, even with artefacts present
+echo "mine" >"$r/.atelier/assumptions.md"
+call "$r" sess-A "$OPEN" SPEC.md feat/new2; code=$?
+expect "archive: refresh by the owner (same spec) archives nothing" \
+    "$([ $code -eq 0 ] && [ "$(ls "$r/.atelier/archive" | wc -l | tr -d ' ')" = 1 ] && [ "$(cat "$r/.atelier/assumptions.md")" = mine ] && ! grep -q archived "$ROOT/call.out"; echo $?)" "exit $code: $(cat "$ROOT/call.out")"
+
+# refused opens archive nothing
+snap() { ls -A "$1/.atelier"; ls -A "$1/.atelier/archive" 2>/dev/null; }
+before=$(snap "$r")
+call "$r" sess-B "$OPEN" SPEC.md feat/z; code=$?
+expect "archive: refused (owned by another session) archives nothing" "$([ $code -eq 1 ] && [ "$(snap "$r")" = "$before" ]; echo $?)"
+call "$r" sess-A "$OPEN" OTHER.md feat/z; code=$?
+expect "archive: refused (different spec) archives nothing" "$([ $code -eq 1 ] && [ "$(snap "$r")" = "$before" ]; echo $?)"
+r2=$(closedrepo feat/old-thing); echo '{"spec":"S","branch":"b"}' >"$r2/.atelier/session.json"
+call "$r2" sess-A "$OPEN" OTHER.md feat/z; code=$?
+expect "archive: refused (old-format marker, different spec) archives nothing" "$([ $code -eq 1 ] && [ ! -d "$r2/.atelier/archive" ] && [ -f "$r2/.atelier/critique.md" ]; echo $?)"
+r2=$(closedrepo feat/old-thing)
+(cd "$r2" && "$OPEN" SPEC.md feat/z) >/dev/null 2>&1; code=$?
+expect "archive: refused (no claim) archives nothing" "$([ $code -eq 1 ] && [ ! -d "$r2/.atelier/archive" ] && [ -f "$r2/.atelier/critique.md" ]; echo $?)"
+
+# no closed marker: branch is "unknown"; an old archive is never swept into the new one
+r2=$(closedrepo)
+mkdir -p "$r2/.atelier/archive/20200101T000000Z-older"; echo keep >"$r2/.atelier/archive/20200101T000000Z-older/x"
+call "$r2" sess-A "$OPEN" SPEC.md feat/new; code=$?
+expect "archive: no closed marker names the folder -unknown" "$([ $code -eq 0 ] && ls "$r2/.atelier/archive" | grep -Eq '^[0-9]{8}T[0-9]{6}Z-unknown$'; echo $?)"
+expect "archive: earlier archive folders stay where they are" "$([ -f "$r2/.atelier/archive/20200101T000000Z-older/x" ] && [ "$(ls "$r2/.atelier/archive" | wc -l | tr -d ' ')" = 2 ]; echo $?)"
+
+# an existing folder with the same name gets a numeric suffix
+r2=$(closedrepo feat/old-thing)
+stub="$ROOT/date-stub"; mkdir -p "$stub"
+printf '#!/bin/sh\nif [ "$1" = "-u" ]; then echo 20261119T181500Z; else exec /bin/date "$@"; fi\n' >"$stub/date"; chmod +x "$stub/date"
+mkdir -p "$r2/.atelier/archive/20261119T181500Z-feat-old-thing"
+hook "$r2" sess-A "$OPEN SPEC.md feat/new"
+(cd "$r2" && PATH="$stub:$PATH" "$OPEN" SPEC.md feat/new) >"$ROOT/call.out" 2>"$ROOT/call.err"; code=$?
+expect "archive: same-name folder gets a numeric suffix" \
+    "$([ $code -eq 0 ] && [ -f "$r2/.atelier/archive/20261119T181500Z-feat-old-thing-2/critique.md" ] && [ -z "$(ls -A "$r2/.atelier/archive/20261119T181500Z-feat-old-thing")" ]; echo $?)" "exit $code: $(cat "$ROOT/call.err")"
+
+# a failing move stops the open and writes no marker
+r2=$(closedrepo feat/old-thing)
+chmod 555 "$r2/.atelier"
+call "$r2" sess-A "$OPEN" SPEC.md feat/new; code=$?
+chmod 755 "$r2/.atelier"
+expect "archive: unwritable archive parent exits non-zero, no marker, nothing moved" \
+    "$([ $code -ne 0 ] && [ ! -e "$r2/.atelier/session.json" ] && [ -f "$r2/.atelier/critique.md" ] && [ ! -d "$r2/.atelier/archive" ]; echo $?)" "exit $code: $(cat "$ROOT/call.err")"
+r2=$(closedrepo feat/old-thing); mkdir -p "$r2/.atelier/archive"
+chmod 555 "$r2/.atelier/archive"
+call "$r2" sess-A "$OPEN" SPEC.md feat/new; code=$?
+chmod 755 "$r2/.atelier/archive"
+expect "archive: unwritable archive folder exits non-zero, no marker" \
+    "$([ $code -ne 0 ] && [ ! -e "$r2/.atelier/session.json" ] && [ -f "$r2/.atelier/critique.md" ]; echo $?)" "exit $code: $(cat "$ROOT/call.err")"
+
+# diverge: the same rule applies to the option worktree directory
+r=$(newrepo); w=$(closedrepo feat/opt-old)
+call "$r" sess-A "$OPEN" SPEC.md feat/opt-1 "$w"; code=$?
+expect "archive: option worktree is archived like any other dir" \
+    "$([ $code -eq 0 ] && [ "$(ls -A "$w/.atelier" | sort | tr '\n' ' ')" = "archive session.json " ] && ls "$w/.atelier/archive" | grep -Eq -- '-feat-opt-old$' && [ ! -e "$r/.atelier/archive" ]; echo $?)" "exit $code: $(cat "$ROOT/call.err")"
+
+# gates look at the live files only: a complete build sitting in archive/ satisfies nothing
+r2=$(newrepo); mkdir -p "$r2/.atelier/archive/old"; cp -R "$FIX/." "$r2/.atelier/archive/old/"
+m=$(missing_of "$r2")
+expect "archive: dod-check ignores what is under archive/" "$(grep -q '^- screenshots:' <<<"$m" && grep -q '^- critique:' <<<"$m" && grep -q '^- tests:' <<<"$m" && grep -q '^- assumptions:' <<<"$m"; echo $?)" "$m"
+
 echo "session-scripts: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
