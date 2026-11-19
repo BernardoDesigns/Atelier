@@ -222,3 +222,9 @@ In diagrams, setup precedes the punchline, and reading order is validated agains
 Source: log:C19
 Status: draft
 Applied as: Read the diagram as someone who has not seen the brief, and reorder until each step depends only on what came before it.
+
+### T37
+A row action that the row's state blocks keeps its trigger visible. The dialog explains the block and when it lifts, rather than the action disappearing per row.
+Source: user-verdict, /wrap 2026-11-19 finding 10
+Status: draft
+Applied as: Don't flag a visible-but-blocked trigger as an extra round trip when the SPEC asks for a blocked state.
