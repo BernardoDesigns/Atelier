@@ -26,9 +26,9 @@ A counter tech looking for a "50mm prime lens" while a customer waits needs the 
 - A retired item shows its row muted with `text-muted-foreground`, not opacity, and its status badge still reads "Retired".
 - Each sort heading's link shows the host focus ring. The sort headings and the filter work by keyboard alone.
 - Add one flag to `lib/flags.ts`. With it off, `?sort`, `?dir` and `?status` are ignored: same data, same pagination links, Retry still goes to `inventoryHref(page)`, and today's scroll region at 375 stays.
-- Every state is a URL on the build: populated `/inventory`, loading `?state=loading`, empty `?state=empty`, error `?state=error&sort=name`, paginated `?page=2`, filtered `?status=retired&sort=name&dir=desc`. No story; the screen lives in `app/`.
-- No matches has no URL today. Every status has at least four fixture items, so no status filter on its own matches nothing. A component test covers the state with a filtered result of zero items, it has no render shot, and the assumptions log says so.
-- The Builder updates the inventory line in the host `AGENTS.md`, which says nothing but canned outcomes is reachable from the query string. Docs do not count toward the source line cap.
+- Every state is a URL on the build: populated `/inventory`, loading `?state=loading`, empty `?state=empty`, error `?state=error&sort=name`, paginated `?page=2`, filtered `?status=retired&sort=name&dir=desc`, no matches `?status=retired&state=no-matches`. No story; the screen lives in `app/`.
+- Add a canned outcome `no-matches` to the existing `?state=` switch. With a status filter active it makes the result come back with zero items, so the no-matches state has a URL. It is a mock affordance like the other `?state=` values, and with the flag off it is ignored like the other new params.
+- The Builder updates the inventory line in the host `AGENTS.md`, which says nothing but canned outcomes is reachable from the query string, and lists `no-matches` with the other `?state=` values. Docs do not count toward the source line cap.
 
 ## States to cover
 
@@ -44,7 +44,7 @@ A counter tech looking for a "50mm prime lens" while a customer waits needs the 
 
 None, first build.
 
-Until a baseline exists, gate G6 is judged on every state that has a URL having a render and on drift from this SPEC.
+Until a baseline exists, gate G6 is judged on every state having a render and on drift from this SPEC.
 
 ## Out of scope and protected paths
 
@@ -61,12 +61,12 @@ Until a baseline exists, gate G6 is judged on every state that has a URL having 
 - G3 Lint and format: the host eslint and prettier exit 0 on changed files.
 - G4 Tests: a component test exists for each state above. A Playwright e2e test covers the happy path and one error path. It lives in the host `e2e/` folder and runs with the host `npm run test:e2e`, which builds and starts the app itself, so start no server by hand. Add no test dependency; Playwright is already there. `.atelier/tests.json` reports `"pass": true` and is recorded by running the tests through `~/.claude/atelier/guardrails/run-tests.sh`, never written by hand.
 - G5 Accessibility: axe reports 0 serious or critical violations in every shot, the table and pagination work by keyboard alone, and focus is visible on every control.
-- G6 Visual: a render shot exists for each state that has a URL in `light` and `dark` at `sm` 375, `md` 768 and `lg` 1280.
+- G6 Visual: a render shot exists for each state in `light` and `dark` at `sm` 375, `md` 768 and `lg` 1280.
 - G7 Lane: no changed file sits under a protected path.
 - G8 Readability: no dead code, and every name reads without the SPEC.
 - G9 PR hygiene: the diff is under about 400 changed lines of source (tests, stories and fixtures don't count) or a split is proposed in the PR, the PR template is complete, and the PR lists or links the render shots for every state as its preview (hosted preview deployments arrive in v2.1). The table ships behind a flag: read it with `isEnabled` from the host module `lib/flags.ts`. With the flag off the screen is exactly as it was before, layout included: no empty control, column or gap. The flag's default is on, as a kill switch, and a test that turns it off with the host's `overrideFlags` proves the flag-off behaviour.
 - G10 Taste: the Critic scores P1 to P5 from 1 to 5 and no score is below 3.
-- Screenshots rendered for every state listed above that has a URL.
+- Screenshots rendered for every state listed above.
 - Assumptions log written at `.atelier/assumptions.md` and reviewed at `/wrap`.
 - Passing test run recorded in `.atelier/tests.json`.
 - Critique reviewed, with a `Verdict:` line in `.atelier/critique.md`.
