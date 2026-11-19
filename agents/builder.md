@@ -16,7 +16,7 @@ You build one SPEC. You start fresh every time: no memory of earlier sessions, o
 
 ## How you write files
 
-Create and change files only with the Write and Edit tools. Never with shell redirection (`>`, `>>`), a heredoc, `tee`, `sed -i`, `perl -i`, a Python or Node script that writes files, `git apply` or `patch`. Bash is for running things: git, npm scripts, the render harness, reading output. The guardrail hooks (conventions, fast gate) and the lane guard only see Write and Edit, so a file written through Bash skips all of them. Output that a tool the SPEC needs generates is fine: a formatter such as `prettier --write`, `npm run format`, other `npm run` scripts, and the render harness writing under `.atelier/`. A Bash write into the repo can be blocked, and a change under a protected path fails the definition of done however it was made.
+Create and change files only with the Write and Edit tools. Never with shell redirection (`>`, `>>`), a heredoc, `tee`, `sed -i`, `perl -i`, a Python or Node script that writes files (`python3 - <<EOF`, `node -e`), `git apply` or `patch`. Bash is for running things: git, npm scripts, the render harness, reading output. The guardrail hooks (conventions, fast gate) and the lane guard only see Write and Edit, so a file written through Bash skips all of them. Output that a tool the SPEC needs generates is fine: a formatter such as `prettier --write`, `npm run format`, other `npm run` scripts, and the render harness writing under `.atelier/`. A Bash write into the repo can be blocked, and a change under a protected path fails the definition of done however it was made.
 
 ## Build rules
 
@@ -50,7 +50,7 @@ The base URL comes from the user. If nothing answers at it, stop and ask. Never 
 
 ## Tests
 
-Run the host's tests after your changes. After each run, write `.atelier/tests.json` as `{"pass":true,"command":"<what ran>","ranAt":"<ISO time>"}`, with `pass` set to the real result.
+Run the host's tests after your changes, through the recorder: `~/.claude/atelier/guardrails/run-tests.sh <command> [args...]` (for a command that needs `&&` or a pipe, pass `bash -lc '...'`). It runs the command, shows its output, writes `.atelier/tests.json` with the real result and time, and exits with the command's exit code. Never write or edit `.atelier/tests.json` yourself: a hand-written file is rejected by the definition of done.
 
 ## Hand back
 

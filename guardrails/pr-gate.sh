@@ -56,10 +56,31 @@
 #   - `sed -i ...` / `sed --in-place ...` / `sed -ni ...` (flag cluster with i),
 #     judged by the last non-option word
 #   - `perl -i ...` / `perl -pi ...` / `perl -i.bak ...`, same rule
+#   - an interpreter on an INLINE script that calls a file write. Inline means
+#     python/python3 with `-c` or `-` or a heredoc on stdin, node with `-e`,
+#     `--eval`, `-p` or a heredoc, ruby or perl with `-e` or a heredoc, and no
+#     script file argument. The heredoc body or the -c/-e string is the one text
+#     that is read (everywhere else heredoc bodies are ignored). Write calls:
+#       python  open( / io.open( / codecs.open( whose mode (2nd argument or
+#               mode=) is a string literal with w, a or x; .write_text( ;
+#               .write_bytes(
+#       node    writeFileSync( writeFile( appendFileSync( appendFile(
+#               createWriteStream(
+#       ruby    File.write( File.binwrite( IO.write( ; File.open( with a literal
+#               mode containing w or a
+#       perl    open( with > in a literal mode (2 or 3 argument form)
+#     An inline write is let through only when the call's first argument is a
+#     single plain string literal that is under .atelier/, /tmp, $TMPDIR or
+#     outside the repo (`open(".atelier/x.json","w")`). Variables, concatenation,
+#     f-strings, template literals, Path(...).write_text and every perl write are
+#     blocked, because the target can't be read statically.
 # NEVER BLOCKED:
 #   - segments whose program is git, gh, npm, npx, pnpm, yarn, bun or node (so
 #     scripts, the render harness `node .../render/cli.mjs`, and `git diff > x`
-#     are left alone), or a path under /atelier/render/
+#     are left alone), or a path under /atelier/render/. node, python, ruby and
+#     perl running a script FILE are never blocked; neither are inline scripts
+#     with no write call (reads: open(p), open(p,'r'); prints: python3 -I -c)
+#   - guardrails/run-tests.sh and whatever command it is given (plain command)
 #   - `2>&1`, `>&2`, `>&-` (fd duplication) and anything into /dev/ (/dev/null)
 #   - targets under .atelier/ (relative, or absolute with /.atelier/ in it)
 #   - targets under /tmp, /private/tmp, /var/folders, $TMPDIR's value, or any
@@ -72,8 +93,10 @@
 #   - a quoted ">" or "tee" (quotes make it an argument, not an operator)
 #   - a command that can't be parsed (unbalanced quotes) or a missing python3
 # `bash -c "..."`, `sh -c` and `eval` strings are judged the same way, 2 levels deep.
-# Known false negatives: python/node/ruby scripts that write files, `cp`, `mv`,
-# `dd of=`, `install`, `git apply`, `patch`, a heredoc body, backticks, aliases.
+# Known false negatives: scripts run from a FILE that write files, inline scripts
+# that write by other means (shutil, os.system, fs.promises.cp), piped scripts
+# (`cat x | python3 -`), `cp`, `mv`, `dd of=`, `install`, `git apply`, `patch`,
+# backticks, aliases.
 #
 # Fails closed in the build session: a missing python3 or a missing dod-check.sh
 # exits 2. A missing session-lib.sh or session-claim.sh exits 2 too (PreToolUse).
@@ -114,17 +137,131 @@ TMPDIR = os.environ.get("TMPDIR", "").rstrip("/")
 state = {"cd": False}
 
 
+BODIES = {}
+
+
 def strip_heredocs(text):
+    # Heredoc bodies are removed from the command. Each operator becomes
+    # "<< __HDn__" and the body is kept in BODIES, read only for inline scripts.
     out, pending = [], []
     for line in text.split("\n"):
         if pending:
-            if line.strip() == pending[0]:
+            if line.strip() == pending[0][0]:
                 pending.pop(0)
+            else:
+                BODIES[pending[0][1]] = BODIES.get(pending[0][1], "") + line + "\n"
             continue
-        out.append(line)
-        for m in re.finditer(r"<<(?!<)-?\s*([\x27\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", line):
-            pending.append(m.group(2))
+
+        def sub(m):
+            key = "__HD%d__" % len(BODIES)
+            BODIES[key] = ""
+            pending.append((m.group(2), key))
+            return "<< " + key
+
+        out.append(re.sub(r"<<(?!<)-?\s*([\x27\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", sub, line))
     return "\n".join(out)
+
+
+def dequote(t):
+    try:
+        return " ".join(shlex.split(t, posix=True))
+    except ValueError:
+        return unq(t)
+
+
+def split_args(text, start):
+    # Top-level arguments of the call whose "(" is just before text[start].
+    args, cur, depth, q = [], "", 0, None
+    i = start
+    while i < len(text):
+        ch = text[i]
+        if q:
+            cur += ch
+            if ch == "\\" and i + 1 < len(text):
+                cur += text[i + 1]; i += 1
+            elif ch == q:
+                q = None
+        elif ch in "\"\x27`":
+            q = ch; cur += ch
+        elif ch in "([{":
+            depth += 1; cur += ch
+        elif ch in ")]}":
+            if depth == 0:
+                args.append(cur.strip()); return args
+            depth -= 1; cur += ch
+        elif ch == "," and depth == 0:
+            args.append(cur.strip()); cur = ""
+        else:
+            cur += ch
+        i += 1
+    args.append(cur.strip())
+    return args
+
+
+def literal(a):
+    m = re.fullmatch(r"([\x27\"])([^\x27\"\\]*)\1", a.strip())
+    return m.group(2) if m else None
+
+
+def write_calls(kind, text):
+    # [(first-argument text or None)] for each file-write call; None = no way to tell.
+    calls = []
+    if kind == "python":
+        for m in re.finditer(r"(?<![\w.])(?:io\.|codecs\.)?open\s*\(", text):
+            args = split_args(text, m.end())
+            mode = None
+            for a in args:
+                km = re.fullmatch(r"mode\s*=\s*(.*)", a, re.S)
+                if km:
+                    mode = literal(km.group(1))
+            if mode is None and len(args) > 1 and not re.match(r"\w+\s*=", args[1]):
+                mode = literal(args[1])
+            if mode is not None and re.fullmatch(r"[rwxabt+U]+", mode) and set(mode) & set("wax"):
+                first = re.sub(r"^file\s*=\s*", "", args[0]) if args else ""
+                calls.append(first)
+        if re.search(r"\.\s*write_(text|bytes)\s*\(", text):
+            calls.append(None)
+    elif kind == "node":
+        for m in re.finditer(r"\b(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream)\s*\(", text):
+            args = split_args(text, m.end())
+            calls.append(args[0] if args else "")
+    elif kind == "ruby":
+        for m in re.finditer(r"\b(?:File\.write|File\.binwrite|IO\.write|IO\.binwrite)\s*\(", text):
+            args = split_args(text, m.end())
+            calls.append(args[0] if args else "")
+        for m in re.finditer(r"\bFile\.open\s*\(", text):
+            args = split_args(text, m.end())
+            mode = literal(args[1]) if len(args) > 1 else None
+            if mode is not None and re.fullmatch(r"[rwab+tx]+", mode) and set(mode) & set("wax"):
+                calls.append(args[0])
+    elif kind == "perl":
+        if re.search(r"\bopen\s*\(?\s*(?:my\s+)?[$\w]+\s*,\s*[\x27\"]\s*\+?>", text):
+            calls.append(None)
+    return calls
+
+
+def inline_write(kind, args, redirs):
+    # An interpreter run on an INLINE script (-c/-e string, or a heredoc on stdin).
+    flag = {"python": r"-[A-Za-z]*c", "node": r"-[A-Za-z]*e|-p|--eval|--print", "ruby": r"-[A-Za-z]*e", "perl": r"-[A-Za-z]*[eE]"}[kind]
+    texts = []
+    for k, a in enumerate(args):
+        if re.fullmatch(flag, a) and k + 1 < len(args):
+            texts.append(dequote(args[k + 1]))
+        elif kind == "node" and a.startswith("--eval="):
+            texts.append(dequote(a[len("--eval="):]))
+    if not texts and [a for a in args if not a.startswith("-")]:
+        return None  # runs a script file: not inline
+    if not texts:
+        for op, tgt in redirs:
+            if op == "<<" and tgt in BODIES:
+                texts.append(BODIES[tgt])
+    for text in texts:
+        for first in write_calls(kind, text):
+            lit = literal(first) if first is not None else None
+            if lit is not None and not into_repo(lit):
+                continue
+            return kind + " inline script writes a file"
+    return None
 
 
 def prep(text):
@@ -218,6 +355,11 @@ def judge(seg, depth):
     if prog in ("cd", "pushd"):
         state["cd"] = True
         return None
+    kind = "python" if re.fullmatch(r"python[0-9.]*", prog) else prog if prog in ("node", "ruby", "perl") else None
+    if kind:
+        r = inline_write(kind, args, redirs)
+        if r:
+            return r
     if prog in EXEMPT:
         return None
     if depth < 2 and prog in SHELLS:

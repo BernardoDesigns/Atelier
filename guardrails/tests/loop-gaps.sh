@@ -148,6 +148,60 @@ nudge "blocks perl -pi" block "perl -pi -e 's/a/b/' src/a.ts"
 nudge "blocks jq into the repo" block 'jq . package.json > src/data.json'
 nudge "blocks a redirect inside bash -c" block 'bash -c "echo hi > src/x.ts"'
 nudge "blocks after other commands on the line" block 'ls && echo hi > src/x.ts'
+nudge "blocks the dry-run cat >> with a heredoc" block "cat >> lib/data/index.ts <<'EOF'
+export const rows = [];
+EOF"
+# Inline scripts that write files (the second thing the Builder reached for in the dry run).
+nudge "blocks the dry-run python3 - heredoc read then write" block "python3 - <<'EOF'
+p='src/a.ts'
+s=open(p).read()
+s=s.replace('a','b')
+open(p,'w').write(s)
+EOF"
+nudge "blocks python3 heredoc without the dash" block "python3 <<EOF
+with open(path, \"a\") as f:
+    f.write('x')
+EOF"
+nudge "blocks python3 -c with open(p,'w')" block "python3 -c \"open(p,'w').write('x')\""
+nudge "blocks python -c with open(p, \"a\")" block "python -c 'open(p, \"a\").write(1)'"
+nudge "blocks open with mode=" block "python3 -c \"open(p, mode='w').write('x')\""
+nudge "blocks open with mode x and a literal repo path" block "python3 -c \"open('src/x.ts','x').write('x')\""
+nudge "blocks Path.write_text" block "python3 -c \"import pathlib; pathlib.Path(p).write_text('x')\""
+nudge "blocks write_bytes in a heredoc" block "python3 - <<'EOF'
+Path('src/a.bin').write_bytes(b'x')
+EOF"
+nudge "blocks node -e writeFileSync" block "node -e \"require('fs').writeFileSync(p, 'x')\""
+nudge "blocks node --eval appendFileSync" block "node --eval \"fs.appendFileSync('src/a.ts', 'x')\""
+nudge "blocks node heredoc writeFile" block "node - <<'EOF'
+const fs = require('fs');
+fs.writeFile(p, s, () => {});
+EOF"
+nudge "blocks node createWriteStream and fs.promises.writeFile" block "node -e \"fs.createWriteStream(out)\""
+nudge "blocks ruby -e File.write" block "ruby -e \"File.write(p, 'x')\""
+nudge "blocks ruby heredoc File.open with w" block "ruby <<'EOF'
+File.open(p, 'w') { |f| f.write('x') }
+EOF"
+nudge "blocks perl -e open with >" block "perl -e 'open(F, \">\", \$p); print F 1'"
+nudge "blocks an inline write whose target is built from a variable under a temp-looking name" block "python3 -c \"open('/tmp/' + name + '/../../x','w')\""
+nudge "allows an inline write to a literal .atelier path" pass "python3 -c \"open('.atelier/x.json','w').write('{}')\""
+nudge "allows an inline write to a literal /tmp path" pass "node -e \"require('fs').writeFileSync('/tmp/x.json', '{}')\""
+nudge "allows node running a script file" pass 'node scripts/x.mjs --out build'
+nudge "allows python running a script file" pass 'python3 tools/y.py --fix'
+nudge "allows python -m pytest" pass 'python3 -m pytest -q'
+nudge "allows node -e with no write call" pass "node -e \"console.log(require('./package.json').version)\""
+nudge "allows python3 -c with no write call" pass "python3 -c 'print(1)'"
+nudge "allows python3 -I -c that prints" pass "python3 -I -c 'import sys; print(sys.version)'"
+nudge "allows an inline script that only reads" pass "python3 - <<'EOF'
+p='src/a.ts'
+s=open(p).read()
+t=open(p,'r').read()
+print(len(s), len(t))
+EOF"
+nudge "allows a node heredoc that only reads" pass "node - <<'EOF'
+console.log(require('fs').readFileSync('package.json','utf8').length)
+EOF"
+nudge "allows run-tests.sh with a plain command" pass '~/.claude/atelier/guardrails/run-tests.sh npm test'
+nudge "allows run-tests.sh with bash -lc" pass "~/.claude/atelier/guardrails/run-tests.sh bash -lc 'npm run lint && npm test 2>&1 | tail -20'"
 nudge "allows git commands" pass 'git add -A && git commit -m "a -> b" && git diff --shortstat main...HEAD'
 nudge "allows git diff redirected" pass 'git diff main...HEAD > changes.patch'
 nudge "allows npm run with 2>&1 and a pipe to tail" pass 'npm run build 2>&1 | tail -20'
@@ -177,6 +231,48 @@ nudge "does nothing without a marker" pass 'echo hi > src/x.ts'
 mv "$r/.atelier/session.json.away" "$r/.atelier/session.json"
 echo '{"spec":"S","branch":"b"}' >"$r/.atelier/session.json"
 nudge "does nothing for a marker with no sessionId" pass 'echo hi > src/x.ts'
+
+# ---- run-tests.sh records .atelier/tests.json ---------------------------------------
+RT="$G/run-tests.sh"
+chk() { # <name> <condition-exit> [why]
+    if [ "$2" -eq 0 ]; then ok "$1"; else no "$1" "${3:-condition false}"; fi
+}
+r=$(newrepo 1); rm -f "$r/.atelier/tests.json"
+(cd "$r" && bash "$RT" true) >"$ROOT/o" 2>&1; code=$?
+chk "run-tests: a passing command exits 0" "$([ $code -eq 0 ]; echo $?)" "exit $code"
+chk "run-tests: records pass true, exitCode 0, the command" "$(jq -e '.pass == true and .exitCode == 0 and .command == "true"' "$r/.atelier/tests.json" >/dev/null; echo $?)"
+chk "run-tests: ranAt is a UTC ISO time" "$(jq -e '.ranAt | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")' "$r/.atelier/tests.json" >/dev/null; echo $?)"
+chk "run-tests: no temp file left behind" "$([ "$(ls "$r/.atelier" | grep -c '^tests.json.')" -eq 0 ]; echo $?)"
+(cd "$r" && bash "$RT" bash -c 'echo out-line; echo err-line >&2; exit 3') >"$ROOT/o" 2>&1; code=$?
+chk "run-tests: exits with the command's code" "$([ $code -eq 3 ]; echo $?)" "exit $code"
+chk "run-tests: output passes through" "$(grep -q out-line "$ROOT/o" && grep -q err-line "$ROOT/o"; echo $?)"
+chk "run-tests: records pass false, exitCode 3, the command as given" "$(jq -e '.pass == false and .exitCode == 3 and (.command | startswith("bash -c"))' "$r/.atelier/tests.json" >/dev/null; echo $?)"
+(cd "$r" && bash "$RT" no-such-command-xyz) >/dev/null 2>&1; code=$?
+chk "run-tests: a missing command is a recorded failure" "$([ $code -eq 127 ] && jq -e '.pass == false and .exitCode == 127' "$r/.atelier/tests.json" >/dev/null; echo $?)" "exit $code"
+d=$(mktemp -d "$ROOT/bare.XXXXXX")
+(cd "$d" && bash "$RT" true) >"$ROOT/o" 2>&1; code=$?
+chk "run-tests: refuses without .atelier/, runs nothing, writes nothing" "$([ $code -eq 2 ] && [ ! -e "$d/.atelier" ] && grep -q '.atelier' "$ROOT/o"; echo $?)" "exit $code"
+(cd "$r" && bash "$RT") >/dev/null 2>&1; code=$?
+chk "run-tests: no command is a usage error" "$([ $code -eq 2 ]; echo $?)" "exit $code"
+mv "$r/.atelier/session.json" "$r/.atelier/session.json.away"
+(cd "$r" && bash "$RT" true) >/dev/null 2>&1; code=$?
+chk "run-tests: needs no session marker" "$([ $code -eq 0 ]; echo $?)" "exit $code"
+mv "$r/.atelier/session.json.away" "$r/.atelier/session.json"
+
+# The definition of done reads it. Gate on a repo whose only variable is tests.json.
+for hook in dod pr; do
+    r=$(newrepo 1)
+    (cd "$r" && bash "$RT" true) >/dev/null 2>&1
+    expect "run-tests/$hook: a recorded pass is accepted" "$hook" "$r" pass
+    (cd "$r" && bash "$RT" false) >/dev/null 2>&1
+    expect "run-tests/$hook: a recorded fail is rejected" "$hook" "$r" block "tests:"
+    echo '{"pass":true,"command":"npm test","ranAt":"2026-11-18T18:00:00Z"}' >"$r/.atelier/tests.json"
+    expect "run-tests/$hook: a hand-written file without exitCode is rejected" "$hook" "$r" block "was not written by run-tests.sh"
+    echo '{"pass":true,"exitCode":"0"}' >"$r/.atelier/tests.json"
+    expect "run-tests/$hook: a non-numeric exitCode is rejected" "$hook" "$r" block "was not written by run-tests.sh"
+    rm "$r/.atelier/tests.json"
+    expect "run-tests/$hook: a missing file is rejected" "$hook" "$r" block "run-tests.sh"
+done
 
 echo "loop-gaps: $pass passed, $fail failed" >&2
 [ "$fail" -eq 0 ]

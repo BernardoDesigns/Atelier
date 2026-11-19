@@ -7,7 +7,9 @@
 #
 #   screenshots  renders/<slug>/manifest.json with at least one .png beside it
 #   assumptions  assumptions.md, non-empty
-#   tests        tests.json reporting {"pass": true}
+#   tests        tests.json reporting {"pass": true}, written by run-tests.sh (it
+#                carries a numeric exitCode; a hand-written file without one is
+#                treated as not recorded)
 #   critique     critique.md, non-empty, with a line starting "Verdict:"
 #   lane         no file under a protected path is changed on the branch or in the
 #                working tree. Computed from git in the host repo (the parent of
@@ -86,8 +88,16 @@ dod_missing() {
     [ -s "$a/assumptions.md" ] || DOD_MISSING="$DOD_MISSING
 - assumptions: .atelier/assumptions.md is missing or empty. Log every unspecified choice and invented component."
 
-    jq -e '.pass == true' "$a/tests.json" >/dev/null 2>&1 || DOD_MISSING="$DOD_MISSING
-- tests: .atelier/tests.json is missing or doesn't report {\"pass\": true}. Run the tests and record the result."
+    if [ ! -f "$a/tests.json" ] || ! jq -e 'type == "object"' "$a/tests.json" >/dev/null 2>&1; then
+        DOD_MISSING="$DOD_MISSING
+- tests: .atelier/tests.json is missing or unreadable. Run the tests through ~/.claude/atelier/guardrails/run-tests.sh <command>."
+    elif ! jq -e 'has("exitCode") and (.exitCode | type) == "number"' "$a/tests.json" >/dev/null 2>&1; then
+        DOD_MISSING="$DOD_MISSING
+- tests: .atelier/tests.json was not written by run-tests.sh; run the tests through ~/.claude/atelier/guardrails/run-tests.sh"
+    elif ! jq -e '.pass == true' "$a/tests.json" >/dev/null 2>&1; then
+        DOD_MISSING="$DOD_MISSING
+- tests: .atelier/tests.json doesn't report {\"pass\": true}. Fix the failures and run the tests again through ~/.claude/atelier/guardrails/run-tests.sh <command>."
+    fi
 
     if [ ! -s "$a/critique.md" ] || ! grep -qE '^Verdict:' "$a/critique.md"; then
         DOD_MISSING="$DOD_MISSING
