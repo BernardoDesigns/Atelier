@@ -1,8 +1,10 @@
-# Notification preferences with grouped toggles and a responsive layout
+# Notification preferences: a per-event channel matrix, quiet hours
 
 ## Goal
 
-Let each counter lead choose which gear desk alerts reach them. Alerts sit in two groups, Customers and Inventory, and each alert has an in-app switch and an email switch. The layout reflows from a phone to a laptop without dropping any control.
+This is a change to the existing Notifications tab on the settings screen at `/settings`, not a new page. Today the tab has switches for Overdue alerts, Return reminders and Repair updates, Email and Text message checkboxes under "Send alerts by", and a "Desk summary" select. The per-alert switches replace the "Send alerts by" checkboxes: every alert gets its own email and text message choice in a matrix. Add quiet hours. The layout still reflows from a phone to a laptop without dropping any control.
+
+`NotificationPrefs` becomes a per-alert map of `{ email, sms }` for the seven alerts. Overdue, return reminder, repair (item back from repair) and low stock carry over from today's values. The fixtures define each alert's default, which Reset to default restores.
 
 ## User and core tension
 
@@ -10,22 +12,26 @@ A lead on a phone between customers wants to mute one alert in a couple of taps,
 
 ## Acceptance criteria
 
-- Alerts appear in two groups, "Customers" and "Inventory", and each group has a heading.
-- The Customers group holds booking confirmed, pickup reminder, return reminder and overdue. The Inventory group holds item back from repair, item retired and low stock.
-- Each alert has an in-app switch and an email switch, and each switch's label names the alert and the channel.
-- At the `sm` breakpoint, the two switches for an alert stack under its name. At `md` and `lg`, the two switches sit on one row beside the name.
-- Turning off the in-app switch on the overdue row in the Customers group shows an inline note that says late returns will not be flagged to you in the app.
-- Each switch saves when it changes, and its group heading shows a saving indicator until the request finishes.
-- When a save fails, the switch returns to its previous state and an error appears next to the group heading.
-- Every switch is reachable by keyboard in visual order, and each shows a visible focus ring.
+- Above the "Desk summary" select, alerts appear in two groups, "Customers" and "Inventory", each with a heading. The Customers group holds booking confirmed, pickup reminder, return reminder and overdue. The Inventory group holds item back from repair, item retired and low stock.
+- Each alert has its own email switch and text message switch, so every alert can use a different channel mix. Each switch's label names the alert and the channel. The "Send alerts by" checkboxes are gone.
+- At `md` and `lg`, the alerts sit in a matrix with the two channels as column headings and one alert per row. At `sm`, each row becomes a block with the two switches stacked under the alert name.
+- Turning off both channels on the overdue row shows an inline note that says late returns will not be flagged to you.
+- Each row has a "Reset to default" action that restores that alert's channels from the fixtures and is hidden while the row matches its default.
+- A quiet hours block has an on switch, a start time and an end time, each as 24-hour HH:MM. A range that crosses midnight, such as 22:00 to 07:00, is valid. Equal start and end times show an error under the end time once the end time loses focus.
+- With quiet hours on, a line under the block reads back the range and says that overdue alerts still come through.
+- Saving and a failed save use the existing footer. The mock data layer gains a way to fail a save on request.
+- Every switch and button is reachable by keyboard in visual order, each shows a visible focus ring, and the matrix switches are announced with both their row and column.
 
 ## States to cover
 
 - loading
 - loaded
 - overdue alert off
+- quiet hours on
 - saving
 - save failed
+
+The Builder provides a story under `stories/` for each state (the host Storybook only picks up `components/` and `stories/`, not `app/`), or a mock-only URL switch in `settings-state.ts`, including the Notifications tab open.
 
 ## Visual baseline
 
@@ -35,8 +41,11 @@ Until a baseline exists, gate G6 is judged on every state having a render and on
 
 ## Out of scope and protected paths
 
-- Protected paths `auth/`, `api/`, `payments/` and `lib/shared/` are out of scope. Preferences read and write through the mock data layer in `lib/data/`.
-- Delivering real email or push messages is out of scope.
+- The Counter tab is out of scope.
+- The "Desk summary" select, the save and discard footer and the URL-selectable loading and error states stay as they are. The per-alert switches replace the "Send alerts by" checkboxes and the three single switches. Nothing else on the tab is removed.
+- Protected paths `auth/`, `api/`, `payments/` and `lib/shared/` are out of scope. Preferences and quiet hours read and write through the mock data layer in `lib/data/`, which may be extended for them.
+- Delivering real email or text messages is out of scope.
+- Sending a test notification is out of scope.
 - Per-staff-member defaults and who may change another person's preferences are out of scope. Those belong to `auth/`.
 
 ## Definition of done
@@ -44,12 +53,12 @@ Until a baseline exists, gate G6 is judged on every state having a render and on
 - G1 System fidelity: every component missing from the host design system manifest is listed in the assumptions log and approved at `/wrap`.
 - G2 Types: `tsc --noEmit` exits 0 under strict, and no `any` appears in changed files.
 - G3 Lint and format: the host eslint and prettier exit 0 on changed files.
-- G4 Tests: a component test exists for each state above, a Playwright e2e test covers the happy path and one error path, and `.atelier/tests.json` reports `"pass": true`.
+- G4 Tests: a component test exists for each state above. A Playwright e2e test covers the happy path and one error path. It lives in the host `e2e/` folder and runs with the host `npm run test:e2e`, which builds and starts the app itself, so start no server by hand. Add no test dependency; Playwright is already there. `.atelier/tests.json` reports `"pass": true` and is recorded by running the tests through `~/.claude/atelier/guardrails/run-tests.sh`, never written by hand.
 - G5 Accessibility: axe reports 0 serious or critical violations in every shot, every switch works by keyboard alone, and focus is visible on every control.
 - G6 Visual: a render shot exists for each state in `light` and `dark` at `sm` 375, `md` 768 and `lg` 1280, and the stacked and row layouts both appear.
 - G7 Lane: no changed file sits under a protected path.
 - G8 Readability: no dead code, and every name reads without the SPEC.
-- G9 PR hygiene: the diff is under about 400 changed lines, the PR template is complete, a preview URL is in the PR, and the page ships behind a feature flag.
+- G9 PR hygiene: the diff is under about 400 changed lines of source (tests, stories and fixtures don't count), the PR template is complete, and the PR lists or links the render shots for every state as its preview (hosted preview deployments arrive in v2.1). The page ships behind a flag: read it with `isEnabled` from the host module `lib/flags.ts`. With the flag off the screen is exactly as it was before, layout included: no empty field slot, banner or gap.
 - G10 Taste: the Critic scores P1 to P5 from 1 to 5 and no score is below 3.
 - Screenshots rendered for every state listed above.
 - Assumptions log written at `.atelier/assumptions.md` and reviewed at `/wrap`.

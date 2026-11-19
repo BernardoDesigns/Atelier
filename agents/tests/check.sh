@@ -172,7 +172,42 @@ builder_size_rule() {
     && has "$BUILDER" "changed-line count"
 }
 build_reports_lines() {
-  grep -Fq 'changed-line count' "$BUILD" && grep -Fq 'over 400' "$BUILD"
+  grep -Fq 'source lines' "$BUILD" && grep -Fq 'total lines' "$BUILD" && grep -Fq 'over 400' "$BUILD"
+}
+SRC_PATHSPEC="-- . ':(exclude,glob)**/*.test.*' ':(exclude,glob)**/*.spec.*' ':(exclude,glob)e2e/**' ':(exclude,glob)**/__tests__/**' ':(exclude,glob)**/*.stories.*' ':(exclude,glob)stories/**' ':(exclude,glob)**/fixtures/**' ':(exclude,glob)**/fixtures.*'"
+builder_source_only() {
+  has "$BUILDER" "git diff --shortstat <base>...HEAD $SRC_PATHSPEC" && has "$BUILDER" "git diff --shortstat HEAD $SRC_PATHSPEC" \
+    && has "$BUILDER" "source lines" && has "$BUILDER" "total lines"
+}
+# Build a throwaway repo and run the pathspec from builder.md: only source lines may count.
+source_pathspec_counts_source_only() {
+  local d out
+  d=$(mktemp -d) || return 1
+  (
+    cd "$d" || exit 1
+    git init -q -b main . && git config user.email t@t && git config user.name t
+    mkdir -p app e2e stories lib/data/fixtures app/__tests__
+    echo base > app/page.tsx
+    git add -A && git commit -q -m base && git checkout -q -b feat
+    printf '1\n2\n3\n' > app/page.tsx
+    printf 'a\nb\nc\nd\n' > app/page.test.tsx
+    printf 'a\nb\n' > app/page.stories.tsx
+    printf 'a\nb\n' > stories/s.stories.tsx
+    printf 'a\nb\nc\n' > e2e/x.spec.ts
+    printf 'a\n' > app/__tests__/z.ts
+    printf 'a\nb\n' > lib/data/fixtures/more.ts
+    printf 'a\n' > lib/data/fixtures.ts
+    git add -A && git commit -q -m feat
+    printf 'x\n' >> app/page.tsx
+    printf 'x\nx\n' >> app/page.test.tsx
+    committed=$(eval "git diff --shortstat main...HEAD $SRC_PATHSPEC")
+    pending=$(eval "git diff --shortstat HEAD $SRC_PATHSPEC")
+    echo "$committed" | grep -q '1 file changed, 3 insertions(+), 1 deletion(-)' || exit 1
+    echo "$pending" | grep -q '1 file changed, 1 insertion(+)' || exit 1
+  )
+  out=$?
+  rm -rf "$d"
+  return $out
 }
 builder_tests_recorded() {
   has "$BUILDER" "~/.claude/atelier/guardrails/run-tests.sh" && has "$BUILDER" "Never write or edit \`.atelier/tests.json\` yourself" \
@@ -185,6 +220,10 @@ check_not "self-test: the old hand-written tests.json wording fails" \
 check "builder: files only through Write and Edit, with the why and the formatter carve-out" builder_write_rule
 check "builder: line count before each hand-back, split proposal over 400, also on revise" builder_size_rule
 check "build: final report includes the changed-line count and split stop agrees" build_reports_lines
+check "builder: size check counts source only, reports source and total lines" builder_source_only
+check "builder: the source-only pathspec counts only source in a temp repo" source_pathspec_counts_source_only
+check_not "self-test: a builder without the pathspec fails the source-only check" \
+  has <(sed 's/exclude,glob/x/g' "$BUILDER") "git diff --shortstat HEAD $SRC_PATHSPEC"
 check_not "self-test: a builder without the write rule fails" \
   has <(sed '/^## How you write files/,/^## Build rules/d' "$BUILDER") "only with the Write and Edit tools"
 check "builder: ask only on big decisions"      has "$BUILDER" "Ask only on big decisions"

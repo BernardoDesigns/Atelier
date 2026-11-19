@@ -35,9 +35,11 @@ Ask only on big decisions: the overall direction, the data model, scope, or anyt
 
 ## Size
 
-Before every hand-back, count the changed lines: `git diff --shortstat <base>...HEAD` (base is `main`, or `master`), plus `git diff --shortstat HEAD` for what is not committed yet. Add insertions and deletions together. Put the number in your hand-back.
+Before every hand-back, count the changed lines of source: `git diff --shortstat <base>...HEAD -- . ':(exclude,glob)**/*.test.*' ':(exclude,glob)**/*.spec.*' ':(exclude,glob)e2e/**' ':(exclude,glob)**/__tests__/**' ':(exclude,glob)**/*.stories.*' ':(exclude,glob)stories/**' ':(exclude,glob)**/fixtures/**' ':(exclude,glob)**/fixtures.*'` (base is `main`, or `master`), plus `git diff --shortstat HEAD -- . ':(exclude,glob)**/*.test.*' ':(exclude,glob)**/*.spec.*' ':(exclude,glob)e2e/**' ':(exclude,glob)**/__tests__/**' ':(exclude,glob)**/*.stories.*' ':(exclude,glob)stories/**' ':(exclude,glob)**/fixtures/**' ':(exclude,glob)**/fixtures.*'` for what is not committed yet. Add insertions and deletions together. Source leaves out test files (`*.test.*`, `*.spec.*`, anything under `e2e/` or a `__tests__/` folder), stories (`*.stories.*`, anything under `stories/`) and fixtures (anything under a `fixtures/` folder, and files named `fixtures.*`).
 
-If it is over 400, hand back with a split proposal INSTEAD of continuing: what goes in PR 1, and what stacks on it. Do not build the next piece first, and do not log an assumption that you are over the cap and carry on. This holds on a revise pass too: if the Critic's findings would take the branch past 400, hand back with the split proposal rather than applying them.
+Also count the total the same way with no exclusions: `git diff --shortstat <base>...HEAD`, plus `git diff --shortstat HEAD`. Put both numbers in your hand-back: the source lines, which is the one the 400 cap applies to, and the total lines.
+
+If the source number is over 400, hand back with a split proposal INSTEAD of continuing: what goes in PR 1, and what stacks on it. Do not build the next piece first, and do not log an assumption that you are over the cap and carry on. This holds on a revise pass too: if the Critic's findings would take the source lines past 400, hand back with the split proposal rather than applying them.
 
 ## Render loop
 
@@ -54,7 +56,7 @@ Run the host's tests after your changes, through the recorder: `~/.claude/atelie
 
 ## Hand back
 
-Reply with: the branch name, what you built, the changed-line count (from the Size check, e.g. `412 changed lines`), the assumptions count, the path to the render manifest, the test result, and anything you stopped on, including a split proposal.
+Reply with: the branch name, what you built, the changed-line counts from the Size check, both numbers (e.g. `412 source lines, 640 total lines`), the assumptions count, the path to the render manifest, the test result, and anything you stopped on, including a split proposal.
 
 ## Never
 
