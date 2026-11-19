@@ -4,6 +4,7 @@
 #   devup     server + tunnel, port auto-detected (or pass one:  devup 8000)
 #   devdown   kill the server + tunnel for that port
 #   cc        launch Claude Code with the stack up before and torn down after
+#             (also on Ctrl+C, a closed terminal window and SIGTERM; see cc below)
 #   tunnel    print the current tunnel URL (optionally per port: tunnel 8000)
 #
 # Tunnels always use --protocol http2. QUIC (the cloudflared default) fails on
@@ -22,6 +23,16 @@
 # resolves "localhost" to ::1 first. The static server answers on both, and the
 # tunnel dials whichever address the server actually answers on, so npm/Vite
 # servers that only listen on one of them work too.
+#
+# devup keeps a little state per port (/tmp/devstack-<port>.pids and .state: the
+# PIDs it started, the PIDs actually listening, and the folder it ran from). On
+# the next run it uses that to spot leftovers of its own: dead PIDs are pruned,
+# a server it started from this folder is reused, a server it started from some
+# other folder is torn down and replaced, and anything it did not start is never
+# touched. A dead tunnel's URL is dropped so nobody gets handed a dead link.
+#
+# cc takes its port from DEV_PORT when that is set (DEV_PORT=4000 cc), otherwise
+# from the same auto-detection devup uses.
 #
 # The browser opens the public tunnel URL (and it's copied to the clipboard),
 # so what you see is exactly what you share. Chrome may show a Local Network
@@ -71,6 +82,73 @@ _dev_detect() {
   echo "$port $kind"
 }
 
+# PIDs listening on a port (not clients connected to it).
+_dev_listeners() {
+  lsof -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null
+}
+
+# True when pid $1 is pid $2 or one of its ancestors.
+_dev_is_ancestor() {
+  local anc=$1 cur=$2 n=0
+  while [ -n "$cur" ] && [ "$cur" -gt 1 ] 2>/dev/null && [ "$n" -lt 12 ]; do
+    [ "$cur" = "$anc" ] && return 0
+    cur=$(ps -o ppid= -p "$cur" 2>/dev/null | tr -d ' ')
+    n=$((n+1))
+  done
+  return 1
+}
+
+# Compare what devup recorded for this port with what is alive right now.
+# Prunes pidfile entries that are gone or no longer plausibly ours (a PID counts
+# only if it holds the port, is a parent of what does, or is a cloudflared for
+# this port, so a reused PID is never trusted). Sets:
+#   _DEV_OWN_SERVER  1 when a listener on the port is a server devup started
+#   _DEV_OWN_DIR     the folder that server was started from (may be empty)
+#   _DEV_OWN_TUNNEL  PID of a live tunnel devup started for this port
+# and drops a recorded tunnel URL when no live tunnel stands behind it.
+_dev_reconcile() {
+  local port=$1
+  local pidfile="/tmp/devstack-$port.pids"
+  local statefile="/tmp/devstack-$port.state"
+  local listeners recorded tracked p l keep=""
+  _DEV_OWN_SERVER=""; _DEV_OWN_DIR=""; _DEV_OWN_TUNNEL=""
+
+  listeners=$(_dev_listeners "$port" | tr '\n' ' ')
+  recorded=$(sed -n 's/^listeners=//p' "$statefile" 2>/dev/null | head -1)
+  _DEV_OWN_DIR=$(sed -n 's/^dir=//p' "$statefile" 2>/dev/null | head -1)
+  tracked=""
+  [ -f "$pidfile" ] && tracked=$(grep -E '^[0-9]+$' "$pidfile" | tr '\n' ' ')
+
+  for l in $listeners; do
+    for p in $recorded; do
+      [ "$l" = "$p" ] && _DEV_OWN_SERVER=1
+    done
+    for p in $tracked; do
+      kill -0 "$p" 2>/dev/null && _dev_is_ancestor "$p" "$l" && _DEV_OWN_SERVER=1
+    done
+  done
+
+  for p in $tracked; do
+    kill -0 "$p" 2>/dev/null || continue
+    if ps -p "$p" -o command= 2>/dev/null | grep -qE "$(_dev_cf_pattern "$port")"; then
+      keep="$keep $p"; _DEV_OWN_TUNNEL="$p"; continue
+    fi
+    if [ -n "$_DEV_OWN_SERVER" ]; then
+      for l in $listeners; do
+        if _dev_is_ancestor "$p" "$l"; then keep="$keep $p"; break; fi
+      done
+    fi
+  done
+
+  if [ -n "$keep" ]; then
+    printf '%s\n' $keep > "$pidfile"
+  else
+    rm -f "$pidfile"
+  fi
+  [ -n "$_DEV_OWN_SERVER" ] || { rm -f "$statefile"; _DEV_OWN_DIR=""; }
+  [ -n "$_DEV_OWN_TUNNEL" ] || rm -f "/tmp/tunnel-url-$port"
+}
+
 devup() {
   local detected port kind
   detected="$(_dev_detect)"
@@ -87,12 +165,25 @@ devup() {
     return 1
   fi
 
+  # --- what's left over from an earlier run? ---
+  _dev_reconcile "$port"
+  if [ -n "$_DEV_OWN_SERVER" ] && [ -n "$_DEV_OWN_DIR" ] && [ "$_DEV_OWN_DIR" != "$(pwd -P)" ]; then
+    echo "stale server on :$port, started from $_DEV_OWN_DIR. tearing it down"
+    devdown "$port"
+    _dev_reconcile "$port"
+  fi
+
   # --- server ---
-  if lsof -i ":$port" >/dev/null 2>&1; then
-    echo "something's already on :$port, leaving it be"
+  local started=""
+  if [ -n "$(_dev_listeners "$port")" ]; then
+    if [ -n "$_DEV_OWN_SERVER" ]; then
+      echo "reusing the server devup started on :$port (same folder)"
+    else
+      echo "something's already on :$port, leaving it be"
+    fi
   elif [ "$kind" = npm ]; then
     npm run dev < /dev/null > "$srvlog" 2>&1 &
-    echo "$!" >> "$pidfile"
+    echo "$!" >> "$pidfile"; started=1
     echo "npm dev server booting on :$port"
   else
     if [ "$(pwd -P)" = "$(cd "$HOME" && pwd -P)" ]; then
@@ -104,7 +195,7 @@ devup() {
     else
       echo "need python3 to serve static files"; return 1
     fi
-    echo "$!" >> "$pidfile"
+    echo "$!" >> "$pidfile"; started=1
     echo "static server booting on :$port (serving $(pwd))"
     [ -f index.html ] || echo "  heads up: no index.html here — are you in the right folder?"
     # dotfiles 404 at the handler, so this is just a nudge, not a block
@@ -123,6 +214,8 @@ devup() {
     sleep 0.5
   done
   echo ":$port is live"
+  # remember who we started and where, so a later devup can recognise it
+  [ -n "$started" ] && printf 'dir=%s\nlisteners=%s\n' "$(pwd -P)" "$(_dev_listeners "$port" | tr '\n' ' ')" > "/tmp/devstack-$port.state"
 
   # --- dial the loopback address the server really answers on ---
   # -g stops curl reading [::1] as a glob pattern
@@ -138,12 +231,8 @@ devup() {
   # Only count tunnels THIS devup started (tracked in the pidfile). A stray
   # cloudflared started by something else (e.g. Claude Code) must not suppress
   # ours — theirs is likely QUIC and therefore dead on this network.
-  local mine=""
-  if [ -f "$pidfile" ]; then
-    while read -r p; do
-      [ -n "$p" ] && ps -p "$p" -o command= 2>/dev/null | grep -q cloudflared && mine="$p"
-    done < "$pidfile"
-  fi
+  _dev_reconcile "$port"
+  local mine="$_DEV_OWN_TUNNEL"
 
   if [ -n "$mine" ]; then
     echo "tunnel for :$port already running (pid $mine)"
@@ -215,7 +304,7 @@ devdown() {
   pids=$(lsof -ti ":$port" 2>/dev/null)
   [ -n "$pids" ] && kill -9 $pids 2>/dev/null
 
-  rm -f "/tmp/tunnel-url-$port"
+  rm -f "/tmp/tunnel-url-$port" "/tmp/devstack-$port.state"
   echo "killed server + tunnel on :$port"
 }
 
@@ -231,17 +320,93 @@ tunnel() {
 }
 
 # Launch Claude Code with the stack up before and torn down after.
-# No subshell, no trap: `claude` blocks in the current shell, and devdown runs
-# when it returns. Teardown fires on /exit, and nothing kills the tunnel while
-# you're still working.
+# `claude` runs in the current shell, in the foreground, with the terminal
+# attached (no subshell, no backgrounding). The stack comes down once, when
+# claude is done, however that happens: /exit, a double Ctrl+C, a closed
+# terminal window, or SIGTERM. Nothing tears it down while Claude Code runs.
+# The traps and options cc sets are local to it: afterwards the shell has
+# exactly the ones it had before. The port is DEV_PORT if set, else detected.
+#
+# What interactive zsh actually does (checked with a real pty, see
+# tests/dev-aliases/check.sh):
+#   - claude dies of SIGINT: zsh aborts the running function, so only an
+#     `always` block is sure to run afterwards. A claude that handles Ctrl+C
+#     and exits on its own just returns normally.
+#   - SIGHUP (window closed): untrapped, zsh exits at once and runs the EXIT
+#     trap. A HUP *trap* would wait until claude returns, so cc does not set one.
+#   - SIGTERM: interactive zsh ignores it. cc traps it, but zsh only runs the
+#     trap once claude has returned, so teardown follows claude, not the signal.
+# bash has no local traps, so there cc saves the old ones and puts them back.
 cc() {
-  local port; port="$(_dev_detect | awk '{print $1}')"
-  if devup "$port"; then
-    claude "$@"
-    devdown "$port"
+  local port
+  port="${DEV_PORT:-$(_dev_detect | awk '{print $1}')}"
+  if [ -n "${ZSH_VERSION:-}" ]; then
+    _dev_cc_zsh "$port" "$@"
   else
-    echo "no preview this time, launching Claude only"
-    claude "$@"
-    devdown "$port" >/dev/null  # sweep anything devup half-started
+    _dev_cc_bash "$port" "$@"
   fi
+}
+
+# zsh: `always` is a zsh-only construct, so it goes through eval and bash never
+# has to parse it.
+if [ -n "${ZSH_VERSION:-}" ]; then
+  eval '
+_dev_cc_zsh() {
+  setopt localoptions localtraps
+  local port=$1 rc=0 quiet=""
+  shift
+  trap "devdown \"$port\"" EXIT
+  trap "return 143" TERM
+  {
+    if ! devup "$port"; then
+      echo "no preview this time, launching Claude only"
+      quiet=1
+    fi
+    claude "$@"
+    rc=$?
+  } always {
+    # a second Ctrl+C or HUP must not cut teardown short, and EXIT must not
+    # run it a second time
+    trap "" INT HUP TERM
+    trap - EXIT
+    if [ -n "$quiet" ]; then devdown "$port" >/dev/null; else devdown "$port"; fi
+  }
+  return $rc
+}'
+fi
+
+# bash (3.2 safe): traps are global, so save the caller's, set ours, restore.
+_dev_cc_bash() {
+  local port=$1 rc=0 saved sig
+  shift
+  saved=$(trap -p INT HUP TERM EXIT)
+  _DEV_CC_DOWN=""
+  trap '_dev_cc_down_once "$port"' EXIT
+  for sig in INT HUP TERM; do
+    # shellcheck disable=SC2064
+    trap "_dev_cc_down_once '$port'; _dev_cc_restore \"\$saved\"; kill -s $sig \$\$" "$sig"
+  done
+  _DEV_CC_QUIET=""
+  if ! devup "$port"; then
+    echo "no preview this time, launching Claude only"
+    _DEV_CC_QUIET=1
+  fi
+  claude "$@"
+  rc=$?
+  _dev_cc_down_once "$port"
+  _dev_cc_restore "$saved"
+  unset _DEV_CC_DOWN _DEV_CC_QUIET
+  return $rc
+}
+
+_dev_cc_down_once() {
+  [ -n "$_DEV_CC_DOWN" ] && return 0
+  _DEV_CC_DOWN=1
+  if [ -n "${_DEV_CC_QUIET:-}" ]; then devdown "$1" >/dev/null; else devdown "$1"; fi
+}
+
+_dev_cc_restore() {
+  trap - INT HUP TERM EXIT
+  [ -n "$1" ] && eval "$1"
+  return 0
 }
