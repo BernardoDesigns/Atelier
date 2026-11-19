@@ -226,9 +226,9 @@ Source: log:/wrap 2026-11-19 finding 8
 Status: draft
 
 ### F28
-Name: Padded story canvas inflates the narrow shot
-Trap: A width-dependent story rendered with Storybook's padded layout comes out wider than the target viewport.
-Shows up as: "375" screenshots that are about 730 px wide, so overflow at the narrowest width is never seen.
-Instead: Use layout fullscreen for width-dependent stories, and check the shot's pixel width against the target.
+Name: Centred story hides how a wide component behaves when narrow
+Trap: A width-dependent story rendered with Storybook's centered layout has no container to constrain it, so a wide table or grid sets the page width itself.
+Shows up as: The narrow render overflows the viewport sideways (the render manifest reports overflowX above 0 for the sm shot), and the component's own scroll or wrap behaviour is never exercised.
+Instead: Use layout fullscreen (or padded) for width-dependent stories so the component gets the viewport's width, and read overflowX in the render manifest for every sm shot.
 Source: log:/wrap 2026-11-19 finding 7
 Status: draft
