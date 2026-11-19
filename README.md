@@ -144,7 +144,7 @@ Walks through every draft item in the contract files, one at a time, and records
 bash packaging/build.sh
 ```
 
-Builds `dist/eames.zip`, `dist/rand.zip` and `dist/design-director.zip`, one skill folder in each. Eames and Rand hold `SKILL.md`, `taste.md` and `conventions.md`. Design Director is a router, so it ships `SKILL.md` only. The same input gives the same bytes. The commands are translated for claude.ai, not copied: the Claude Code only parts (`/wrap`, the `~/.claude` paths, the `quality.md` mention) are dropped, and the bundled `taste.md` and `conventions.md` lose the `/taste-review` sentence. The build fails loudly if a translation finds nothing to change. `dist/` is git-ignored; the zips are build output. If you uploaded Eames, Rand or Design Director before 2.0.0, upload the new zips. The zip layout is my assumption of what claude.ai wants, so upload one to confirm before you trust it.
+Builds `dist/eames.zip`, `dist/rand.zip` and `dist/design-director.zip`, one skill folder in each. Eames and Rand hold `SKILL.md`, `taste.md` and `conventions.md`. Design Director is a router, so it ships `SKILL.md` only. The same input gives the same bytes. The commands are translated for claude.ai, not copied: the Claude Code only parts (`/wrap`, the `~/.claude` paths, the `quality.md` mention) are dropped, and the bundled `taste.md` and `conventions.md` lose the `/taste-review` sentence. The build fails loudly if a translation finds nothing to change. `dist/` is git-ignored; the zips are build output. If you uploaded Eames, Rand or Design Director before 2.0.0, upload the new zips. The zip layout is confirmed: all three uploaded to claude.ai as built.
 
 ---
 
@@ -177,10 +177,10 @@ cc        # starts the dev server + a Cloudflare tunnel, then launches Claude Co
 | Command | What it does |
 |---|---|
 | `cc` | Launch Claude Code with the dev stack up before and torn down after. Passes args through |
-| `devup [port]` | Start server + tunnel manually. Port is auto-detected unless you pass one |
+| `devup [port]` | Start server + tunnel manually. Port is auto-detected unless you pass one. Cleans up its own leftovers first: reuses a server it started from this folder, replaces one it started from another folder, and never touches anything it didn't start |
 | `devdown [port]` | Kill the server + tunnel on that port. A fallback for orphaned processes |
 
-**Implementation note:** `cc` runs Claude Code in the current shell and calls `devdown` when it returns. No subshell, no `trap`, so teardown fires on `/exit` and nothing can kill the tunnel mid-session. Claude Code's session hooks don't fire reliably on resume or quit, so I don't depend on them.
+**Implementation note:** `cc` runs Claude Code in the current shell, in the foreground, and calls `devdown` once when it is done, however that happens: `/exit`, a double Ctrl+C, a closed terminal window or SIGTERM. Nothing is torn down while Claude Code is still running. The traps and options `cc` sets are local to it, so your shell is left exactly as it was. Claude Code's session hooks don't fire reliably on resume or quit, so I don't depend on them. `DEV_PORT=4000 cc` overrides the detected port. `bash tests/dev-aliases/check.sh` drives all of this in a real pseudo-terminal with stubbed `claude` and `cloudflared`.
 
 ---
 
