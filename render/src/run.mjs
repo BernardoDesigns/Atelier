@@ -155,32 +155,42 @@ const SETTLE_MOTION = `(() => {
 // the outermost). Elements inside a clipping or scrolling ancestor (overflow other than visible) do not
 // widen the document and are skipped, so a table in its own scroll wrapper is not blamed.
 const MEASURE_PAGE = `((vw) => {
-  const de = document.documentElement, b = document.body;
-  const height = Math.max(de.scrollHeight, b ? b.scrollHeight : 0, de.clientHeight);
-  const scrollWidth = Math.ceil(Math.max(de.scrollWidth, b ? b.scrollWidth : 0));
+  const se = document.scrollingElement || document.documentElement;
+  const de = document.documentElement;
+  const scrollWidth = Math.ceil(se.scrollWidth);
   let culprit = null;
   if (scrollWidth > vw + 1) {
-    const clipped = (el) => {
-      for (let p = el.parentElement; p && p !== de; p = p.parentElement) {
-        if (getComputedStyle(p).overflowX !== 'visible') return true;
+    // Skipped: fixed elements and their descendants, and anything inside a clipping or scrolling ancestor.
+    const skipped = (el) => {
+      for (let p = el; p && p !== de; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        if (cs.position === 'fixed') return true;
+        if (p !== el && cs.overflowX !== 'visible') return true;
       }
       return false;
     };
+    const sx = window.scrollX || 0;
     let best = null, bestRight = vw + 1;
     for (const el of document.querySelectorAll('body, body *')) {
       const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.right <= bestRight) continue;
-      if (getComputedStyle(el).position === 'fixed' || clipped(el)) continue;
-      best = el; bestRight = r.right;
+      const right = r.right + sx;
+      if (r.width === 0 || right <= bestRight) continue;
+      if (skipped(el)) continue;
+      best = el; bestRight = right;
     }
     if (best) {
       const cls = (best.getAttribute('class') || '').trim().split(/\\s+/)[0];
       const slot = best.getAttribute('data-slot');
-      culprit = best.tagName.toLowerCase() + (best.id ? '#' + best.id : '') + (cls ? '.' + cls : '') + (slot ? '[data-slot="' + slot + '"]' : '');
+      culprit = (best.tagName.toLowerCase() + (best.id ? '#' + best.id : '') + (cls ? '.' + cls : '') + (slot ? '[data-slot="' + slot + '"]' : '')).slice(0, 120);
     }
   }
-  return { scrollWidth, height, culprit };
+  return { scrollWidth, culprit };
 })`;
+// Height is read on its own so a failed overflow measurement still gives a full-height shot.
+const PAGE_HEIGHT = `(() => {
+  const de = document.documentElement, b = document.body;
+  return Math.max(de.scrollHeight, b ? b.scrollHeight : 0, de.clientHeight);
+})()`;
 const NO_TRANSITIONS = '*,*::before,*::after{transition:none!important}';
 const STORY_TIMEOUT = Number(process.env.ATELIER_RENDER_STORY_TIMEOUT_MS) || 10000;
 
@@ -420,14 +430,22 @@ export async function run(rawPlan, { outDir = '.atelier/renders', fixturesDir } 
                 // Full page, but clipped to the viewport width: with fullPage alone Chromium makes the PNG as wide
                 // as the document's scroll width when the page overflows horizontally. Playwright applies the
                 // clip in document coordinates and trims it to the full page size.
-                const m = await page.evaluate(`${MEASURE_PAGE}(${width})`);
-                const over = m.scrollWidth - width;
-                shot.overflowX = over > 1 ? over : 0;
-                if (shot.overflowX > 0 && m.culprit) shot.overflowBy = m.culprit;
+                // A measurement that throws (a page that patches getComputedStyle, say) leaves overflowX unset and
+                // the shot is still taken.
+                let height = VIEWPORT_HEIGHT;
+                try {
+                  height = Math.max(Number(await page.evaluate(PAGE_HEIGHT)) || 0, VIEWPORT_HEIGHT);
+                } catch {}
+                try {
+                  const m = await page.evaluate(`${MEASURE_PAGE}(${width})`);
+                  const over = m.scrollWidth - width;
+                  shot.overflowX = over > 1 ? over : 0;
+                  if (shot.overflowX > 0 && m.culprit) shot.overflowBy = m.culprit;
+                } catch {}
                 await page.screenshot({
                   path: path.join(slugDir, file),
                   fullPage: true,
-                  clip: { x: 0, y: 0, width, height: Math.max(m.height, VIEWPORT_HEIGHT) },
+                  clip: { x: 0, y: 0, width, height },
                   animations: 'allow',
                 });
               } catch (err) {

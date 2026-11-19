@@ -69,3 +69,37 @@ test('a tall page is still full height at the viewport width', async () => {
   }
   expect(manifest.overflow).toBe(0);
 });
+
+test('html scrolls but body clips overflow-x: the page cannot scroll, so no overflow is reported', async () => {
+  const { res, manifest, png } = await render('clipbody', ['clipbody']);
+  expect(res.code, res.stdout + res.stderr).toBe(0);
+  const s = shot(manifest, 'clipbody', 'light', 'sm');
+  expect(s.overflowX).toBe(0);
+  expect('overflowBy' in s).toBe(false);
+  expect(manifest.overflow).toBe(0);
+  expect(size(await png('clipbody.light.sm.png')).w).toBe(375);
+});
+
+test('html{overflow-x:hidden} content that is cut off is still reported as overflow', async () => {
+  const { manifest, png } = await render('cliphtml', ['cliphtml']);
+  const s = shot(manifest, 'cliphtml', 'light', 'sm');
+  expect(s.overflowX).toBe(356);
+  expect(size(await png('cliphtml.light.sm.png')).w).toBe(375);
+});
+
+test('overflowBy names the element that really overflows, not a wrapped table or a fixed element', async () => {
+  const { manifest } = await render('wrapperplus', ['wrapperplus']);
+  const s = shot(manifest, 'wrapperplus', 'light', 'sm');
+  expect(s.overflowX).toBeGreaterThan(0);
+  expect(s.overflowBy).toBe('div#real.real');
+});
+
+test('a measurement that throws still gives an ok shot at the viewport width, without overflowX', async () => {
+  const { res, manifest, png } = await render('throws', ['throws']);
+  expect(res.code, res.stdout + res.stderr).toBe(0);
+  const s = shot(manifest, 'throws', 'light', 'sm');
+  expect(s.status).toBe('ok');
+  expect(size(await png('throws.light.sm.png')).w).toBe(375);
+  expect('overflowX' in s).toBe(false);
+  expect(manifest.overflow).toBe(0);
+});
