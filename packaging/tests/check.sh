@@ -60,62 +60,11 @@ fi
 echo "ok   identical sha256 across two runs"
 echo "$second"
 
-echo "== zip contents"
-python3 -I - "$repo" "$dist" <<'PY' || fail "zip contents"
-import json
-import os
-import sys
-import zipfile
+echo "== zip contents and claude.ai translation"
+python3 -I "$here/assert_zips.py" "$repo" "$dist" || fail "zip contents"
 
-repo, dist = sys.argv[1], sys.argv[2]
-TAIL = (
-    "This skill ships with `taste.md` (judgment, interpreted) and `conventions.md` "
-    "(literal standards) in the same folder. Read them before design work."
-)
-
-
-def unquote(value):
-    if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
-        return json.loads(value)
-    return value
-
-
-def split(text):
-    lines = text.splitlines(keepends=True)
-    close = lines.index("---\n", 1)
-    fields = {}
-    for line in lines[1:close]:
-        key, _, value = line.rstrip("\n").partition(":")
-        fields[key.strip()] = value.strip()
-    return fields, "".join(lines[close + 1:])
-
-
-for name in ("eames", "rand"):
-    path = os.path.join(dist, name + ".zip")
-    with zipfile.ZipFile(path) as archive:
-        names = archive.namelist()
-        expected = [f"{name}/{f}" for f in ("SKILL.md", "conventions.md", "taste.md")]
-        assert names == expected, f"{path}: entries {names}"
-        assert all(not i.is_dir() for i in archive.infolist()), "directory entry"
-        assert all(i.extra == b"" for i in archive.infolist()), "extra field"
-        assert archive.comment == b"", "zip comment"
-
-        skill = archive.read(f"{name}/SKILL.md").decode("utf-8")
-        skill_fields, skill_body = split(skill)
-        assert set(skill_fields) == {"name", "description"}, skill_fields
-        assert skill_fields["name"] == name, skill_fields
-        assert "model" not in skill_fields, "model key kept"
-
-        command = open(os.path.join(repo, "commands", name + ".md"), encoding="utf-8").read()
-        cmd_fields, cmd_body = split(command)
-        assert unquote(skill_fields["description"]) == unquote(cmd_fields["description"]), "description drift"
-        assert skill_body == cmd_body + "\n" + TAIL + "\n", "body is not command body plus tail"
-
-        for shipped in ("taste.md", "conventions.md"):
-            with open(os.path.join(repo, shipped), "rb") as handle:
-                assert archive.read(f"{name}/{shipped}") == handle.read(), f"{shipped} differs"
-    print(f"ok   {name}.zip: {', '.join(expected)}")
-PY
+echo "== build fails on untranslatable sources (temp commands folder)"
+python3 -I "$here/negative_build.py" "$repo" "$helper" || fail "negative build tests"
 
 echo "== quoted description round-trip (temp commands folder)"
 python3 -I - "$repo" "$helper" <<'PY' || fail "quoted description round-trip"
@@ -140,7 +89,7 @@ for name in ("eames", "rand"):
     lines = [f"description: {value}" if l.startswith("description:") else l for l in lines]
     with open(os.path.join(tmp, "commands", name + ".md"), "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines))
-for shipped in ("taste.md", "conventions.md"):
+for shipped in ("taste.md", "conventions.md", "quality.md"):
     with open(os.path.join(repo, shipped), "rb") as src, open(os.path.join(tmp, shipped), "wb") as dst:
         dst.write(src.read())
 

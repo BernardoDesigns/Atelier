@@ -3,7 +3,12 @@
 Run as: python3 -I build_skills.py <repo> <stage_dir> <dist_dir>
 
 Each skill is a folder named after the skill. The folder holds SKILL.md,
-taste.md and conventions.md, and is zipped to <dist_dir>/<name>.zip.
+taste.md, conventions.md and quality.md, and is zipped to <dist_dir>/<name>.zip.
+
+commands/*.md are written for Claude Code. This build owns the translation to
+claude.ai skills: see the translate_* functions below. A translation that finds
+nothing to change in a command that should have it fails the build, so a
+reworded command cannot silently ship untranslated text.
 Zip entries share one fixed timestamp, fixed permissions, sorted order and
 no extra fields, so two runs give identical bytes.
 
@@ -14,17 +19,34 @@ leaves a truncated or mismatched pair in dist_dir.
 
 import json
 import os
+import re
 import sys
 import zipfile
 
 SKILLS = ("eames", "rand")
-SHIPPED = ("conventions.md", "taste.md")
+SHIPPED = ("conventions.md", "quality.md", "taste.md")
 ZIP_TIME = (2026, 11, 18, 0, 0, 0)
 FILE_ATTR = 0o100644 << 16
 TAIL = (
-    "This skill ships with `taste.md` (judgment, interpreted) and `conventions.md` "
-    "(literal standards) in the same folder. Read them before design work."
+    "This skill ships with `taste.md` (judgment, interpreted), `conventions.md` "
+    "(literal standards) and `quality.md` (the production bar) in the same folder. "
+    "Read them before design work."
 )
+
+# Nothing below may survive into a built SKILL.md: none of it exists on claude.ai.
+FORBIDDEN = (
+    "~/.claude/",
+    "/wrap",
+    "/build",
+    "figma-use",
+    "Closing a Session",
+    ".atelier/session.json",
+)
+
+CONTRACT_PATH = re.compile(r"~/\.claude/atelier/([A-Za-z0-9_.-]+)")
+FIGMA_SKILL_HINT = " (load the `figma-use` skill first)"
+FIGMA_REPLACEMENT = " when the tool is available"
+CLOSE_HEADING = "## Closing a Session"
 
 
 def read_text(path):
@@ -64,12 +86,68 @@ def split_frontmatter(text, path):
     return fields, "".join(lines[close + 1:])
 
 
+def translate_contract_paths(body, label):
+    """Targets: "read `~/.claude/atelier/taste.md` ..." in the Contract files line.
+
+    Rewrites each ~/.claude/atelier/<file> to the bare file name, which is
+    where the file sits inside the zip. A named file that is not bundled
+    fails the build rather than shipping a dangling pointer.
+    """
+    found = CONTRACT_PATH.findall(body)
+    if not found:
+        sys.exit(f"{label}: no ~/.claude/atelier/<file> mention to translate; the command was reworded, update build_skills.py")
+    for filename in found:
+        if filename not in SHIPPED:
+            sys.exit(f"{label}: names ~/.claude/atelier/{filename}, which is not bundled (shipped: {', '.join(SHIPPED)}). Bundle it or drop the mention.")
+    return CONTRACT_PATH.sub(lambda m: m.group(1), body)
+
+
+def translate_session_close(body, label):
+    """Targets: the "## Closing a Session" section ("Close the session with `/wrap`...").
+
+    /wrap is a Claude Code command. The whole section goes, from its heading up
+    to the next "## " heading. That span includes the rule that closes the
+    section, so the rule before the heading stays as the only separator.
+    """
+    lines = body.splitlines(keepends=True)
+    start = next((i for i, l in enumerate(lines) if l.rstrip("\r\n") == CLOSE_HEADING), None)
+    if start is None:
+        sys.exit(f"{label}: no '{CLOSE_HEADING}' section to drop; the command was reworded, update build_skills.py")
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), None)
+    if end is None:
+        # Last section: drop to the end, and the rule that opened it.
+        kept = lines[:start]
+        while kept and kept[-1].strip() in ("", "---"):
+            kept.pop()
+        return "".join(kept) + "\n"
+    return "".join(lines[:start] + lines[end:])
+
+
+def translate_figma_skill_hint(body, label):
+    """Targets: "Use `use_figma` ... (load the `figma-use` skill first)".
+
+    figma-use is a Claude Code plugin skill. Keep the instruction to use the
+    Figma tools, tied to their being available, and drop the skill pointer.
+    """
+    if FIGMA_SKILL_HINT not in body:
+        sys.exit(f"{label}: no '{FIGMA_SKILL_HINT.strip()}' text to translate; the command was reworded, update build_skills.py")
+    return body.replace(FIGMA_SKILL_HINT, FIGMA_REPLACEMENT)
+
+
+def translate_body(body, label):
+    body = translate_contract_paths(body, label)
+    body = translate_session_close(body, label)
+    body = translate_figma_skill_hint(body, label)
+    return body
+
+
 def skill_md(repo, name):
     path = os.path.join(repo, "commands", name + ".md")
     fields, body = split_frontmatter(read_text(path), path)
     description = unquote(fields.get("description", ""))
     if not description:
         sys.exit(f"{path}: frontmatter has no description")
+    body = translate_body(body, path)
     if body and not body.endswith("\n"):
         body += "\n"
     # json.dumps output is a valid YAML double-quoted scalar, so colons,
@@ -84,6 +162,9 @@ def skill_md(repo, name):
         + TAIL
         + "\n"
     )
+    for needle in FORBIDDEN:
+        if needle in text:
+            sys.exit(f"{path}: built SKILL.md still contains {needle!r}, which does not exist on claude.ai")
     return text.encode("utf-8")
 
 
