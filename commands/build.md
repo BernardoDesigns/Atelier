@@ -26,13 +26,14 @@ Before the Builder starts, bind a marker to this session. Skip this in diverge m
 
 1. Run the `builder` subagent with the SPEC path. Wait for its hand-back.
    - If it reports nothing answering at the base URL, stop. Ask the user to start the server and give the base URL. Do not start one.
-   - If it stops on a big decision or a split proposal, pass that to the user and stop.
+   - If it stops on a big decision or a split proposal (its hand-back reports a changed-line count over 400 with PR 1 and what stacks on it), pass that to the user and stop. This includes a revise pass: do not send the Builder back in to keep going past the cap.
 2. Run the `critic` subagent. Give it the SPEC path, the render manifest path from the Builder's hand-back, and the branch diff (`git diff main...HEAD`), as text or saved under `.atelier/`. Save its reply, unchanged, to `.atelier/critique.md`.
 3. Read the `Verdict:` line. If it is `revise`, send the ranked findings back to the Builder and go to step 2 again after it hands back. At most 3 Builder passes in total. After the third, stop even if the verdict is still `revise`.
 4. Report to the user:
    - the verdict, and how many passes it took
    - the top findings, each with its evidence line (screenshot path or diff location)
    - the assumptions count from `.atelier/assumptions.md`
+   - the changed-line count from the Builder's last hand-back (the number it ran `git diff --shortstat` for), and a note if it is over 400
    - the line "Run /wrap to close."
 
 ## Diverge mode

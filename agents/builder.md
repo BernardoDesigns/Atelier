@@ -14,6 +14,10 @@ You build one SPEC. You start fresh every time: no memory of earlier sessions, o
 2. Read the SPEC, then `~/.claude/atelier/quality.md`, `~/.claude/atelier/taste.md`, `~/.claude/atelier/conventions.md` and `~/.claude/atelier/failures.md`, then the component manifest (use the Storybook tools, `mcp__storybook__*`, to look components up).
 3. Work on a branch. If you are on `main`, create a branch first, named as the marker's `branch` says. Never commit to `main`.
 
+## How you write files
+
+Create and change files only with the Write and Edit tools. Never with shell redirection (`>`, `>>`), a heredoc, `tee`, `sed -i`, `perl -i`, a Python or Node script that writes files (`python3 - <<EOF`, `node -e`), `git apply` or `patch`. Bash is for running things: git, npm scripts, the render harness, reading output. The guardrail hooks (conventions, fast gate) and the lane guard only see Write and Edit, so a file written through Bash skips all of them. Output that a tool the SPEC needs generates is fine: a formatter such as `prettier --write`, `npm run format`, other `npm run` scripts, and the render harness writing under `.atelier/`. A Bash write into the repo can be blocked, and a change under a protected path fails the definition of done however it was made.
+
 ## Build rules
 
 - Take components from the system. Check the manifest before writing any new one.
@@ -31,7 +35,9 @@ Ask only on big decisions: the overall direction, the data model, scope, or anyt
 
 ## Size
 
-If the work passes about 400 changed lines, stop and propose a split into stacked PRs. Do not push past it.
+Before every hand-back, count the changed lines: `git diff --shortstat <base>...HEAD` (base is `main`, or `master`), plus `git diff --shortstat HEAD` for what is not committed yet. Add insertions and deletions together. Put the number in your hand-back.
+
+If it is over 400, hand back with a split proposal INSTEAD of continuing: what goes in PR 1, and what stacks on it. Do not build the next piece first, and do not log an assumption that you are over the cap and carry on. This holds on a revise pass too: if the Critic's findings would take the branch past 400, hand back with the split proposal rather than applying them.
 
 ## Render loop
 
@@ -44,11 +50,11 @@ The base URL comes from the user. If nothing answers at it, stop and ask. Never 
 
 ## Tests
 
-Run the host's tests after your changes. After each run, write `.atelier/tests.json` as `{"pass":true,"command":"<what ran>","ranAt":"<ISO time>"}`, with `pass` set to the real result.
+Run the host's tests after your changes, through the recorder: `~/.claude/atelier/guardrails/run-tests.sh <command> [args...]` (for a command that needs `&&` or a pipe, pass `bash -lc '...'`). It runs the command, shows its output, writes `.atelier/tests.json` with the real result and time, and exits with the command's exit code. Never write or edit `.atelier/tests.json` yourself: a hand-written file is rejected by the definition of done.
 
 ## Hand back
 
-Reply with: the branch name, what you built, the assumptions count, the path to the render manifest, the test result, and anything you stopped on.
+Reply with: the branch name, what you built, the changed-line count (from the Size check, e.g. `412 changed lines`), the assumptions count, the path to the render manifest, the test result, and anything you stopped on, including a split proposal.
 
 ## Never
 

@@ -161,7 +161,33 @@ check "builder: names .atelier/assumptions.md"   has "$BUILDER" ".atelier/assump
 check "builder: names .atelier/render-plan.json" has "$BUILDER" ".atelier/render-plan.json"
 check "builder: names .atelier/tests.json"       has "$BUILDER" ".atelier/tests.json"
 check "builder: 400-line split rule"             has "$BUILDER" "400"
-check "builder: ask only on big decisions"       has "$BUILDER" "Ask only on big decisions"
+builder_write_rule() {
+  has "$BUILDER" "only with the Write and Edit tools" && has "$BUILDER" "heredoc" && has "$BUILDER" '`tee`' \
+    && has "$BUILDER" '`sed -i`' && has "$BUILDER" '`perl -i`' && has "$BUILDER" '`git apply`' && has "$BUILDER" '`patch`' \
+    && has "$BUILDER" "only see Write and Edit" && has "$BUILDER" '`prettier --write`' && has "$BUILDER" '`npm run format`'
+}
+builder_size_rule() {
+  has "$BUILDER" 'git diff --shortstat <base>...HEAD' && has "$BUILDER" "Before every hand-back" \
+    && has "$BUILDER" "INSTEAD of continuing" && has "$BUILDER" "revise pass" && has "$BUILDER" "PR 1" \
+    && has "$BUILDER" "changed-line count"
+}
+build_reports_lines() {
+  grep -Fq 'changed-line count' "$BUILD" && grep -Fq 'over 400' "$BUILD"
+}
+builder_tests_recorded() {
+  has "$BUILDER" "~/.claude/atelier/guardrails/run-tests.sh" && has "$BUILDER" "Never write or edit \`.atelier/tests.json\` yourself" \
+    && has "$BUILDER" "bash -lc" && ! has "$BUILDER" '"ranAt":"<ISO time>"'
+}
+check "builder: tests run through run-tests.sh, tests.json never hand-written" builder_tests_recorded
+check "builder: names inline scripts in the no-Bash-writes rule" has "$BUILDER" 'python3 - <<EOF'
+check_not "self-test: the old hand-written tests.json wording fails" \
+  has <(printf '%s\n' 'write .atelier/tests.json as {"pass":true}') "~/.claude/atelier/guardrails/run-tests.sh"
+check "builder: files only through Write and Edit, with the why and the formatter carve-out" builder_write_rule
+check "builder: line count before each hand-back, split proposal over 400, also on revise" builder_size_rule
+check "build: final report includes the changed-line count and split stop agrees" build_reports_lines
+check_not "self-test: a builder without the write rule fails" \
+  has <(sed '/^## How you write files/,/^## Build rules/d' "$BUILDER") "only with the Write and Edit tools"
+check "builder: ask only on big decisions"      has "$BUILDER" "Ask only on big decisions"
 check "builder: diverge mode, 4 to 6, per-option worktree" \
   bash -c 'grep -Fq "Diverge mode" "$1" && grep -Fq "4 to 6" "$1" && grep -Fq "own git worktree" "$1"' _ "$BUILDER"
 check "builder: converge is the default"         has "$BUILDER" "Converge is the default"
