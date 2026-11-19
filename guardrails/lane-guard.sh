@@ -23,6 +23,10 @@
 
 deny() { echo "Lane guard: $1" >&2; exit 2; }
 
+# The rule matching is shared with dod-check.sh (lane-lib.sh). Fails closed.
+# shellcheck source=lane-lib.sh
+. "$(dirname "$0")/lane-lib.sh" 2>/dev/null || deny "lane-lib.sh is missing, blocking this write. Restore it or re-run guardrails/install.sh."
+
 input=$(cat)
 valid=1
 jq -e . >/dev/null 2>&1 <<<"$input" || valid=0
@@ -72,22 +76,9 @@ case "$resolved" in
     *) exit 0 ;; # outside the repo: not this hook's business
 esac
 
-shopt -s nocasematch
 while IFS= read -r rule; do
     [ -n "$rule" ] || continue
-    pat=${rule#./}; pat=${pat#/}
-    [ -n "$pat" ] || continue
-    if [[ "$pat" == */ ]]; then
-        pat="${pat}*"
-    elif [[ "$pat" != *[\*\?\[]* ]]; then
-        # A plain path: the file itself, or anything under it as a directory.
-        if [[ "$rel" == "$pat" ]]; then
-            deny "$rel is protected by rule '$rule' in .claude/lane-rules.json. Ask the user before touching it."
-        fi
-        pat="$pat/*"
-    fi
-    # shellcheck disable=SC2053
-    if [[ "$rel" == $pat ]]; then
+    if lane_rule_matches "$rel" "$rule"; then
         deny "$rel is protected by rule '$rule' in .claude/lane-rules.json. Ask the user before touching it."
     fi
 done < <(jq -r '.protected[]' "$rules")

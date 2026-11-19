@@ -71,15 +71,50 @@ List them numbered. The user picks which to keep. If none are accepted, do nothi
 
 Never write accepted lines into the working tree of `~/.claude/atelier`. That checkout is live config and its `main` branch changes only through pull requests. Instead:
 
-1. In `~/.claude/atelier`, create a branch `learn/<yyyy-mm-dd>-<short-slug>` in a new git worktree (`git worktree add`).
-2. Apply the accepted lines in that worktree.
-3. Commit by file name, push the branch, and open a PR in the Atelier repo:
+1. In `~/.claude/atelier`, create a branch `learn/<yyyy-mm-dd>-<short-slug>` in a new git worktree (`git worktree add`). The worktree lives at `~/.claude/atelier/.claude/worktrees/learn-<yyyy-mm-dd>-<slug>` (that path is git-ignored locally in the Atelier checkout), never under a temp or scratch directory: a worktree in a folder that later gets cleaned leaves a dangling entry. Call it `WT` below.
+2. Apply the accepted lines in `WT`, in the item format each file documents in its own header and in `skills/taste-review/SKILL.md` ("What an item is"). A new item takes the next free number in its file (one above the highest `### F<n>`, `### C<n>` or `### T<n>` there, gaps from cut items are never reused) and `Status: draft`. Every item carries a `Source:` line, and the check rejects free text. For an item born from a verdict in this session use the wrap form: `Source: wrap:<yyyy-mm-dd> finding <n>` or `Source: wrap:<yyyy-mm-dd> assumption A<n>`. One filled example per file:
+
+```
+### F29
+Name: Flag gates the control, not the layout
+Trap: A feature flag hides the button but the column built for it still renders.
+Shows up as: An empty column in production while the feature ships dark.
+Instead: Derive the layout from the flag, and test the flag-off render.
+Source: wrap:2026-11-19 finding 1
+Status: draft
+```
+
+```
+### C71
+In a segmented control, the default option is the first segment.
+Source: wrap:2026-11-19 finding 3
+Check: Is the default the first segment in every segmented control?
+Status: draft
+```
+
+```
+### T38
+A blocked row action keeps its trigger visible, and the dialog explains the block.
+Source: wrap:2026-11-19 finding 10
+Status: draft
+Applied as: Don't flag a visible-but-blocked trigger as an extra round trip when the SPEC asks for it.
+```
+
+3. Regenerate the review state from the generator, so every new item enters `taste-review/state.json` as pending, and check the result:
+
+```
+python3 -I -B WT/skills/taste-review/tests/gen-state.py WT > WT/taste-review/state.json
+bash WT/skills/taste-review/tests/check.sh
+```
+
+Do not commit until the check passes. If the diff of `state.json` removes or changes any existing entry, stop: a review has started, so do not overwrite the file. Run `python3 -I -B WT/skills/taste-review/tests/gen-state.py --sync WT` instead, which only appends the new keys as pending.
+4. Commit by file name: the changed contract file or files and `taste-review/state.json`, each staged by name, never `git add -A`. Push the branch and open a PR in the Atelier repo:
 
 ```
 gh pr create --title "<title>" --body "<accepted lines and why>"
 ```
 
-4. Report the PR URL. The build's own PR in step 5 links to it.
+5. Report the PR URL. The build's own PR in step 5 links to it.
 
 This is the only way those four files change.
 

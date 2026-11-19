@@ -40,7 +40,15 @@ spec.loader.exec_module(gen)
 # ---------- 1. the contract files ----------
 TAGS = {"principle", "spec-convention", "plan"}
 def tag_ok(t):
-    return t in TAGS or re.fullmatch(r"log:[A-Z]+\d+", t) is not None
+    return (t in TAGS or re.fullmatch(r"log:[A-Z]+\d+", t) is not None
+            or re.fullmatch(r"wrap:\d{4}-\d{2}-\d{2}(?: (?:finding \d+|assumption A\d+))?", t) is not None)
+
+check("source tag: wrap form with a finding or assumption reference is accepted",
+      all(tag_ok(t) for t in ("wrap:2026-11-19", "wrap:2026-11-19 finding 7", "wrap:2026-11-19 assumption A3")))
+check("source tag: free text and malformed wrap tags are rejected",
+      not any(tag_ok(t) for t in ("log:/wrap 2026-11-19 finding 1", "user-verdict, /wrap 2026-11-19 finding 10",
+                                  "wrap:2026-11-19 finding", "wrap:2026-11-19 because the user said so",
+                                  "wrap:19-11-2026", "wrap:", "user", "")))
 
 for name, prefix in (("taste.md", "T"), ("conventions.md", "C"), ("failures.md", "F")):
     items = gen.parse_blocks(name, read(root + "/" + name))
