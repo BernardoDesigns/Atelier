@@ -288,11 +288,15 @@ if [ "$SKIP_RENDER" = 1 ]; then
 elif ! command -v npm >/dev/null 2>&1; then
     echo "WARNING: npm not found, so the render harness dependencies were not installed. Before /build can render, install Node and run:"
     echo "    $RENDER_CMD"
-elif (cd "$REPO_DIR/render" && npm install && npx playwright install chromium); then
-    echo "Done! Render harness dependencies are installed in $REPO_DIR/render"
 else
-    echo "WARNING: the render harness install failed. Everything else is set up. Before /build can render, run:"
-    echo "    $RENDER_CMD"
+    echo "Installing the render harness dependencies into $REPO_DIR/render: npm packages and a Chromium download of about 150MB."
+    echo "To skip this, stop now (Ctrl-C) and re-run with: bash setup.sh --no-render"
+    if (cd "$REPO_DIR/render" && npm install && npx playwright install chromium); then
+        echo "Done! Render harness dependencies are installed in $REPO_DIR/render"
+    else
+        echo "WARNING: the render harness install failed. Everything else is set up. Before /build can render, run:"
+        echo "    $RENDER_CMD"
+    fi
 fi
 
 # --- Aurora HUD: build the floating usage panel and start it at login ---
