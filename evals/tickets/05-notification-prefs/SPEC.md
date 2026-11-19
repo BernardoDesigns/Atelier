@@ -58,7 +58,7 @@ Until a baseline exists, gate G6 is judged on every state having a render and on
 - G6 Visual: a render shot exists for each state in `light` and `dark` at `sm` 375, `md` 768 and `lg` 1280, and the stacked and row layouts both appear.
 - G7 Lane: no changed file sits under a protected path.
 - G8 Readability: no dead code, and every name reads without the SPEC.
-- G9 PR hygiene: the diff is under about 400 changed lines, the PR template is complete, and the render shots for every state are listed or linked in the PR description (the preview for now). The page ships behind a flag: read it with `isEnabled` from the host module `lib/flags.ts`. With the flag off the screen renders exactly as it does on `main`, and nothing of this change renders, layout included: no empty field slot, banner or gap.
+- G9 PR hygiene: the diff is under about 400 changed lines of source (tests, stories and fixtures don't count), the PR template is complete, and the PR lists or links the render shots for every state as its preview (hosted preview deployments arrive in v2.1). The page ships behind a flag: read it with `isEnabled` from the host module `lib/flags.ts`. With the flag off the screen is exactly as it was before, layout included: no empty field slot, banner or gap.
 - G10 Taste: the Critic scores P1 to P5 from 1 to 5 and no score is below 3.
 - Screenshots rendered for every state listed above.
 - Assumptions log written at `.atelier/assumptions.md` and reviewed at `/wrap`.
