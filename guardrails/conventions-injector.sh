@@ -1,25 +1,28 @@
 #!/bin/bash
 # PreToolUse hook for Write / Edit.
 #
-# When the target is a .tsx, .css, .svg or .html file, and the session is a build
-# session (<cwd>/.atelier/session.json exists), adds the rule from each item of
+# When the target is a .tsx, .css, .svg or .html file, and the session is THE build
+# session (<cwd>/.atelier/session.json exists and its sessionId equals the hook
+# input's session_id; see session-lib.sh), adds the rule from each item of
 # conventions.md to the model's context, plus a reminder to check the component
 # manifest first. It only adds context. It never asks, denies or approves.
 #
 # Silent (exit 0, no output) for every other extension and for any session that
-# isn't a build session, so it can't leak into unrelated work.
+# isn't the build session: no marker, a marker bound to another session, a marker
+# with no sessionId, unreadable hook input, input with no session_id. So it can't
+# leak into unrelated work, even in the same checkout while a build is open.
 #
 # It injects one compact "C<n>: <rule>" line per item. conventions.md is read from the Atelier repo root (one level above this
 # script). ATELIER_CONVENTIONS overrides the path; tests use it.
 #
-# Fails closed: unreadable stdin, or a missing conventions.md when the hook
-# would have fired, exits 2 with a message on stderr. install.sh wraps this
-# script so a missing script exits 2 as well.
+# Fails closed, in the build session only: a missing conventions.md when the hook
+# would have fired exits 2 with a message on stderr. A missing session-lib.sh exits 2
+# too, and install.sh wraps this script so a missing script exits 2 as well.
 #
 # Injects the full text once per session, then a one-line reminder, so a long
 # build session doesn't fill with repeats. The stamp is .atelier/conventions-injected
-# holding the hook input's session_id. Without a session_id the full text goes in
-# at most once every 30 minutes, judged by the stamp's modification time.
+# holding the hook input's session_id (always present here: no session_id means
+# this isn't the build session and the hook is already silent).
 #
 # Reads only the hook JSON on stdin, <cwd>/.atelier/session.json, the stamp and
 # conventions.md. Its one write is the stamp, inside .atelier/.
@@ -28,10 +31,14 @@ LIMIT=12000
 REMINDER="Check the component manifest before creating any component. Check the manifest first: if a component exists, use it."
 
 input=$(cat)
-if ! jq -e . >/dev/null 2>&1 <<<"$input"; then
-    echo "Atelier conventions injector: couldn't read the hook input, blocking. Re-run guardrails/install.sh --relax to turn it off." >&2
+
+# shellcheck source=session-lib.sh
+if ! . "$(dirname "$0")/session-lib.sh"; then
+    echo "Atelier conventions injector: session-lib.sh is missing, so this is blocked. Restore it, or re-run guardrails/install.sh (--relax turns enforcement off)." >&2
     exit 2
 fi
+
+jq -e . >/dev/null 2>&1 <<<"$input" || exit 0
 
 target=$(jq -r '.tool_input.file_path // empty' <<<"$input")
 cwd=$(jq -r '.cwd // empty' <<<"$input")
@@ -47,21 +54,14 @@ case "$ext" in
     *) exit 0 ;;
 esac
 
-[ -f "$cwd/.atelier/session.json" ] || exit 0
+atelier_is_build_session "$cwd/.atelier/session.json" "$input" || exit 0
 
 # Once per session: after the full text has gone in, later edits get a one-line
-# reminder. The stamp holds the session id; with no session_id in the input the
-# full text goes in at most once every 30 minutes (the stamp's modification time).
+# reminder. The stamp holds the session id.
 stamp="$cwd/.atelier/conventions-injected"
-sid=$(jq -r '.session_id // empty' <<<"$input")
+sid=$(jq -r '.session_id' <<<"$input")
 seen=0
-if [ -f "$stamp" ]; then
-    if [ -n "$sid" ]; then
-        [ "$(cat "$stamp" 2>/dev/null)" = "$sid" ] && seen=1
-    elif [ -n "$(find "$stamp" -mmin -30 2>/dev/null)" ]; then
-        seen=1
-    fi
-fi
+[ -f "$stamp" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$sid" ] && seen=1
 if [ "$seen" -eq 1 ]; then
     jq -n --arg ctx "Atelier conventions (conventions.md) are already in context for this session. Check the manifest before creating any component." '{
         hookSpecificOutput: {
@@ -108,7 +108,7 @@ text="$text
 
 $REMINDER"
 
-printf '%s\n' "${sid:-no-session-id}" >"$stamp" 2>/dev/null
+printf '%s\n' "$sid" >"$stamp" 2>/dev/null
 
 jq -n --arg ctx "$text" '{
     hookSpecificOutput: {

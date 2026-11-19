@@ -1,7 +1,7 @@
 #!/bin/bash
 # Guardrail test runner.
 #   bash guardrails/tests/run.sh              every hook, then the extra suites
-#   bash guardrails/tests/run.sh <hook-name>  one fixtures dir (or: installer, lane-init)
+#   bash guardrails/tests/run.sh <hook-name>  one fixtures dir (or: installer, lane-init, session-scripts)
 #
 # Adding a hook: add fixtures/<name>/<case>/ dirs and one line to HOOKS_MAP.
 # Everything runs against mktemp dirs. Nothing here touches the real ~/.claude.
@@ -52,6 +52,7 @@ run_suite() { # <script> <required: 1|0>
 # Installer tests (L3-06 writes installer.sh) and lane-guard init tests (L3-04).
 run_installer_tests() { run_suite installer.sh 1; }
 run_lane_init_tests() { run_suite lane-init.sh 0; }
+run_session_tests() { run_suite session-scripts.sh 1; }
 
 only=${1:-}
 known=0
@@ -62,6 +63,7 @@ while IFS='=' read -r name cmd; do
     fi
 done <<<"$HOOKS_MAP"
 if [ -z "$only" ] || [ "$only" = lane-init ]; then known=1; run_lane_init_tests; fi
+if [ -z "$only" ] || [ "$only" = session-scripts ]; then known=1; run_session_tests; fi
 if [ -z "$only" ] || [ "$only" = installer ]; then known=1; run_installer_tests; fi
 [ "$known" -eq 1 ] || { echo "unknown hook: $only"; exit 2; }
 

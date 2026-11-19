@@ -18,7 +18,8 @@
 #   (none)     everything above, exactly as before. The build-session hooks
 #              below are NOT installed.
 #   --enforce  everything above, then add the build-session hooks (off by
-#              default, they only act in a session that has .atelier/session.json,
+#              default, they only act in the one session that opened the build:
+#              .atelier/session.json with a sessionId equal to the hook's session_id,
 #              apart from the lane guard, which acts in repos with a
 #              .claude/lane-rules.json):
 #                conventions-injector.sh  PreToolUse  Write|Edit

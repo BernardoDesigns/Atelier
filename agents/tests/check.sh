@@ -168,6 +168,10 @@ check "builder: converge is the default"         has "$BUILDER" "Converge is the
 check "builder: stops if session.json exists for a different SPEC" \
   has "$BUILDER" "for a different SPEC, stop and ask"
 check "builder: names session.closed.json"       has "$BUILDER" ".atelier/session.closed.json"
+check "builder: does not write the marker (build opens it, bound to the session)" \
+  has "$BUILDER" 'You never write or edit it in converge mode'
+check "builder: diverge options are opened with session-open.sh" \
+  has "$BUILDER" 'guardrails/session-open.sh <SPEC path> <option branch> <worktree path>'
 check "builder: diverge has no marker in the main checkout" \
   has "$BUILDER" 'the main checkout gets no `.atelier/session.json`'
 
@@ -217,7 +221,7 @@ wrap_prs() {
 wrap_marker_close() {
   local s5 m
   s5=$(grep -n '^## Step 5' "$WRAP" | cut -d: -f1)
-  m=$(grep -n '^mv .atelier/session.json .atelier/session.closed.json$' "$WRAP" | cut -d: -f1)
+  m=$(grep -n '^~/.claude/atelier/guardrails/session-close.sh$' "$WRAP" | cut -d: -f1)
   [ -n "$m" ] && [ "$m" -gt "$s5" ] && ! grep -Eq '^[[:space:]]*rm ' "$WRAP"
 }
 wrap_learn_branch() {
@@ -272,6 +276,16 @@ check "build: builder, critic, revise loop steps" build_loop_steps
 check "build: 3 Builder pass cap"                build_cap
 check "build: final report contents"             build_report
 check "build: no PR, no server"                  build_no_pr_no_server
+build_opens_session() {
+  grep -Fq '~/.claude/atelier/guardrails/session-open.sh <SPEC path> <branch>' "$BUILD" \
+    && grep -Fq 'Read the marker back' "$BUILD" && grep -Fq 'sessionId' "$BUILD"
+}
+check "build: opens a session-bound marker and reads it back" build_opens_session
+wrap_checks_owner() {
+  grep -Fq 'session-close.sh --check' "$WRAP" && grep -Fq 'belongs to another session' "$WRAP" \
+    && grep -Fq 'Never close or edit another session' "$WRAP"
+}
+check "wrap: says plainly when the build belongs to another session" wrap_checks_owner
 check "build: diverge mode ranks with one Critic call" build_diverge
 check "build: under 60 lines"                    test "$(wc -l < "$BUILD")" -lt 60
 

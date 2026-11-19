@@ -1,1 +1,1 @@
-{"cwd":"{{CWD}}","hook_event_name":"Stop","stop_hook_active":false}
+{"cwd":"{{CWD}}","session_id":"sess-build","hook_event_name":"Stop","stop_hook_active":false}
