@@ -1,9 +1,11 @@
-"""Assemble the claude.ai skill zips for eames and rand.
+"""Assemble the claude.ai skill zips for eames, rand and design-director.
 
 Run as: python3 -I build_skills.py <repo> <stage_dir> <dist_dir>
 
-Each skill is a folder named after the skill. The folder holds SKILL.md,
-taste.md and conventions.md, and is zipped to <dist_dir>/<name>.zip.
+Each skill is a folder named after the skill, zipped to <dist_dir>/<name>.zip.
+Eames and rand hold SKILL.md, taste.md and conventions.md. Design Director is a
+router and holds SKILL.md only. Which files a skill bundles, and which
+translations it gets, are set per skill in SKILL_CONFIG.
 
 commands/*.md are written for Claude Code. This build owns the translation to
 claude.ai skills: see the translate_* functions below. A translation that finds
@@ -12,7 +14,7 @@ reworded command cannot silently ship untranslated text.
 Zip entries share one fixed timestamp, fixed permissions, sorted order and
 no extra fields, so two runs give identical bytes.
 
-Both skills are staged before any zip is written. Each zip is first written
+Every skill is staged before any zip is written. Each zip is first written
 to <dest>.tmp and then moved into place with os.replace, so a failure never
 leaves a truncated or mismatched pair in dist_dir.
 """
@@ -23,7 +25,7 @@ import re
 import sys
 import zipfile
 
-SKILLS = ("eames", "rand")
+SKILLS = ("eames", "rand", "design-director")
 SHIPPED = ("conventions.md", "taste.md")
 ZIP_TIME = (2026, 11, 18, 0, 0, 0)
 FILE_ATTR = 0o100644 << 16
@@ -37,6 +39,7 @@ FORBIDDEN_SKILL = (
     "Closing a Session",
     ".atelier/session.json",
     "$ARGUMENTS",
+    "quality.md",
 )
 # The bundled files get the same scan, with .atelier/ as a whole.
 FORBIDDEN_BUNDLED = ("~/.claude/", ".atelier/")
@@ -60,6 +63,38 @@ CONTRACT_BUILT = (
 )
 USER_REQUEST_HEADING = "## User Request"
 USER_REQUEST_BODY = "$ARGUMENTS"
+
+# Design Director translations. Each source string must be present exactly as
+# written, or the build fails. The router bundles nothing, so every mention of
+# the contract files is rewritten rather than pointed at.
+DD_ARCH_SOURCE = (
+    "The routing layer is one router and two specialists, and it reads three contract files "
+    "at `~/.claude/atelier/`:"
+)
+DD_ARCH_BUILT = "The routing layer is one router and two specialists:"
+DD_THIS_COMMAND = "(this command)"
+DD_THIS_SKILL = "(this skill)"
+DD_SPECIALISTS_SOURCE = "`/eames` (product UI) and `/rand` (brand and marketing)"
+DD_SPECIALISTS_BUILT = "the Eames skill (product UI) and the Rand skill (brand and marketing)"
+DD_CONTRACT_SOURCE = (
+    "3. **Contract files** \u2014 `taste.md` holds judgment calls, to be interpreted rather than followed word for word. "
+    "`conventions.md` holds literal standards, one rule with an exact value and a yes/no check. "
+    "`quality.md` holds what production grade means, with a pass bar for each gate. "
+    "Read the relevant one when a brief turns into build work."
+)
+DD_CONTRACT_BUILT = (
+    "3. **Contract files** \u2014 each specialist skill carries its own `taste.md` (judgment calls, "
+    "to be interpreted rather than followed word for word) and `conventions.md` (literal standards, "
+    "one rule with an exact value and a yes/no check). The router does not read them."
+)
+DD_INVOKE_SOURCE = (
+    "Once the user picks, invoke the chosen slash command (`/eames` or `/rand`) "
+    "and proceed using its methodology entirely."
+)
+DD_INVOKE_BUILT = (
+    "Once the user picks, load the chosen skill (`eames` or `rand`) "
+    "and proceed using its methodology entirely. If that skill isn't installed, say so and stop."
+)
 
 CONTRACT_PATH = re.compile(r"~/\.claude/atelier/([A-Za-z0-9_.-]+)")
 FIGMA_SKILL_HINT = " (load the `figma-use` skill first)"
@@ -117,15 +152,22 @@ def translate_contract_sentence(body, label):
     return body.replace(CONTRACT_SOURCE, CONTRACT_BUILT)
 
 
-def check_contract_paths(body, label):
+def replace_exact(body, source, built, label, what):
+    """Swap one exact source string for its built wording, or fail the build."""
+    if source not in body:
+        sys.exit(f"{label}: the {what} wording is not there ({source[:70]!r}); the command was reworded, update build_skills.py")
+    return body.replace(source, built)
+
+
+def check_contract_paths(body, label, shipped=SHIPPED):
     """Targets: any other ~/.claude/atelier/<file> mention left in the body.
 
     A bundled file is rewritten to its bare name. Anything else, quality.md
     included, fails the build rather than shipping a dangling pointer.
     """
     for filename in CONTRACT_PATH.findall(body):
-        if filename not in SHIPPED:
-            sys.exit(f"{label}: names ~/.claude/atelier/{filename}, which is not bundled (shipped: {', '.join(SHIPPED)}). Bundle it or drop the mention.")
+        if filename not in shipped:
+            sys.exit(f"{label}: names ~/.claude/atelier/{filename}, which is not bundled (shipped: {', '.join(shipped) or 'none'}). Bundle it or drop the mention.")
     return CONTRACT_PATH.sub(lambda m: m.group(1), body)
 
 
@@ -222,7 +264,21 @@ def scan_forbidden(text, literals, slash_names, label):
             sys.exit(f"{label}: contains the slash command {command}, which does not exist on claude.ai")
 
 
-def translate_body(body, label):
+def translate_design_director(body, label):
+    """Design Director is a router: it bundles no contract files, so its
+    Architecture section stops naming them and the specialists become skills."""
+    body = replace_exact(body, DD_ARCH_SOURCE, DD_ARCH_BUILT, label, "System Architecture intro")
+    body = replace_exact(body, DD_THIS_COMMAND, DD_THIS_SKILL, label, "'(this command)'")
+    body = replace_exact(body, DD_SPECIALISTS_SOURCE, DD_SPECIALISTS_BUILT, label, "specialists item")
+    body = replace_exact(body, DD_CONTRACT_SOURCE, DD_CONTRACT_BUILT, label, "Contract files item (item 3)")
+    body = replace_exact(body, DD_INVOKE_SOURCE, DD_INVOKE_BUILT, label, "step 4 handoff")
+    body = check_contract_paths(body, label, shipped=())
+    body = translate_session_close(body, label)
+    body = translate_user_request(body, label)
+    return body
+
+
+def translate_specialist(body, label):
     body = translate_contract_sentence(body, label)
     body = check_contract_paths(body, label)
     body = translate_session_close(body, label)
@@ -231,13 +287,21 @@ def translate_body(body, label):
     return body
 
 
+# Per skill: the translation its body gets and the contract files it bundles.
+SKILL_CONFIG = {
+    "eames": (translate_specialist, SHIPPED),
+    "rand": (translate_specialist, SHIPPED),
+    "design-director": (translate_design_director, ()),
+}
+
+
 def skill_md(repo, name):
     path = os.path.join(repo, "commands", name + ".md")
     fields, body = split_frontmatter(read_text(path), path)
     description = unquote(fields.get("description", ""))
     if not description:
         sys.exit(f"{path}: frontmatter has no description")
-    body = translate_body(body, path)
+    body = SKILL_CONFIG[name][0](body, path)
     if body and not body.endswith("\n"):
         body += "\n"
     # json.dumps output is a valid YAML double-quoted scalar, so colons,
@@ -257,7 +321,7 @@ def stage_skill(repo, name, folder):
     os.makedirs(folder, exist_ok=False)
     with open(os.path.join(folder, "SKILL.md"), "wb") as handle:
         handle.write(skill_md(repo, name))
-    for shipped in SHIPPED:
+    for shipped in SKILL_CONFIG[name][1]:
         source = os.path.join(repo, shipped)
         text = translate_draft_sentence(read_text(source), source)
         scan_forbidden(text, FORBIDDEN_BUNDLED, forbidden_slash_commands(repo), f"{source} (bundled copy)")

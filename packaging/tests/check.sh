@@ -20,7 +20,7 @@ import hashlib, sys
 for path in sys.argv[1:]:
     with open(path, "rb") as handle:
         print(hashlib.sha256(handle.read()).hexdigest(), path)
-' "$dist/eames.zip" "$dist/rand.zip"
+' "$dist/eames.zip" "$dist/rand.zip" "$dist/design-director.zip"
 }
 
 echo "== frontmatter: model opus on all three commands"
@@ -77,7 +77,7 @@ import zipfile
 
 repo, helper = sys.argv[1], sys.argv[2]
 
-# eames: raw value with ": ", quotes and a hash. rand: a value already quoted.
+# eames and design-director: raw value with ": ", quotes and a hash. rand: a value already quoted.
 raw_weird = 'Use for: "quoted" words, and # hashes'
 quoted_src = '"Quoted source: \\"yes\\""'
 expected_rand = 'Quoted source: "yes"'
@@ -91,7 +91,7 @@ with tempfile.TemporaryDirectory(prefix="atelier-pack-test-") as root:
         if not f.endswith(".md"):
             continue
         lines = open(os.path.join(repo, "commands", f), encoding="utf-8").read().split("\n")
-        value = {"eames.md": raw_weird, "rand.md": quoted_src}.get(f)
+        value = {"eames.md": raw_weird, "rand.md": quoted_src, "design-director.md": raw_weird}.get(f)
         if value is not None:
             lines = [f"description: {value}" if l.startswith("description:") else l for l in lines]
         with open(os.path.join(tmp, "commands", f), "w", encoding="utf-8") as handle:
@@ -101,7 +101,7 @@ with tempfile.TemporaryDirectory(prefix="atelier-pack-test-") as root:
             dst.write(src.read())
     subprocess.run([sys.executable, "-I", helper, tmp, os.path.join(stage, "s"), dist], check=True, stdout=subprocess.DEVNULL)
 
-    expected = {"eames": raw_weird, "rand": expected_rand}
+    expected = {"eames": raw_weird, "rand": expected_rand, "design-director": raw_weird}
     for name, want in expected.items():
         with zipfile.ZipFile(os.path.join(dist, name + ".zip")) as archive:
             skill = archive.read(f"{name}/SKILL.md").decode("utf-8")
