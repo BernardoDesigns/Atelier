@@ -1,1 +1,1 @@
-{"cwd":"{{CWD}}","tool_name":"Write","tool_input":{"file_path":"{{CWD}}/public/i.html","content":"x"}}
+{"cwd":"{{CWD}}","session_id":"sess-build","tool_name":"Write","tool_input":{"file_path":"{{CWD}}/public/i.html","content":"x"}}

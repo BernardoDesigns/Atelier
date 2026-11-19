@@ -1,1 +1,1 @@
-{"cwd":"{{CWD}}","tool_name":"Bash","tool_input":{"command":"GH_TOKEN=abc gh pr create --fill"}}
+{"cwd":"{{CWD}}","session_id":"sess-build","tool_name":"Bash","tool_input":{"command":"GH_TOKEN=abc gh pr create --fill"}}

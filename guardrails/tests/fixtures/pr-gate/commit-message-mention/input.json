@@ -1,1 +1,1 @@
-{"cwd":"{{CWD}}","tool_name":"Bash","tool_input":{"command":"git commit -m \"gh pr create later\""}}
+{"cwd":"{{CWD}}","session_id":"sess-build","tool_name":"Bash","tool_input":{"command":"git commit -m \"gh pr create later\""}}

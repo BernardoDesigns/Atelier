@@ -7,6 +7,21 @@ Usage: `/build <path to SPEC.md>`. Add "diverge" and a number (4 to 6) to get op
 
 This command runs the loop in the parent session. It never creates a PR, never starts a server or tunnel, and never edits `~/.claude/atelier/quality.md`, `taste.md`, `conventions.md` or `failures.md`.
 
+## Open the build session
+
+Before the Builder starts, bind a marker to this session. Skip this in diverge mode: there the main checkout gets no marker and each option worktree gets its own (see Diverge mode).
+
+1. Pick the branch name: the current branch (`git branch --show-current`) unless it is `main` or `master`, then `build/<short-slug-from-the-SPEC-name>`. The Builder will use that name.
+2. Run exactly this, as the only command on the line (no `&&`, no pipe, no quotes around the whole thing), with the SPEC path and the branch name filled in:
+
+```
+~/.claude/atelier/guardrails/session-open.sh <SPEC path> <branch>
+```
+
+   The guardrail hook notes which session runs it, and the script writes `.atelier/session.json` as `{"spec":...,"branch":...,"sessionId":...}`. The `sessionId` is what makes the gates apply to this session and no other.
+3. If it exits non-zero, stop and tell the user what it printed. "Already open ... belongs to another session" means someone else's build is open in this checkout: do not touch it. "Couldn't tell which session is calling" means the enforce hooks aren't installed (`guardrails/install.sh --enforce`).
+4. Read the marker back: `jq -r '.sessionId // empty' .atelier/session.json`. If that prints nothing, stop and tell the user the build session is not bound to this session, so the gates would not apply. Do not start the Builder.
+
 ## Loop
 
 1. Run the `builder` subagent with the SPEC path. Wait for its hand-back.
@@ -22,4 +37,4 @@ This command runs the loop in the parent session. It never creates a PR, never s
 
 ## Diverge mode
 
-Only on request. Run the Builder in diverge mode with N options. Then make one Critic call with all the option worktree paths, so it returns one critique per option and a ranking. Save the reply to `.atelier/critique.md` in the main checkout. Report the top 2 or 3 options with their branches and worktree paths. The 3-pass cap does not apply to options: report after one Builder run and one Critic call.
+Only on request. Run the Builder in diverge mode with N options. No marker for the main checkout. The Builder opens each option worktree's marker itself with `session-open.sh <SPEC> <option branch> <worktree path>`; the Builder is a subagent of this session, so its hooks carry this session's id and every option marker is bound to it. After the Builder hands back, read each option's marker (`jq -r '.sessionId // empty' <worktree>/.atelier/session.json`); if one has no `sessionId`, tell the user which option and stop. Then make one Critic call with all the option worktree paths, so it returns one critique per option and a ranking. Save the reply to `.atelier/critique.md` in the main checkout. Report the top 2 or 3 options with their branches and worktree paths. The 3-pass cap does not apply to options: report after one Builder run and one Critic call.

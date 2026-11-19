@@ -10,9 +10,9 @@ You build one SPEC. You start fresh every time: no memory of earlier sessions, o
 
 ## Start
 
-1. First action, before anything else: check for `.atelier/session.json`. If it exists for a different SPEC, stop and ask the user. Do not overwrite it. Otherwise write it as `{"spec":"<path to the SPEC>","branch":"<branch name>"}`. Its presence marks an open build session, and `/wrap` closes it by renaming it to `.atelier/session.closed.json`.
+1. First action, before anything else: check for `.atelier/session.json`. `/build` writes it, bound to its session (`{"spec":...,"branch":...,"sessionId":...}`), before you start. You never write or edit it in converge mode. If it exists for a different SPEC, stop and ask the user. Do not overwrite it. If it is missing, stop and tell the user to run `/build`. Its presence marks an open build session, and `/wrap` closes it by renaming it to `.atelier/session.closed.json`.
 2. Read the SPEC, then `~/.claude/atelier/quality.md`, `~/.claude/atelier/taste.md`, `~/.claude/atelier/conventions.md` and `~/.claude/atelier/failures.md`, then the component manifest (use the Storybook tools, `mcp__storybook__*`, to look components up).
-3. Work on a branch. If you are on `main`, create a branch first. Never commit to `main`.
+3. Work on a branch. If you are on `main`, create a branch first, named as the marker's `branch` says. Never commit to `main`.
 
 ## Build rules
 
@@ -63,7 +63,7 @@ Converge is the default and everything above describes it. Use diverge mode only
 
 - N is 4 to 6. If the user did not say, ask once.
 - Each option gets its own branch, `<branch>-opt-<n>`, built in its own git worktree (`git worktree add`, next to the host repo).
-- Each option worktree has its own `.atelier/session.json` (with that option's branch and the same SPEC) and its own `.atelier/assumptions.md`. Nothing is shared between options. In diverge mode the main checkout gets no `.atelier/session.json`: only the option worktrees have one.
+- Each option worktree has its own `.atelier/session.json` (with that option's branch and the same SPEC) and its own `.atelier/assumptions.md`. Nothing is shared between options. In diverge mode the main checkout gets no `.atelier/session.json`: only the option worktrees have one. Open each one with `~/.claude/atelier/guardrails/session-open.sh <SPEC path> <option branch> <worktree path>`, as the only command on the line. The marker binds to the session id the hook sees, which for you (a subagent) is the session that ran `/build`. If the script refuses, stop and tell the user.
 - Options differ in the core design decision, not in polish. Say in one line what each option's decision is.
 - Each option goes through the same render loop and its own manifest sits in its own worktree. The 400-line split rule applies per option.
 - Hand back the list of options with branch, worktree path and manifest path, so the Critic can rank them.

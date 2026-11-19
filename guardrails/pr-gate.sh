@@ -1,7 +1,8 @@
 #!/bin/bash
 # PreToolUse hook for Bash: the HARD definition-of-done gate.
 #
-# In a build session (<cwd>/.atelier/session.json exists), a Bash command that
+# In THE build session (<cwd>/.atelier/session.json exists and its sessionId equals
+# the hook input's session_id; see session-lib.sh), a Bash command that
 # creates a pull request (`gh pr create`) is blocked (exit 2) until the same four
 # artefacts dod-gate.sh checks exist: screenshots, assumptions, a passing test
 # run, a reviewed critique. Both scripts source dod-check.sh so they can't drift.
@@ -12,8 +13,16 @@
 # The ways out are: meet the gate, remove .atelier/session.json by hand, or run
 # guardrails/install.sh --relax.
 #
-# Silent (exit 0, no output) when there is no .atelier/session.json, or when the
-# command doesn't create a PR.
+# Silent (exit 0, no output) when there is no .atelier/session.json, when the
+# marker is bound to another session or has no sessionId, when the hook input is
+# unreadable or has no session_id, or when the command doesn't create a PR. A
+# session that isn't the build session never meets this gate, even in the same
+# checkout while a build is open.
+#
+# Separate job, same hook (it is already the PreToolUse hook on Bash): before any of
+# that, session-claim.sh notes which session is running guardrails/session-open.sh
+# or session-close.sh so those scripts can bind or close the marker. It never blocks
+# and doesn't touch the gate logic below.
 #
 # Detecting "creates a PR": the command is split into shell words (python3
 # shlex), then into segments at ; && || | & ( ) and unquoted newlines. In each
@@ -28,25 +37,31 @@
 # creating a PR, and a PR opened in the web UI. If the command can't be parsed
 # but contains the words gh pr create, it is treated as a PR create.
 #
-# Fails closed in a build session: unreadable stdin, a missing python3 or a
-# missing dod-check.sh exits 2. install.sh wraps this script so a missing script
-# exits 2 too. Writes nothing.
+# Fails closed in the build session: a missing python3 or a missing dod-check.sh
+# exits 2. A missing session-lib.sh or session-claim.sh exits 2 too (PreToolUse).
+# install.sh wraps this script so a missing script exits 2 as well. Writes nothing
+# except the session claim note (see above).
 
 input=$(cat)
-valid=1
-jq -e . >/dev/null 2>&1 <<<"$input" || valid=0
 
-cwd=""
-[ "$valid" -eq 1 ] && cwd=$(jq -r '.cwd // empty' <<<"$input")
-[ -n "$cwd" ] || cwd=$PWD
-
-a="$cwd/.atelier"
-[ -f "$a/session.json" ] || exit 0
-
-if [ "$valid" -ne 1 ]; then
-    echo "Atelier PR gate: couldn't read the hook input in a build session, so this is blocked. Tell the user; only they can leave the build session or relax enforcement." >&2
+# shellcheck source=session-lib.sh
+# shellcheck source=session-claim.sh
+if ! . "$(dirname "$0")/session-lib.sh" || ! . "$(dirname "$0")/session-claim.sh"; then
+    echo "Atelier PR gate: session-lib.sh or session-claim.sh is missing, so Bash is blocked. Restore them or re-run guardrails/install.sh." >&2
     exit 2
 fi
+
+# Unreadable input: nothing can be bound to it, so this isn't the build session.
+jq -e . >/dev/null 2>&1 <<<"$input" || exit 0
+
+cwd=$(jq -r '.cwd // empty' <<<"$input")
+[ -n "$cwd" ] || cwd=$PWD
+
+# Separate job: record who is calling session-open.sh / session-close.sh.
+session_claim_record "$input" "$(cd "$(dirname "$0")" && pwd -P)"
+
+a="$cwd/.atelier"
+atelier_is_build_session "$a/session.json" "$input" || exit 0
 
 command=$(jq -r '.tool_input.command // empty' <<<"$input")
 [ -n "$command" ] || exit 0

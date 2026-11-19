@@ -1,1 +1,1 @@
-{"cwd":"{{CWD}}","tool_name":"Edit","tool_input":{"file_path":"{{CWD}}/docs/a.md"}}
+{"cwd":"{{CWD}}","session_id":"sess-build","tool_name":"Edit","tool_input":{"file_path":"{{CWD}}/docs/a.md"}}

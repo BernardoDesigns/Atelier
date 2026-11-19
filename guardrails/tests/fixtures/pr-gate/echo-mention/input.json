@@ -1,1 +1,1 @@
-{"cwd":"{{CWD}}","tool_name":"Bash","tool_input":{"command":"echo gh pr create; ls"}}
+{"cwd":"{{CWD}}","session_id":"sess-build","tool_name":"Bash","tool_input":{"command":"echo gh pr create; ls"}}

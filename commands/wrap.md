@@ -7,7 +7,13 @@ Close the session in five steps, in order. The review happens here in the sessio
 
 ## Opening check
 
-Look for `.atelier/session.json`. If it is absent, nothing was built in this session: skip steps 1 to 3 and go straight to step 4. If it is there, start at step 1.
+Run exactly this, as the only command on the line:
+
+```
+~/.claude/atelier/guardrails/session-close.sh --check
+```
+
+It prints one word. `none`: there is no `.atelier/session.json`, so nothing was built in this session: skip steps 1 to 3 and go straight to step 4. `mine` or `unowned`: this session's build (or an old marker with no `sessionId`): start at step 1. `other`: the open build belongs to a different session. Say so plainly ("the build open here belongs to another session; run /wrap there, I haven't closed it"), skip steps 1 to 3 and step 5's close, and do only step 4. Never close or edit another session's marker. `unknown`: tell the user the guardrail hook that identifies this session isn't running (`guardrails/install.sh --enforce`) and stop.
 
 Steps 1 to 3 never create or push a PR. Step 4 may open one PR in the Atelier repo for learning edits. The PR for the build, in the host repo, is created only in step 5.
 
@@ -87,10 +93,10 @@ Only now create the PR for the build, in the host repo. Check the branch is not 
 gh pr create --title "<title>" --body "<description>"
 ```
 
-Last act of step 5, once the PR exists: close the session by renaming the marker. Use `mv`, never `rm`.
+Last act of step 5, once the PR exists: close the session by renaming the marker. The script does the rename (never a delete), refuses if the build belongs to another session, and keeps the file's contents, `sessionId` included, in `.atelier/session.closed.json`. Run it as the only command on the line:
 
 ```
-mv .atelier/session.json .atelier/session.closed.json
+~/.claude/atelier/guardrails/session-close.sh
 ```
 
-The marker means a build session is open, and the guardrail hooks key off it. A marker left behind would trap later, unrelated sessions in this repo. In diverge mode there is no marker in the main checkout; rename the one in each option worktree you wrapped.
+If it exits non-zero, tell the user what it printed. The marker means a build session is open, and the guardrail hooks key off it, and only for the session whose id it carries. A marker left behind is inert for other sessions but would keep gating its own. In diverge mode there is no marker in the main checkout; close the one in each option worktree you wrapped with `~/.claude/atelier/guardrails/session-close.sh <worktree path>`.

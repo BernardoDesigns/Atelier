@@ -1,14 +1,17 @@
 #!/bin/bash
 # PostToolUse hook for Write / Edit.
 #
-# After an edit to a .ts, .tsx, .js or .jsx file in a build session, runs
+# After an edit to a .ts, .tsx, .js or .jsx file in THE build session, runs
 # `tsc --noEmit` and `eslint <file>` from the repo root using the host's local
 # binaries (node_modules/.bin), and hands any errors back to the model: exit 2
 # with the first ~40 lines on stderr.
 #
 # Does nothing (exit 0, no output, no tool invoked) unless
-# <cwd>/.atelier/session.json exists. That check comes first, so this can't
-# interfere with an unrelated session if it is enforced user-wide.
+# <cwd>/.atelier/session.json exists AND its sessionId equals the hook input's
+# session_id (session-lib.sh). A marker bound to another session, a marker with no
+# sessionId, unreadable input and input with no session_id all do nothing. That
+# check comes first, so this can't interfere with an unrelated session, even one in
+# the same checkout while a build is open.
 #
 # A tool that isn't installed is skipped and named in the feedback; it doesn't
 # fail the gate. Each tool gets 60 seconds (ATELIER_GATE_TIMEOUT overrides, for
@@ -18,26 +21,25 @@
 # files inside .atelier/ (fast-gate.tsc.out, fast-gate.eslint.out), overwritten each run.
 # It does not write .atelier/tests.json; the Builder does that after a test run.
 #
-# Fails closed inside a build session: unreadable stdin exits 2. install.sh
-# wraps this script so a missing script exits 2 too.
+# Fails open (PostToolUse): if this script or session-lib.sh is missing, install.sh's
+# wrapper (or the check below) warns and exits 1, which doesn't block.
 
 TIMEOUT=${ATELIER_GATE_TIMEOUT:-60}
 MAXLINES=40
 
 input=$(cat)
-valid=1
-jq -e . >/dev/null 2>&1 <<<"$input" || valid=0
 
-cwd=""
-[ "$valid" -eq 1 ] && cwd=$(jq -r '.cwd // empty' <<<"$input")
+# shellcheck source=session-lib.sh
+if ! . "$(dirname "$0")/session-lib.sh"; then
+    echo "Atelier fast gate: session-lib.sh is missing, so this check was skipped; restore it or re-run guardrails/install.sh" >&2
+    exit 1
+fi
+
+jq -e . >/dev/null 2>&1 <<<"$input" || exit 0
+cwd=$(jq -r '.cwd // empty' <<<"$input")
 [ -n "$cwd" ] || cwd=$PWD
 
-[ -f "$cwd/.atelier/session.json" ] || exit 0
-
-if [ "$valid" -ne 1 ]; then
-    echo "Atelier fast gate: couldn't read the hook input in a build session, blocking. Use guardrails/install.sh --relax to turn it off." >&2
-    exit 2
-fi
+atelier_is_build_session "$cwd/.atelier/session.json" "$input" || exit 0
 
 target=$(jq -r '.tool_input.file_path // empty' <<<"$input")
 case "${target##*.}" in
