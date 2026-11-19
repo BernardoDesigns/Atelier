@@ -1,8 +1,8 @@
-# Counter settings: field-level validation, an unsaved-changes guard and a save that can fail
+# Counter settings: field-level validation, a leave prompt and a save that can fail
 
 ## Goal
 
-This is a change to the existing settings screen at `/settings`, not a new form. Its Counter tab today has counter name, default rental length, deposit policy and require-ID fields, a save and discard footer, and blur validation on the first two. Take the Counter tab further: add the counter contact email, pickup hours and late-return grace period, guard unsaved changes when the person leaves, and make a failed save recoverable from an error above the form.
+This is a change to the existing settings screen at `/settings`, not a new form. Its Counter tab today has counter name, default rental length, deposit policy and require-ID fields, a save and discard footer, and blur validation on the first two. Take the Counter tab further: add the counter contact email, pickup hours and late-return grace period, show the browser's leave prompt when the person leaves with unsaved changes, and make a failed save recoverable from an error above the form.
 
 ## User and core tension
 
@@ -16,7 +16,6 @@ The counter lead changes one setting between two customers and wants it saved in
 - Late-return grace period accepts whole hours from 0 to 72 and shows an error for anything else.
 - Pickup hours take an opening and a closing time, each as 24-hour HH:MM, for example 09:00 and 18:00. Any other value shows an error under the field. A closing time not later than the opening time shows its error under the closing time.
 - Pressing save with invalid fields keeps today's behaviour and extends it to the new fields in visual order. The status line beside save says how many fields need fixing, for example "2 fields need fixing".
-- With unsaved changes, following a desk navigation link opens a confirmation with "Stay" and "Discard and leave" before the page changes. Switching between the Counter and Notifications tabs is not guarded. With no unsaved changes, nothing opens.
 - With unsaved changes, reloading or closing the page shows the browser's own leave prompt.
 - A failed save keeps every value and the form dirty, as today, and replaces the footer's "Could not save. Try again." with an error above the form that has a Retry button. The mock data layer gains a way to fail a save on request, so the e2e error path and the save failed render can reach it.
 - Retry sends the same values again. When it succeeds, the error goes away and the form is clean.
@@ -43,6 +42,7 @@ Until a baseline exists, gate G6 is judged on every state having a render and on
 ## Out of scope and protected paths
 
 - The Notifications tab is out of scope.
+- An in-app confirmation when leaving through the desk navigation with unsaved changes is out of scope.
 - The existing counter name and default rental length rules, deposit policy, require-ID, the footer layout and the URL-selectable loading and error states of the screen stay as they are. Only add what the criteria above ask for.
 - Protected paths `auth/`, `api/`, `payments/` and `lib/shared/` are out of scope. The form reads and writes through the mock data layer in `lib/data/`, which may be extended to store the new fields and to fail a save on request. Nothing changes in the request layer.
 - Deposit amounts, card details and refund rules are out of scope. They belong to `payments/`.
