@@ -89,7 +89,7 @@ for name in ("eames", "rand"):
     lines = [f"description: {value}" if l.startswith("description:") else l for l in lines]
     with open(os.path.join(tmp, "commands", name + ".md"), "w", encoding="utf-8") as handle:
         handle.write("\n".join(lines))
-for shipped in ("taste.md", "conventions.md", "quality.md"):
+for shipped in ("taste.md", "conventions.md"):
     with open(os.path.join(repo, shipped), "rb") as src, open(os.path.join(tmp, shipped), "wb") as dst:
         dst.write(src.read())
 

@@ -22,7 +22,7 @@ def build(mutate):
             text = mutate(text)
         with open(os.path.join(tmp, "commands", name + ".md"), "w", encoding="utf-8") as handle:
             handle.write(text)
-    for shipped in ("taste.md", "conventions.md", "quality.md"):
+    for shipped in ("taste.md", "conventions.md"):
         with open(os.path.join(repo, shipped), "rb") as src, open(os.path.join(tmp, shipped), "wb") as dst:
             dst.write(src.read())
     stage = tempfile.mkdtemp(prefix="atelier-pack-stage-")
@@ -40,14 +40,29 @@ def expect_fail(label, mutate, needle):
 
 
 expect_fail(
-    "unbundled contract file",
-    lambda t: t.replace("~/.claude/atelier/quality.md", "~/.claude/atelier/failures.md"),
+    "unbundled contract file elsewhere in the body",
+    lambda t: t.replace("## Working Style", "Also read `~/.claude/atelier/failures.md`.\n\n## Working Style"),
     "failures.md",
 )
 expect_fail(
-    "contract mention removed",
-    lambda t: t.replace("~/.claude/atelier/", ""),
-    "~/.claude/atelier/<file>",
+    "quality.md named elsewhere in the body",
+    lambda t: t.replace("## Working Style", "Also read `~/.claude/atelier/quality.md`.\n\n## Working Style"),
+    "quality.md",
+)
+expect_fail(
+    "contract sentence reworded",
+    lambda t: t.replace("(the production bar)", "(the bar)"),
+    "three-file shape",
+)
+expect_fail(
+    "contract sentence lost a file",
+    lambda t: t.replace(" and `~/.claude/atelier/quality.md` (the production bar)", ""),
+    "three-file shape",
+)
+expect_fail(
+    "user request section renamed",
+    lambda t: t.replace("## User Request", "## Request"),
+    "User Request",
 )
 expect_fail(
     "close section renamed",
@@ -61,7 +76,7 @@ expect_fail(
 )
 expect_fail(
     "slash command left in body",
-    lambda t: t + "\nRun /build next.\n",
+    lambda t: t.replace("## Working Style", "Run /build next.\n\n## Working Style"),
     "/build",
 )
 code, out, _ = build(lambda t: t)

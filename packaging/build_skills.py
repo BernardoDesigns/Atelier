@@ -3,7 +3,7 @@
 Run as: python3 -I build_skills.py <repo> <stage_dir> <dist_dir>
 
 Each skill is a folder named after the skill. The folder holds SKILL.md,
-taste.md, conventions.md and quality.md, and is zipped to <dist_dir>/<name>.zip.
+taste.md and conventions.md, and is zipped to <dist_dir>/<name>.zip.
 
 commands/*.md are written for Claude Code. This build owns the translation to
 claude.ai skills: see the translate_* functions below. A translation that finds
@@ -24,13 +24,12 @@ import sys
 import zipfile
 
 SKILLS = ("eames", "rand")
-SHIPPED = ("conventions.md", "quality.md", "taste.md")
+SHIPPED = ("conventions.md", "taste.md")
 ZIP_TIME = (2026, 11, 18, 0, 0, 0)
 FILE_ATTR = 0o100644 << 16
 TAIL = (
-    "This skill ships with `taste.md` (judgment, interpreted), `conventions.md` "
-    "(literal standards) and `quality.md` (the production bar) in the same folder. "
-    "Read them before design work."
+    "This skill ships with `taste.md` (judgment, interpreted) and `conventions.md` "
+    "(literal standards) in the same folder. Read them before design work."
 )
 
 # Nothing below may survive into a built SKILL.md: none of it exists on claude.ai.
@@ -41,7 +40,22 @@ FORBIDDEN = (
     "figma-use",
     "Closing a Session",
     ".atelier/session.json",
+    "$ARGUMENTS",
 )
+
+# The Contract files sentence as the command sources word it today. quality.md
+# is the production bar for the Claude Code build loop (gates on .atelier files,
+# /wrap, the render harness) and is not bundled, so its mention is stripped.
+CONTRACT_SOURCE = (
+    "**Contract files.** Before design work, read `~/.claude/atelier/taste.md` (judgment calls), "
+    "`~/.claude/atelier/conventions.md` (literal standards) and `~/.claude/atelier/quality.md` "
+    "(the production bar)."
+)
+CONTRACT_BUILT = (
+    "**Contract files.** Before design work, read `taste.md` (judgment calls) "
+    "and `conventions.md` (literal standards)."
+)
+USER_REQUEST_HEADING = "## User Request"
 
 CONTRACT_PATH = re.compile(r"~/\.claude/atelier/([A-Za-z0-9_.-]+)")
 FIGMA_SKILL_HINT = " (load the `figma-use` skill first)"
@@ -86,17 +100,26 @@ def split_frontmatter(text, path):
     return fields, "".join(lines[close + 1:])
 
 
-def translate_contract_paths(body, label):
-    """Targets: "read `~/.claude/atelier/taste.md` ..." in the Contract files line.
+def translate_contract_sentence(body, label):
+    """Targets: the "**Contract files.** Before design work, read ..." sentence.
 
-    Rewrites each ~/.claude/atelier/<file> to the bare file name, which is
-    where the file sits inside the zip. A named file that is not bundled
-    fails the build rather than shipping a dangling pointer.
+    The source names three files under ~/.claude/atelier/. Two are bundled and
+    get bare names. The third, quality.md, is dropped from the sentence. The
+    exact three-file shape is required, so a reworded sentence fails the build
+    instead of shipping untranslated.
     """
-    found = CONTRACT_PATH.findall(body)
-    if not found:
-        sys.exit(f"{label}: no ~/.claude/atelier/<file> mention to translate; the command was reworded, update build_skills.py")
-    for filename in found:
+    if CONTRACT_SOURCE not in body:
+        sys.exit(f"{label}: the Contract files sentence no longer has the expected three-file shape (taste.md, conventions.md, quality.md under ~/.claude/atelier/); update build_skills.py")
+    return body.replace(CONTRACT_SOURCE, CONTRACT_BUILT)
+
+
+def check_contract_paths(body, label):
+    """Targets: any other ~/.claude/atelier/<file> mention left in the body.
+
+    A bundled file is rewritten to its bare name. Anything else, quality.md
+    included, fails the build rather than shipping a dangling pointer.
+    """
+    for filename in CONTRACT_PATH.findall(body):
         if filename not in SHIPPED:
             sys.exit(f"{label}: names ~/.claude/atelier/{filename}, which is not bundled (shipped: {', '.join(SHIPPED)}). Bundle it or drop the mention.")
     return CONTRACT_PATH.sub(lambda m: m.group(1), body)
@@ -134,9 +157,28 @@ def translate_figma_skill_hint(body, label):
     return body.replace(FIGMA_SKILL_HINT, FIGMA_REPLACEMENT)
 
 
+def translate_user_request(body, label):
+    """Targets: the trailing "## User Request" section whose body is `$ARGUMENTS`.
+
+    $ARGUMENTS is a Claude Code substitution; on claude.ai it would ship as a
+    literal. The section goes to the end of the file, along with the rule that
+    sat before it, so the file does not end on a dangling rule.
+    """
+    lines = body.splitlines(keepends=True)
+    start = next((i for i, l in enumerate(lines) if l.rstrip("\r\n") == USER_REQUEST_HEADING), None)
+    if start is None:
+        sys.exit(f"{label}: no '{USER_REQUEST_HEADING}' section to drop; the command was reworded, update build_skills.py")
+    kept = lines[:start]
+    while kept and kept[-1].strip() in ("", "---"):
+        kept.pop()
+    return "".join(kept).rstrip("\n") + "\n"
+
+
 def translate_body(body, label):
-    body = translate_contract_paths(body, label)
+    body = translate_contract_sentence(body, label)
+    body = check_contract_paths(body, label)
     body = translate_session_close(body, label)
+    body = translate_user_request(body, label)
     body = translate_figma_skill_hint(body, label)
     return body
 
