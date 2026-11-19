@@ -144,7 +144,7 @@ Walks through every draft item in the contract files, one at a time, and records
 bash packaging/build.sh
 ```
 
-Builds `dist/eames.zip`, `dist/rand.zip` and `dist/design-director.zip`, one skill folder in each. Eames and Rand hold `SKILL.md`, `taste.md` and `conventions.md`. Design Director is a router, so it ships `SKILL.md` only. The same input gives the same bytes. The commands are translated for claude.ai, not copied: the Claude Code only parts (`/wrap`, the `~/.claude` paths, the `quality.md` mention) are dropped, and the bundled `taste.md` and `conventions.md` lose the `/taste-review` sentence. The build fails loudly if a translation finds nothing to change. `dist/` is git-ignored; the zips are build output. If you uploaded Eames, Rand or Design Director before 2.0.0, upload the new zips. The zip layout is my assumption of what claude.ai wants, so upload one to confirm before you trust it.
+Builds `dist/eames.zip`, `dist/rand.zip` and `dist/design-director.zip`, one skill folder in each. Eames and Rand hold `SKILL.md`, `taste.md` and `conventions.md`. Design Director is a router, so it ships `SKILL.md` only. The same input gives the same bytes. The commands are translated for claude.ai, not copied: the Claude Code only parts (`/wrap`, the `~/.claude` paths, the `quality.md` mention) are dropped, and the bundled `taste.md` and `conventions.md` lose the `/taste-review` sentence. The build fails loudly if a translation finds nothing to change. `dist/` is git-ignored; the zips are build output. If you uploaded Eames, Rand or Design Director before 2.0.0, upload the new zips. The zip layout is confirmed: all three uploaded to claude.ai as built.
 
 ---
 

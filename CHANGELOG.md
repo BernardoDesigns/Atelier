@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [2.0.1] - 2026-11-19
 
-- `cc` only tore the dev server and tunnel down when `claude` returned normally, so quitting Claude Code with a double Ctrl+C or closing the terminal window left both running. It now tears them down once on any exit (return, Ctrl+C, closed window, SIGTERM) and leaves the shell's traps and options as they were. `devup` also records the PIDs, listeners and folder it started and, on the next run, prunes dead entries, reuses its own server from the same folder, replaces its own server from another folder and never kills a foreign process. `DEV_PORT` overrides the port for `cc`, and `tests/dev-aliases/check.sh` covers all of it with stubs and a real pty.
+A patch release. `cc` now tears the dev server and tunnel down however Claude Code exits, the packaging build makes a third claude.ai zip for Design Director, and the benchmark tickets are tightened before the remaining runs.
 
 ### Added
 
@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The five benchmark tickets say the new flag defaults to on, as a kill switch, and that a test turning it off with the host's `overrideFlags` proves the flag-off behaviour. Flags are fixed at build time, so a default-off flag would hide the feature from the e2e build and the render harness. Their G9 lines also gain the split clause from `quality.md` ("or a split is proposed in the PR").
 - Ticket 02 (inventory table) is checked against the host and tightened: the shelf location it asked for is now the day rate, the category filter is cut (the ticket keeps the status filter), sort is links with a defined order, the stacked layout and the flag are specified, every state has a URL, and the item name truncates at 768 instead of stacking.
+
+### Fixed
+
+- `cc` only tore the dev server and tunnel down when `claude` returned normally, so quitting Claude Code with a double Ctrl+C or closing the terminal window left both running. It now tears them down once on any exit (return, Ctrl+C, closed window, SIGTERM) and leaves the shell's traps and options as they were. `devup` also records the PIDs, listeners and folder it started and, on the next run, prunes dead entries, reuses its own server from the same folder, replaces its own server from another folder and never kills a foreign process. `DEV_PORT` overrides the port for `cc`, and `tests/dev-aliases/check.sh` covers all of it with stubs and a real pty.
 
 ## [2.0.0] - 2026-11-19
 
@@ -208,6 +212,7 @@ Everything in this release is opt-in. Nothing changes how Claude Code behaves un
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
+[2.0.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.1
 [2.0.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.0
 [1.2.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.1
 [1.2.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.0
