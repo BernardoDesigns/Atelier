@@ -48,12 +48,12 @@ Until a baseline exists, gate G6 is judged on every state having a render and on
 - G1 System fidelity: every component missing from the host design system manifest is listed in the assumptions log and approved at `/wrap`.
 - G2 Types: `tsc --noEmit` exits 0 under strict, and no `any` appears in changed files.
 - G3 Lint and format: the host eslint and prettier exit 0 on changed files.
-- G4 Tests: a component test exists for each state above. A Playwright e2e test covers the happy path and one error path. It lives in the host `e2e/` folder and runs with the host `npm run test:e2e`, which builds and starts the app itself. Add no Playwright or other dependency (it is already there) and start no server by hand. `.atelier/tests.json` reports `"pass": true` and is recorded by running the tests through `~/.claude/atelier/guardrails/run-tests.sh`, never written by hand.
+- G4 Tests: a component test exists for each state above. A Playwright e2e test covers the happy path and one error path. It lives in the host `e2e/` folder and runs with the host `npm run test:e2e`, which builds and starts the app itself, so start no server by hand. Add no test dependency; Playwright is already there. `.atelier/tests.json` reports `"pass": true` and is recorded by running the tests through `~/.claude/atelier/guardrails/run-tests.sh`, never written by hand.
 - G5 Accessibility: axe reports 0 serious or critical violations in every shot, focus is trapped in the dialog and returns to the trigger on close, and focus is visible on every control.
 - G6 Visual: a render shot exists for each state in `light` and `dark` at `sm` 375, `md` 768 and `lg` 1280.
 - G7 Lane: no changed file sits under a protected path.
 - G8 Readability: no dead code, and every name reads without the SPEC.
-- G9 PR hygiene: the diff is under about 400 changed lines, the PR template is complete, and the render shots for every state are in the PR (the preview for now; a hosted preview deployment comes later). The action ships behind a flag from the host flag module, `lib/flags.ts`. With the flag off nothing of the action renders, layout included: no empty column, header or gap.
+- G9 PR hygiene: the diff is under about 400 changed lines, the PR template is complete, and the render shots for every state are listed or linked in the PR description (the preview for now). The action ships behind a flag: read it with `isEnabled` from the host module `lib/flags.ts`. With the flag off nothing of the action renders, layout included: no empty column, header or gap.
 - G10 Taste: the Critic scores P1 to P5 from 1 to 5 and no score is below 3.
 - Screenshots rendered for every state listed above.
 - Assumptions log written at `.atelier/assumptions.md` and reviewed at `/wrap`.

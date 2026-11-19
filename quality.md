@@ -16,7 +16,7 @@ Fixed values used below: themes `light` and `dark`; breakpoints `sm` 375, `md` 7
 | G6 | Visual | Render shots exist for every SPEC state in `light` and `dark` at `sm` 375, `md` 768 and `lg` 1280, and each matches the SPEC "Visual baseline". | Reviewer (Critic cites each shot path) | draft |
 | G7 | Lane | No changed file sits under `auth/`, `api/`, `payments/` or `lib/shared/`, unless the SPEC lists that path as in scope. | Script (lane guard, or a diff check) | draft |
 | G8 | Readability | Code follows the host conventions. No dead code, commented-out code or unused exports. Every name can be understood without reading the SPEC. | Reviewer | draft |
-| G9 | PR hygiene | The diff is under about 400 changed lines, or a split is proposed in the PR. The PR template is complete. The render shots for every state are in the PR (the preview for now; a hosted preview deployment comes later). New features ship behind a feature flag. | Reviewer, with a script for the line count | draft |
+| G9 | PR hygiene | The diff is under about 400 changed lines, or a split is proposed in the PR. The PR template is complete. The render shots for every state are listed or linked in the PR description (the preview for now). New features ship behind a feature flag. With the flag off, nothing of the change renders, layout included. | Reviewer, with a script for the line count | draft |
 | G10 | Taste | The Critic scores each of P1 to P5 from 1 to 5, and no score is below 3. | Reviewer (Critic) | draft |
 
 ## Principles
