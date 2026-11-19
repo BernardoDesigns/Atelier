@@ -27,21 +27,24 @@ SKILLS = ("eames", "rand")
 SHIPPED = ("conventions.md", "taste.md")
 ZIP_TIME = (2026, 11, 18, 0, 0, 0)
 FILE_ATTR = 0o100644 << 16
-TAIL = (
-    "This skill ships with `taste.md` (judgment, interpreted) and `conventions.md` "
-    "(literal standards) in the same folder. Read them before design work."
-)
 
 # Nothing below may survive into a built SKILL.md: none of it exists on claude.ai.
-FORBIDDEN = (
+# Slash commands are added by forbidden_slash_commands(): every command and
+# skill name in the repo, matched as a whole token.
+FORBIDDEN_SKILL = (
     "~/.claude/",
-    "/wrap",
-    "/build",
     "figma-use",
     "Closing a Session",
     ".atelier/session.json",
     "$ARGUMENTS",
 )
+# The bundled files get the same scan, with .atelier/ as a whole.
+FORBIDDEN_BUNDLED = ("~/.claude/", ".atelier/")
+
+# taste.md and conventions.md say this on line 5. It is true in Claude Code and
+# not on claude.ai, where /taste-review does not exist. Sources keep it; the
+# bundled copies lose exactly this sentence.
+DRAFT_SENTENCE = "Every item is a draft until `/taste-review` approves it."
 
 # The Contract files sentence as the command sources word it today. quality.md
 # is the production bar for the Claude Code build loop (gates on .atelier files,
@@ -56,6 +59,7 @@ CONTRACT_BUILT = (
     "and `conventions.md` (literal standards)."
 )
 USER_REQUEST_HEADING = "## User Request"
+USER_REQUEST_BODY = "$ARGUMENTS"
 
 CONTRACT_PATH = re.compile(r"~/\.claude/atelier/([A-Za-z0-9_.-]+)")
 FIGMA_SKILL_HINT = " (load the `figma-use` skill first)"
@@ -168,10 +172,54 @@ def translate_user_request(body, label):
     start = next((i for i, l in enumerate(lines) if l.rstrip("\r\n") == USER_REQUEST_HEADING), None)
     if start is None:
         sys.exit(f"{label}: no '{USER_REQUEST_HEADING}' section to drop; the command was reworded, update build_skills.py")
+    section = "".join(lines[start + 1:]).strip()
+    if section != USER_REQUEST_BODY:
+        sys.exit(f"{label}: '{USER_REQUEST_HEADING}' holds more than {USER_REQUEST_BODY}: {section[:60]!r}; refusing to drop it, update build_skills.py")
     kept = lines[:start]
     while kept and kept[-1].strip() in ("", "---"):
         kept.pop()
     return "".join(kept).rstrip("\n") + "\n"
+
+
+def translate_draft_sentence(text, label):
+    """Targets: "Every item is a draft until `/taste-review` approves it." in taste.md and conventions.md.
+
+    Removes that sentence only. It sits as its own paragraph, so the paragraph
+    break after it goes too, leaving one blank line between neighbours.
+    """
+    if DRAFT_SENTENCE not in text:
+        sys.exit(f"{label}: the sentence {DRAFT_SENTENCE!r} is not there to remove; the file was reworded, update build_skills.py")
+    if DRAFT_SENTENCE + "\n\n" in text:
+        return text.replace(DRAFT_SENTENCE + "\n\n", "", 1)
+    if " " + DRAFT_SENTENCE in text:
+        return text.replace(" " + DRAFT_SENTENCE, "", 1)
+    return text.replace(DRAFT_SENTENCE, "", 1)
+
+
+def forbidden_slash_commands(repo):
+    """Every slash command that does not exist on claude.ai: each commands/*.md
+    basename and each skills/<dir> name, as '/<name>'."""
+    names = set()
+    commands = os.path.join(repo, "commands")
+    if os.path.isdir(commands):
+        names.update(f[:-3] for f in os.listdir(commands) if f.endswith(".md"))
+    skills = os.path.join(repo, "skills")
+    if os.path.isdir(skills):
+        names.update(d for d in os.listdir(skills) if os.path.isdir(os.path.join(skills, d)))
+    return sorted("/" + n for n in names)
+
+
+def scan_forbidden(text, literals, slash_names, label):
+    """Fail on any literal, or any slash command as a whole token: a backtick,
+    whitespace or line start before the slash, and a non-word, non-hyphen
+    character or line end after the name."""
+    for needle in literals:
+        if needle in text:
+            sys.exit(f"{label}: contains {needle!r}, which does not exist on claude.ai")
+    for command in slash_names:
+        pattern = r"(?<![^\s`])" + re.escape(command) + r"(?![\w-])"
+        if re.search(pattern, text):
+            sys.exit(f"{label}: contains the slash command {command}, which does not exist on claude.ai")
 
 
 def translate_body(body, label):
@@ -200,13 +248,8 @@ def skill_md(repo, name):
         f"description: {json.dumps(description, ensure_ascii=False)}\n"
         "---\n"
         + body
-        + "\n"
-        + TAIL
-        + "\n"
     )
-    for needle in FORBIDDEN:
-        if needle in text:
-            sys.exit(f"{path}: built SKILL.md still contains {needle!r}, which does not exist on claude.ai")
+    scan_forbidden(text, FORBIDDEN_SKILL, forbidden_slash_commands(repo), f"{path} (built SKILL.md)")
     return text.encode("utf-8")
 
 
@@ -215,8 +258,11 @@ def stage_skill(repo, name, folder):
     with open(os.path.join(folder, "SKILL.md"), "wb") as handle:
         handle.write(skill_md(repo, name))
     for shipped in SHIPPED:
+        source = os.path.join(repo, shipped)
+        text = translate_draft_sentence(read_text(source), source)
+        scan_forbidden(text, FORBIDDEN_BUNDLED, forbidden_slash_commands(repo), f"{source} (bundled copy)")
         with open(os.path.join(folder, shipped), "wb") as handle:
-            handle.write(read_bytes(os.path.join(repo, shipped)))
+            handle.write(text.encode("utf-8"))
 
 
 def write_zip(name, folder, dest_path):
