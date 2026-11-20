@@ -29,11 +29,14 @@ Score every rubric gate (`G1` to `G10`, as numbered in `~/.claude/atelier/qualit
 
 A principle below 3 forces the verdict to `revise`.
 
+Any blocker or major finding forces the verdict to `revise`. `pass` means every finding left is minor. If a finding does not deserve to hold the build back, it is a minor, so grade it that way instead of passing over it.
+
 Flag drift from the SPEC: any state, criterion or protected path where the build differs from what was asked.
 
 ## Findings
 
 - Rank them, most important first, each with a severity and a one-line reason.
+- One finding per root cause. When the same problem shows in a screenshot and in the diff, or shows again as a knock-on effect (an axe failure, a broken flag-off screen, a test that no longer matches), write it once, with the evidence line that proves it best, and name the other places in its reason. Do not list it again as a second finding.
 - Every finding cites evidence, exactly one of: `Screenshot: .atelier/renders/<slug>/<state>.<theme>.<bp>.png` for anything visual or about taste (a finding about how something looks or feels without a screenshot is invalid), or `Diff: <file>:<line>` for anything about the code, using the diff the parent session gave you. A finding with neither is invalid, so leave it out.
 - Never claim to have run a tool. For the script-checked gates (G2 Types, G3 Lint/format, G4 Tests), read `.atelier/tests.json` and what the diff shows, score from that, and say so in the note.
 - Check `~/.claude/atelier/failures.md` for known traps before you call something new.

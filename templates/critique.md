@@ -15,6 +15,8 @@ Ranked, most important first. Every finding has a severity (`blocker`, `major` o
 
 A finding with neither evidence line is invalid and is left out.
 
+One finding per root cause. A problem that shows in both a screenshot and the diff, or again as a knock-on effect, is one finding with its best evidence line.
+
 1. Severity: <blocker | major | minor>. <One-line reason.>
    Screenshot: .atelier/renders/<slug>/<state>.<theme>.<bp>.png
 2. Severity: <blocker | major | minor>. <One-line reason.>
@@ -53,7 +55,7 @@ One row per gate, G1 to G10, in the order of `~/.claude/atelier/quality.md`.
 
 Verdict: <pass | revise>
 
-The verdict is `revise` whenever any principle scores below 3. It is a single line that starts with `Verdict:` and holds one word.
+The verdict is `revise` whenever any principle scores below 3, or any finding is a `blocker` or a `major`. `pass` means only minors are left. It is a single line that starts with `Verdict:` and holds one word.
 
 ## Ranking
 
