@@ -285,4 +285,5 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `mcp/servers.json` | Pinned manifest of the MCP servers Claude Code installs locally |
 | `mcp/install.sh` | Installs and registers them at user scope (`--dry-run` to preview). Tests: `bash mcp/tests/check.sh` |
 | `mcp/awwwards/preferences.json` | Awwwards MCP preferences, copied to a new machine only if it has none |
+| `mcp/awwwards/VETTED.md` | Vetting record for the pinned Awwwards version: what was read, provenance, flags. Re-vet on every bump |
 | `setup.sh` | Idempotent installer |
