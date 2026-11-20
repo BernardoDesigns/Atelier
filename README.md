@@ -225,6 +225,7 @@ Then open a new terminal. `setup.sh`:
 
 - symlinks `~/.claude/commands` and `~/.dev-aliases.sh` to the repo copies, and `~/.claude/atelier` to the checkout (run it from the main checkout, not a git worktree; it skips that link from a worktree and says so)
 - links the `spec` and `taste-review` skills into `~/.claude/skills/`, one folder each, and `agents/builder.md` and `agents/critic.md` into `~/.claude/agents/`, one file each, beside whatever is already there. It never replaces those folders, leaves a same-named file or folder of yours alone with a warning, accepts a link that already points at the right file, and skips this from a worktree too
+- installs and registers the MCP servers in `mcp/servers.json` (today: Awwwards) at user scope, at pinned versions, with their skills and preferences. Skip it with `bash setup.sh --no-mcp`; details in `mcp/README.md`
 - installs the render harness dependencies (`npm install` and a Chromium download, inside `render/` only) when `npm` is there, so `/build` can take screenshots. It says up front that the download is about 150MB and how to skip it (`bash setup.sh --no-render`), then starts without asking; if it is skipped or fails, it prints the one line to run by hand: `cd render && npm install && npx playwright install chromium`
 - adds a source line to `.zshrc`
 - adds the Aurora billboard and Sketchpad to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
@@ -244,7 +245,7 @@ Open the backup first: if it still mentions `net-host-guard`, take the next one 
 
 ## Keeping machines in sync
 
-The repo is the single source of truth. Everything is symlinked or loaded straight from the repo, so a `git pull` on any machine picks up changes instantly. The HUD is the exception: it's compiled, so re-run `setup.sh` after pulling changes to `main.swift`. Re-run `setup.sh` only on a new machine or when the install logic itself changes.
+The repo is the single source of truth. Everything is symlinked or loaded straight from the repo, so a `git pull` on any machine picks up changes instantly. The HUD is the exception: it's compiled, so re-run `setup.sh` after pulling changes to `main.swift`. MCP servers are installed, not linked, so after pulling a change to `mcp/servers.json` run `bash mcp/install.sh`. claude.ai connectors sync through your account and don't live here. Re-run `setup.sh` only on a new machine or when the install logic itself changes.
 
 ## What's in the repo
 
@@ -281,4 +282,7 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `aurora-usage/aurora`, `profiles.json` | `aurora profile <name>`: swap threshold profiles (`default`, `fable-run`) |
 | `sketchpad/` | Side conversation mod for Claude Code, for shaping prompts |
 | `guardrails/` | Ask and allow rules, the outside-repo write hook, the curl/wget host hook, the build-session hooks (conventions injector, fast gate, Stop and PR gates, lane guard), the session scripts `/build` and `/wrap` use, `run-tests.sh`, `VETTING.md`, tests, and the installer (`--enforce`, `--relax`) |
+| `mcp/servers.json` | Pinned manifest of the MCP servers Claude Code installs locally |
+| `mcp/install.sh` | Installs and registers them at user scope (`--dry-run` to preview). Tests: `bash mcp/tests/check.sh` |
+| `mcp/awwwards/preferences.json` | Awwwards MCP preferences, copied to a new machine only if it has none |
 | `setup.sh` | Idempotent installer |
