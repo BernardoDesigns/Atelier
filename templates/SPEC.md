@@ -10,7 +10,7 @@
 
 ## Acceptance criteria
 
-<!-- A checklist. Each line is one observation that a reviewer can answer yes or no. Example: "- [ ] Turning a toggle off shows a saved confirmation within one second." -->
+<!-- A checklist. Each line is one observation that a reviewer can answer yes or no. Example: "- [ ] Turning a toggle off shows a saved confirmation within one second." If someone can leave partway through (a multi-step flow, a long form, an open dialog), one line says what happens to unsaved work when they leave mid-flow: kept, discarded with a warning, or discarded silently on purpose. -->
 
 - [ ] 
 
