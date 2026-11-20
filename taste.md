@@ -60,10 +60,10 @@ Applied as: Give the side tool its own folder when it is not part of the main to
 Verify: UNVERIFIED as of 2026-11-20, approved with this check still open. Check that the main tool's own chat surface still cannot host a side conversation, which is why the side tool stays separate.
 
 ### T10
-A summary section earns trust by telling one story in one voice: one visualization, in the order verdict, why, evidence. The verdict visualization owns semantic colour, and everything nearby (numbers, chips, pills) goes neutral rather than asserting a different reading.
+A summary section earns trust by telling one story in one voice: one visualization, in the order verdict, why, evidence. The verdict visualization owns semantic color, and everything nearby (numbers, chips, pills) goes neutral rather than asserting a different reading.
 Source: log:E1, log:A6
 Status: approved
-Applied as: When zone colours already name a scale, drop the zone words and title the gauge with what it measures. A per-bucket sparkline gives direction, not a count.
+Applied as: When zone colors already name a scale, drop the zone words and title the gauge with what it measures. A per-bucket sparkline gives direction, not a count.
 
 ### T11
 Equal box gaps around large numerals still read unequal.
@@ -78,10 +78,10 @@ Status: approved
 Applied as: A finite cover image leaves a void on tall pages, so use a repeating tile. Flatten low-frequency vignettes first so the repeat does not blotch, offset-heal the seams, and scale the tile to the apparent on-screen size of the cover-scaled original, not its native pixels.
 
 ### T13
-Make visuals part of the product's logic, so every appearance maps to behaviour. It costs discipline and pays in coherence.
+Make visuals part of the product's logic, so every appearance maps to behavior. It costs discipline and pays in coherence.
 Source: log:E12
 Status: approved
-Applied as: Use brand colour only when that brand's voice is active.
+Applied as: Use brand color only when that brand's voice is active.
 
 ### T14
 A treatment doesn't carry across element types.
@@ -132,10 +132,10 @@ Status: approved
 Applied as: Containers leave with their content, and a removed element's space does not need a substitute.
 
 ### T22
-Every colour must carry a function and meet contrast against its immediate parent, not the page background. Validate at first use, not in review.
+Every color must carry a function and meet contrast against its immediate parent, not the page background. Validate at first use, not in review.
 Source: log:C16
 Status: approved
-Applied as: When adding a colour, name its job and check contrast against the surface directly behind it before moving on.
+Applied as: When adding a color, name its job and check contrast against the surface directly behind it before moving on.
 
 ### T23
 Naming is a design tool. Give territories personality names and options identity labels, and match call-to-action tone to the surface register. If the design has to shout what it means, the hierarchy is not working.
@@ -174,13 +174,13 @@ Status: approved
 Applied as: Expect 3 to 4 copy passes in the real layout. Placeholder copy can frame unfinished space as collaborative.
 
 ### T29
-Closing screens plant a seed rather than summarise. Atmosphere plus a few words beats a paragraph.
+Closing screens plant a seed rather than summarize. Atmosphere plus a few words beats a paragraph.
 Source: log:C28
 Status: approved
 Applied as: Promote the domain term that downstream artifacts anchor to into the closing headline.
 
 ### T30
-Keep brand marks in product chrome white or low-opacity, and reserve saturated brand colour for hero and identity moments. Use one identity element per location, match optical weight rather than pixel dimensions, and preserve a colour's semantic role across rebrands, not just its palette value.
+Keep brand marks in product chrome white or low-opacity, and reserve saturated brand color for hero and identity moments. Use one identity element per location, match optical weight rather than pixel dimensions, and preserve a color's semantic role across rebrands, not just its palette value.
 Source: log:C29
 Status: approved
 Applied as: A wordmark needs no text label beside it. When two marks share a row, size them until they look equal in weight.
