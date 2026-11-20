@@ -22,6 +22,8 @@ Every finding in a Critic run goes into exactly one bucket.
 - **decoy-flagged.** The finding matches a decoy under the matching rule. It counts as noise.
 - **noise.** Everything else: a finding the owner would not care about, or one that matches nothing.
 
+A finding that repeats a defect already matched goes in no bucket. Count it under verbosity.
+
 A critic-detectable defect the Critic did not report is **missed**. Missed is reported beside the buckets, but it is not a bucket.
 
 Only caught and missed count toward recall. Only caught, noise and decoy-flagged count toward precision.
@@ -33,7 +35,9 @@ A finding matches a defect when its evidence matches and it describes the same p
 - **Screenshot defects.** Evidence matches when the finding cites a render of the same state, in any theme or breakpoint where the defect is visible. The render must show the problem. A render where the defect is not visible does not match.
 - **Diff defects.** Evidence matches when the finding cites the same file within 5 lines of the defect's `file:line`, either way.
 - The gate or principle ID the Critic attached is ignored for matching. Only the evidence and the problem decide the match.
-- If two findings match the same defect, the first is caught and the second is noise.
+- If two findings match the same defect, the first is caught and the second is a repeat. Repeats are counted as verbosity, beside the buckets. They are not noise and stay out of precision.
+- Only the numbered findings count. A defect named only in a score note or under Spec drift is not caught.
+- The Critic writes one finding per root cause and keeps one evidence line, which may be the other kind from the one in the defect's `detected_by`. That still matches when the finding's reason describes the same problem and the evidence line points at the defect: for a screenshot defect, a `Diff:` line in the planted file within 10 lines of the planted line; for a diff defect, a `Screenshot:` line citing a render where the defect is visible.
 
 Worked examples:
 
@@ -62,9 +66,9 @@ Planting and running belong to the build's integration step. They are not done i
 
 One row per scored run, summed across the five tickets. Do not overwrite earlier rows.
 
-| Run date | Critic model | Builder model | Caught | Missed | Bonus | Unseeded-valid | Noise | Decoy-flagged | Recall | Precision | Notes |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | | | |
+| Run date | Critic model | Builder model | Caught | Missed | Bonus | Unseeded-valid | Noise | Decoy-flagged | Recall | Precision | Verbosity (repeats of all findings) | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | | | | | |
 
 ## Gate table
 
