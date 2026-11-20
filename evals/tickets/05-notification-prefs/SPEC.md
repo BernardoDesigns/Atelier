@@ -18,7 +18,7 @@ A lead on a phone between customers wants to mute one alert in a couple of taps,
 - Turning off both channels on the overdue row shows an inline note that says late returns will not be flagged to you.
 - Each row has a "Reset to default" action that restores that alert's channels from the fixtures and is hidden while the row matches its default.
 - A quiet hours block has an on switch, a start time and an end time, each as 24-hour HH:MM. A range that crosses midnight, such as 22:00 to 07:00, is valid. Equal start and end times show an error under the end time once the end time loses focus.
-- With quiet hours on, a line under the block reads back the range and says that overdue alerts still come through.
+- With quiet hours on, a line under the block reads back the range. While at least one overdue channel is on, it also says that overdue alerts still come through. With both overdue channels off, it does not say that.
 - Saving and a failed save use the existing footer. The mock data layer gains a way to fail a save on request.
 - Every switch and button is reachable by keyboard in visual order, each shows a visible focus ring, and the matrix switches are announced with both their row and column.
 
