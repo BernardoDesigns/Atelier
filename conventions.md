@@ -427,3 +427,9 @@ In scatter plots, z-index is inverse to item number so the highest priority rend
 Source: spec-convention, log:S11
 Check: Is z-index inverse to item number, with hover above the highest base value?
 Status: draft
+
+### C71
+A build may add a prop to an existing shared UI component (a `components/ui` file, or the host's equivalent) when all four of these hold. The prop is opt-in, and a test proves the default render is unchanged. The prop has its own story and its own test. The change is written in the assumptions log as a system change. The prop changes how the component presents, not what it does. Anything else is a wrapper or a question to the user: a changed default, new behavior, or a prop only one screen could want. Where the host's own rules forbid editing shared components, the host's rules win.
+Source: wrap:2026-11-20
+Check: Does every prop added to a shared UI component meet all four conditions (opt-in with the default proven unchanged, own story and test, logged as a system change, presentation only)?
+Status: approved

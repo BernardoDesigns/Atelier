@@ -789,6 +789,11 @@
       "status": "pending",
       "text": null,
       "updated": null
+    },
+    "conventions.md#C71": {
+      "status": "approved",
+      "text": null,
+      "updated": "2026-11-20"
     }
   }
 }
