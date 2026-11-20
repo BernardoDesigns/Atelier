@@ -41,9 +41,9 @@ Check: Is each edge-to-edge treatment a separate fixed or absolute layer sized t
 Status: draft
 
 ### C7
-Over a backdrop whose colour is not fixed, content fades with `mask-image`, not a gradient painted in the background colour.
+Over a backdrop whose color is not fixed, content fades with `mask-image`, not a gradient painted in the background color.
 Source: log:E3
-Check: Do fades over a variable backdrop use `mask-image` rather than a background-coloured gradient?
+Check: Do fades over a variable backdrop use `mask-image` rather than a background-colored gradient?
 Status: draft
 
 ### C8
@@ -66,7 +66,7 @@ Check: Is the caret positioned from the trigger while the bubble has its own pos
 Status: draft
 
 ### C11
-When the border is the only selection signal, the selected state uses a 2px saturated border. A colour change on a 1px translucent border reads as ambient.
+When the border is the only selection signal, the selected state uses a 2px saturated border. A color change on a 1px translucent border reads as ambient.
 Source: log:E7
 Check: Is a border-only selected state 2px and saturated?
 Status: draft
@@ -94,14 +94,14 @@ Trackpad swipes use a module-level lock that engages before the DOM swap and rel
 Source: log:E7
 Check: Does the trackpad lock engage before the DOM swap and release on wheel silence rather than a timer?
 Status: draft
-Verify: trackpad momentum timing and `pointercancel` behaviour on current browsers.
+Verify: trackpad momentum timing and `pointercancel` behavior on current browsers.
 
 ### C16
 Fitted layouts are sized with `svh`, never `dvh` or `vh`, plus `env(safe-area-inset-bottom)`.
 Source: log:E8, log:A10
 Check: Are fitted layouts sized in `svh` with `env(safe-area-inset-bottom)`, and no `dvh` or `vh`?
 Status: draft
-Verify: `svh`, `dvh` and browser-bar behaviour on current mobile browsers.
+Verify: `svh`, `dvh` and browser-bar behavior on current mobile browsers.
 
 ### C17
 Height-driven layouts are tested at the visible viewport height, not the screen height. Browser bars can take about 20% of a phone, so a layout that works at 844 can fail at 664.
@@ -134,7 +134,7 @@ Check: Is there a rule for `(min-width: 1024px) and (max-height: ~900px)`?
 Status: draft
 
 ### C22
-Responsive behaviour is keyed on a measured layout size, with a `ResizeObserver` crossing a threshold, not on device class and not on live text-versus-graphic collision.
+Responsive behavior is keyed on a measured layout size, with a `ResizeObserver` crossing a threshold, not on device class and not on live text-versus-graphic collision.
 Source: log:E9
 Check: Is each responsive switch triggered by a `ResizeObserver` crossing a threshold?
 Status: draft
@@ -146,9 +146,9 @@ Check: Is every threshold a named top-of-file constant?
 Status: draft
 
 ### C24
-For SSR, a responsive flag is initialised to match the server render and resolved in an isomorphic layout effect before paint.
+For SSR, a responsive flag is initialized to match the server render and resolved in an isomorphic layout effect before paint.
 Source: log:E9
-Check: Is the flag initialised to the server value and resolved in an isomorphic layout effect?
+Check: Is the flag initialized to the server value and resolved in an isomorphic layout effect?
 Status: draft
 
 ### C25
@@ -164,7 +164,7 @@ Check: Does every visible accent reference the brand token?
 Status: draft
 
 ### C27
-A colour rebrand takes two passes. Flip the token, then sweep the whole hue family (hardcoded hex, `rgba`, hover variants, glows, gradient stops, tints).
+A color rebrand takes two passes. Flip the token, then sweep the whole hue family (hardcoded hex, `rgba`, hover variants, glows, gradient stops, tints).
 Source: log:E13
 Check: After the rebrand, was the whole hue family swept, with every CTA pressed?
 Status: draft
@@ -176,13 +176,13 @@ Check: Are brand values set as custom properties on brand body classes, with ass
 Status: draft
 
 ### C29
-A monochrome SVG is recoloured with a CSS mask and a solid fill, with the URL in an inline custom property, rather than by editing the asset.
+A monochrome SVG is recolored with a CSS mask and a solid fill, with the URL in an inline custom property, rather than by editing the asset.
 Source: log:E13
-Check: Is each recoloured monochrome SVG done with a CSS mask and solid fill?
+Check: Is each recolored monochrome SVG done with a CSS mask and solid fill?
 Status: draft
 
 ### C30
-In the stacked mobile layout, fixed heights that existed to align neighbours on wide screens are released to `auto`.
+In the stacked mobile layout, fixed heights that existed to align neighbors on wide screens are released to `auto`.
 Source: log:C2
 Check: Are fixed heights released to `auto` in the stacked mobile layout?
 Status: draft
@@ -351,9 +351,9 @@ Check: Is there any italic (copy, `em`, `font-style`, italic font variant) in th
 Status: draft
 
 ### C58
-Emphasis is bold, `font-weight` 600 or 700. For a single-weight serif with no bold axis, emphasis uses a brand accent colour instead, after checking the loaded font's weight axis.
+Emphasis is bold, `font-weight` 600 or 700. For a single-weight serif with no bold axis, emphasis uses a brand accent color instead, after checking the loaded font's weight axis.
 Source: spec-convention, log:S1
-Check: Is every emphasis weight 600 or 700, or an accent colour where the font has no bold axis?
+Check: Is every emphasis weight 600 or 700, or an accent color where the font has no bold axis?
 Status: draft
 
 ### C59
@@ -369,9 +369,9 @@ Check: Are headers bold `#1F2937` and body `#6B7280`?
 Status: draft
 
 ### C61
-Spec-sheet annotations have no numbered circles and no colour coding.
+Spec-sheet annotations have no numbered circles and no color coding.
 Source: spec-convention, log:S3
-Check: Are numbered circles and colour coding absent from the annotations?
+Check: Are numbered circles and color coding absent from the annotations?
 Status: draft
 
 ### C62
@@ -399,9 +399,9 @@ Check: Are structural borders on dark at least `rgba(255,255,255,0.28)`?
 Status: draft
 
 ### C66
-Metrics are distributed across their container: first left-aligned, middle centred, last right-aligned.
+Metrics are distributed across their container: first left-aligned, middle centered, last right-aligned.
 Source: spec-convention, log:S9
-Check: Is the first metric left-aligned, the middle centred and the last right-aligned?
+Check: Is the first metric left-aligned, the middle centered and the last right-aligned?
 Status: draft
 
 ### C67

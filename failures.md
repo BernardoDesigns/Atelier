@@ -54,7 +54,7 @@ Status: draft
 
 ### F7
 Name: Commit by flag
-Trap: Marking an item as committed with a flag means every code path has to honour that flag, and one forgets.
+Trap: Marking an item as committed with a flag means every code path has to honor that flag, and one forgets.
 Shows up as: A committed item that is still counted, hit-tested or dragged.
 Instead: Commit an item by removing it from the interactive collection.
 Source: log:E2
@@ -78,7 +78,7 @@ Status: draft
 Verify: scroll anchoring on `overflow:hidden` pages still behaves as described in current browsers.
 
 ### F10
-Name: Vertical drag cancelled on touch
+Name: Vertical drag canceled on touch
 Trap: On touch, a vertical drag can fire `pointercancel` before `pointerup`, so a drag gesture ends without its release handler running.
 Shows up as: A swipe-to-dismiss or drag that works with a mouse and stalls on a phone.
 Instead: Give dedicated gesture surfaces `touch-action: none`, and keep scrollable content on its normal panning.
@@ -133,7 +133,7 @@ Shows up as: Icon triggers and custom buttons with an arrow cursor on hover.
 Instead: Add `cursor-pointer` to icon triggers.
 Source: log:E15
 Status: draft
-Verify: the Tailwind v4 preflight cursor behaviour on the current version.
+Verify: the Tailwind v4 preflight cursor behavior on the current version.
 
 ### F17
 Name: Orphaned CSS after deleting an element
@@ -152,7 +152,7 @@ Source: log:E15
 Status: draft
 
 ### F19
-Name: Tunnelled Next.js dev app never hydrates
+Name: Tunneled Next.js dev app never hydrates
 Trap: Next.js dev blocks cross-origin dev resources, so an app opened through a tunnel renders HTML but never hydrates.
 Shows up as: A page that looks right and does nothing when clicked.
 Instead: Set `allowedDevOrigins` to include `*.trycloudflare.com`.
@@ -191,7 +191,7 @@ Shows up as: A change that does not appear through the tunnel while the local se
 Instead: Bump `?v=N` on the asset URL, or send `no-store`.
 Source: log:E16
 Status: draft
-Verify: the Cloudflare quick-tunnel caching behaviour against the current service.
+Verify: the Cloudflare quick-tunnel caching behavior against the current service.
 
 ### F24
 Name: Mid-animation frames without the OS setting
@@ -226,9 +226,9 @@ Source: wrap:2026-11-19 finding 8
 Status: draft
 
 ### F28
-Name: Centred story hides how a wide component behaves when narrow
+Name: Centered story hides how a wide component behaves when narrow
 Trap: A width-dependent story rendered with Storybook's centered layout has no container to constrain it, so a wide table or grid sets the page width itself.
-Shows up as: The narrow render overflows the viewport sideways (the render manifest reports overflowX above 0 for the sm shot), and the component's own scroll or wrap behaviour is never exercised.
+Shows up as: The narrow render overflows the viewport sideways (the render manifest reports overflowX above 0 for the sm shot), and the component's own scroll or wrap behavior is never exercised.
 Instead: Use layout fullscreen (or padded) for width-dependent stories so the component gets the viewport's width, and read overflowX in the render manifest for every sm shot.
 Source: wrap:2026-11-19 finding 7
 Status: draft
