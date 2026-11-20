@@ -133,9 +133,12 @@
       "updated": "2026-11-20"
     },
     "taste.md#T11": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Equal box gaps around large numerals still read unequal.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Measure from the glyphs and correct in em."
+      }
     },
     "taste.md#T12": {
       "status": "approved",
@@ -148,19 +151,28 @@
       "updated": "2026-11-20"
     },
     "taste.md#T14": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "A treatment doesn't carry across element types.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Re-derive it for each from the same character family rather than copying and adjusting down."
+      }
     },
     "taste.md#T15": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Center-out reveals read \"we're starting\"; left-to-right reads narrative. Reuse the same signature gesture at start and end so opening and closing rhyme.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "When a carousel backs a cyclical concept, clone the first and last slides as phantoms and snap silently so the wraparound is invisible; a visible rewind contradicts the thesis."
+      }
     },
     "taste.md#T16": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Stacking reassigns meaning. Side-by-side reads as peers; stacked on mobile, vertical order becomes hierarchy and a horizontal \"journey\" becomes a vertical \"plan.\"",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Design mobile order and orientation for mobile reading context, not as rotated desktop. Content order carries more weight in single-column layouts."
+      }
     },
     "taste.md#T17": {
       "status": "approved",
@@ -168,19 +180,28 @@
       "updated": "2026-11-20"
     },
     "taste.md#T18": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Responsive design is a trust contract. Preserve content parity, layout stability, and control proximity across breakpoints.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Controls always visible next to what they affect."
+      }
     },
     "taste.md#T19": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Multi-tier systems: show outcomes, hide plumbing. Surface the result the user cares about, not system state.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Secondary tiers as muted metadata. When dense, cut more aggressively than instinct suggests."
+      }
     },
     "taste.md#T20": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Side panel architecture: visualization as primary nav, detail in adjacent panel; one panel with dynamic content over multiple regions.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "On external item selection, smooth-scroll reset."
+      }
     },
     "taste.md#T21": {
       "status": "approved",
@@ -208,14 +229,20 @@
       "updated": "2026-11-20"
     },
     "taste.md#T26": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Hand-drawn UI: confidence over imperfection. Waver and jitter read nervous, not human. Confidence comes from intentional asymmetry (pressure, tilt, committed gestures). One bold arc beats many small wobbles.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Ask if a simpler gesture gets 80% of the win with none of the failure modes. Confident easing needs duration (1.7s+) to read zen, not nervous."
+      }
     },
     "taste.md#T27": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Heavy-weight primary CTAs read confident, light ones tentative.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Weight 800 for primary CTAs."
+      }
     },
     "taste.md#T28": {
       "status": "approved",
@@ -248,14 +275,20 @@
       "updated": "2026-11-20"
     },
     "taste.md#T34": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "Surface exceptions as gentle nudges, not blockers.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Update local state immediately, persist in the background, always provide undo."
+      }
     },
     "taste.md#T35": {
-      "status": "pending",
-      "text": null,
-      "updated": null
+      "status": "rewritten",
+      "text": "In spec sheets, proximity is the primary connector.",
+      "updated": "2026-11-20",
+      "fields": {
+        "Applied as": "Lines are confirmation."
+      }
     },
     "taste.md#T36": {
       "status": "approved",

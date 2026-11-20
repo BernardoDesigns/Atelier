@@ -57,7 +57,7 @@ Keep a side tool for thinking separate from the build, and send nothing into the
 Source: log:A17
 Status: approved
 Applied as: Give the side tool its own folder when it is not part of the main tool's purpose, keep forking a whole session opt-in on long runs, and have "send to prompt" append under any draft already there.
-Verify: that the main tool's own chat surface still cannot host a side conversation, which is why the side tool stays separate.
+Verify: UNVERIFIED as of 2026-11-20, approved with this check still open. Check that the main tool's own chat surface still cannot host a side conversation, which is why the side tool stays separate.
 
 ### T10
 A summary section earns trust by telling one story in one voice: one visualization, in the order verdict, why, evidence. The verdict visualization owns semantic colour, and everything nearby (numbers, chips, pills) goes neutral rather than asserting a different reading.
@@ -66,10 +66,10 @@ Status: approved
 Applied as: When zone colours already name a scale, drop the zone words and title the gauge with what it measures. A per-bucket sparkline gives direction, not a count.
 
 ### T11
-Spacing is judged by eye, not by box. Equal gaps around large numerals still read unequal because of the glyph shape.
+Equal box gaps around large numerals still read unequal.
 Source: log:E1
-Status: draft
-Applied as: Measure from the glyph edges, then correct the gap in em units until it looks even.
+Status: approved
+Applied as: Measure from the glyphs and correct in em.
 
 ### T12
 Grain and irregular linework come out sterile when redrawn as clean geometry, so bake a seamless tile from the real asset instead.
@@ -84,22 +84,22 @@ Status: approved
 Applied as: Use brand colour only when that brand's voice is active.
 
 ### T14
-A visual treatment does not carry across element types. Re-derive it for each type from the same character family rather than copying one and adjusting it down.
+A treatment doesn't carry across element types.
 Source: log:E12
-Status: draft
-Applied as: When a treatment is needed on a new element type, start from the shared character (shape language, weight, tone) and draw it fresh.
+Status: approved
+Applied as: Re-derive it for each from the same character family rather than copying and adjusting down.
 
 ### T15
-Motion carries meaning, so match it to the idea. Centre-out reveals read as starting, and left-to-right reads as narrative. Reuse the same signature gesture at the start and end so opening and closing rhyme. A visible rewind contradicts a cyclical idea.
+Center-out reveals read "we're starting"; left-to-right reads narrative. Reuse the same signature gesture at start and end so opening and closing rhyme.
 Source: log:E12
-Status: draft
-Applied as: For a carousel behind a cyclical concept, clone the first and last slides as phantoms and snap silently so the wraparound is invisible.
+Status: approved
+Applied as: When a carousel backs a cyclical concept, clone the first and last slides as phantoms and snap silently so the wraparound is invisible; a visible rewind contradicts the thesis.
 
 ### T16
-Stacking reassigns meaning. Side by side reads as peers, but stacked on mobile the vertical order becomes hierarchy. Design the mobile order and orientation for the mobile reading context, not as a rotated desktop.
+Stacking reassigns meaning. Side-by-side reads as peers; stacked on mobile, vertical order becomes hierarchy and a horizontal "journey" becomes a vertical "plan."
 Source: log:C1
-Status: draft
-Applied as: A horizontal journey becomes a vertical plan when stacked, so reorder content for single-column reading and put the most important item first.
+Status: approved
+Applied as: Design mobile order and orientation for mobile reading context, not as rotated desktop. Content order carries more weight in single-column layouts.
 
 ### T17
 On mobile, restructure instead of shrinking, and make every section earn its scroll. If it is not worth the scroll, merge it, collapse it or make it on-demand.
@@ -108,22 +108,22 @@ Status: approved
 Applied as: Below a narrow width, restructure tables into stacked name and detail pairs rather than squeezing columns. On small screens the object being edited outranks the scene around it, so if the context can only show as a sliver, remove it and let the container hug the content.
 
 ### T18
-Treat responsive design as a trust contract. Preserve content parity, layout stability and control proximity across breakpoints, with controls always visible next to what they affect.
+Responsive design is a trust contract. Preserve content parity, layout stability, and control proximity across breakpoints.
 Source: log:C4
-Status: draft
-Applied as: Compare each breakpoint against the widest one. Nothing that exists at one size may be missing at another, and no control may drift away from its target.
+Status: approved
+Applied as: Controls always visible next to what they affect.
 
 ### T19
-In multi-tier systems, surface the outcome the user cares about, not system state, and show secondary tiers as muted metadata. When dense, cut more aggressively than instinct suggests.
+Multi-tier systems: show outcomes, hide plumbing. Surface the result the user cares about, not system state.
 Source: log:C6
-Status: draft
-Applied as: Lead each row with the result, put tier and system detail in muted secondary text, and cut one more element than feels comfortable.
+Status: approved
+Applied as: Secondary tiers as muted metadata. When dense, cut more aggressively than instinct suggests.
 
 ### T20
-Use a visualization as primary navigation with detail in an adjacent panel, and prefer one panel with dynamic content over several regions.
+Side panel architecture: visualization as primary nav, detail in adjacent panel; one panel with dynamic content over multiple regions.
 Source: log:C13
-Status: draft
-Applied as: Selecting an item in the visualization updates a single detail panel. On selection from outside the visualization, smooth-scroll the panel back to the top.
+Status: approved
+Applied as: On external item selection, smooth-scroll reset.
 
 ### T21
 Every element earns its space through function. If removing it does not hurt, it goes. When two elements carry the same information at different fidelity, cut the weaker. When a feature goes, audit the constraints written to protect it and keep only those with their own reason.
@@ -156,16 +156,16 @@ Status: approved
 Applied as: Rewrite labels such as a verb-less status code into the thing the person can do. Cap LLM-generated card text at two sentences.
 
 ### T26
-In hand-drawn UI, confidence comes from intentional asymmetry (pressure, tilt, committed gestures), not waver and jitter, which read as nervous. One bold arc beats many small wobbles, and a simpler gesture that gets 80% of the win with none of the failure modes is usually right.
+Hand-drawn UI: confidence over imperfection. Waver and jitter read nervous, not human. Confidence comes from intentional asymmetry (pressure, tilt, committed gestures). One bold arc beats many small wobbles.
 Source: log:C24
-Status: draft
-Applied as: Use confident easing with a duration of 1.7s or more so it reads calm rather than nervous.
+Status: approved
+Applied as: Ask if a simpler gesture gets 80% of the win with none of the failure modes. Confident easing needs duration (1.7s+) to read zen, not nervous.
 
 ### T27
-Heavy-weight primary calls to action read confident, and light ones read tentative.
+Heavy-weight primary CTAs read confident, light ones tentative.
 Source: log:C27
-Status: draft
-Applied as: Set primary CTAs at weight 800 and let secondary actions sit lighter.
+Status: approved
+Applied as: Weight 800 for primary CTAs.
 
 ### T28
 Onboarding copy only reveals itself when rendered at actual size.
@@ -208,14 +208,14 @@ Applied as: Give a finished state its own surface rather than reusing the workin
 ### T34
 Surface exceptions as gentle nudges, not blockers.
 Source: log:C9
-Status: draft
-Applied as: Show an inline hint the person can ignore. Reserve blocking dialogs for actions that cannot be undone.
+Status: approved
+Applied as: Update local state immediately, persist in the background, always provide undo.
 
 ### T35
-In spec sheets, proximity is the primary connector and lines are confirmation.
+In spec sheets, proximity is the primary connector.
 Source: log:S3
-Status: draft
-Applied as: Place each annotation next to what it describes first, and add a line only where proximity alone could be misread.
+Status: approved
+Applied as: Lines are confirmation.
 
 ### T36
 In diagrams, setup precedes the punchline, and reading order is validated against the viewer's knowledge state. Use vectors, not Venn diagrams, when patterns do not exist on both sides.
