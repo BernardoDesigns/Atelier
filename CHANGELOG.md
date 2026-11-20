@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `mcp/`: the MCP servers Claude Code installs locally are now versioned, so every machine gets the same set. `mcp/servers.json` pins each server's packages and skills (first entry: the Awwwards MCP at 1.21.1, with Playwright 1.65.1, ffmpeg-static 5.3.0 and the `skills-v2026.11.19` skills). `mcp/install.sh` installs them, registers each at user scope so it works in every project, and copies versioned preferences only when the machine has none. It is safe to re-run, has `--dry-run`, and replaces a registration that differs from the manifest. `setup.sh` runs it (skip with `--no-mcp`). `mcp/tests/check.sh` checks that the manifest is pinned and runs the installer against stubs and a temp `HOME`. `mcp/README.md` explains which MCPs live here and which sync through your claude.ai account instead. `mcp/awwwards/VETTED.md` records the vetting of the pinned versions against `guardrails/VETTING.md`: every skill and every risk-bearing script read, npm SLSA provenance traced to commit `93c4d41`, and the flags to carry (keep `build_project` on ask, leave auto-update off, the unpinned optional lint).
+
 ## [2.0.1] - 2026-11-19
 
 A patch release. `cc` now tears the dev server and tunnel down however Claude Code exits, the packaging build makes a third claude.ai zip for Design Director, and the benchmark tickets are tightened before the remaining runs.

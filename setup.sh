@@ -273,6 +273,23 @@ if ! bash "$REPO_DIR/guardrails/install.sh" --enforce; then
     echo "WARNING: the guardrails step did not complete."
 fi
 
+# --- MCP servers: install and register everything in mcp/servers.json ---
+# User scope, so every project on this machine gets them. Pinned versions,
+# safe to re-run, never overwrites preferences. A failure never fails setup.
+# Skip it with: bash setup.sh --no-mcp (or ATELIER_SKIP_MCP=1). Run it on its
+# own with: bash mcp/install.sh (add --dry-run to preview).
+SKIP_MCP="${ATELIER_SKIP_MCP:-0}"
+for ARG in "$@"; do [ "$ARG" = "--no-mcp" ] && SKIP_MCP=1; done
+if [ "$SKIP_MCP" = 1 ]; then
+    echo "Skipped the MCP servers. To install them later, run: bash $REPO_DIR/mcp/install.sh"
+elif bash "$REPO_DIR/mcp/install.sh"; then
+    echo "Done! MCP servers from mcp/servers.json are installed"
+else
+    SKIPPED="$SKIPPED
+  - MCP servers (see the warnings above, then re-run: bash mcp/install.sh)"
+    echo "WARNING: some MCP servers did not install. Everything else carries on."
+fi
+
 # --- Render harness: the dependencies /build needs to take screenshots ---
 # Installs into render/ only (node_modules and a Chromium download, about 150MB).
 # Runs when npm exists. A failure never fails setup: it prints the commands to
