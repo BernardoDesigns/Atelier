@@ -38,4 +38,4 @@ The user wants a dense table they can scan fast without it feeling like a spread
 
 None found.
 
-Verdict: pass
+Verdict: revise

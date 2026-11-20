@@ -65,7 +65,9 @@ validate_critique() {
     }
     sec == "Findings" && /^[0-9]+\. / {
       if (open) fail("finding " lastf " has no evidence line (Screenshot or Diff)")
-      nf++; lastf = nf; open = 1; next
+      nf++; lastf = nf; open = 1
+      if ($0 ~ /^[0-9]+\. Severity: (blocker|major)\./) heavy = 1
+      next
     }
     sec == "Findings" && /^[ ]*Screenshot: [^ ]+\.png[ ]*$/ { if (!open) fail("finding " lastf " has more than one evidence line"); open = 0; shots++; next }
     sec == "Findings" && /^[ ]*Diff: [^ :]+:[0-9]+[ ]*$/ { if (!open) fail("finding " lastf " has more than one evidence line"); open = 0; diffs++; next }
@@ -95,6 +97,7 @@ validate_critique() {
       if (p != 5) fail("expected 5 principle rows, found " p + 0)
       if (v != 1) fail("expected exactly one Verdict line, found " v + 0)
       if (lowp && verdict != "revise") fail("a principle below 3 requires Verdict: revise")
+      if (heavy && verdict != "revise") fail("an open blocker or major finding requires Verdict: revise")
       exit bad
     }
   ' "$1"
@@ -267,6 +270,9 @@ core_before_scoring() {
 check "critic: core tension comes before scoring" core_before_scoring "$CRITIC"
 check "critic: finding with neither Screenshot nor Diff is invalid" \
   bash -c 'grep -Fq "Screenshot: .atelier/renders/" "$1" && grep -Fq "Diff: <file>:<line>" "$1" && grep -Fq "A finding with neither is invalid" "$1"' _ "$CRITIC"
+check "critic: an open blocker or major forces revise" has "$CRITIC" 'Any blocker or major finding forces the verdict to `revise`'
+check "critic: one finding per root cause"           has "$CRITIC" "One finding per root cause"
+check "template: states the blocker and major rule"  has "$CRITIQUE_TEMPLATE" 'any finding is a `blocker` or a `major`'
 check "critic: never claims to have run a tool"  has "$CRITIC" "Never claim to have run a tool"
 check "critic: reads .atelier/tests.json"        has "$CRITIC" ".atelier/tests.json"
 check "critic: diverge mode ranking"             bash -c 'grep -Fq "Diverge mode" "$1" && grep -Fq "Ranking" "$1"' _ "$CRITIC"

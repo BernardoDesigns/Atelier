@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `taste.md`: the 11 held items (T11, T14, T15, T16, T18, T19, T20, T26, T27, T34, T35) are rewritten back to the owner's Decision Log wording, with everything the migration added removed, and approved. All 37 items are now approved. T9's `Verify:` line is marked unverified and stays open.
 - `taste.md`: American spelling throughout (color, behavior, summarize), to match the owner's log entries.
 - `conventions.md` and `failures.md`: American spelling throughout, the same way. `quality.md` had nothing to change.
+- Critic: any open `blocker` or `major` finding now forces `Verdict: revise`. Before, only a principle below 3 did, so a build could pass with a major finding still open. `pass` now means only minors are left. `agents/tests/check.sh` rejects a critique that breaks the rule.
+- Critic: one finding per root cause. A problem seen in both a screenshot and the diff, or again as a knock-on effect, is written once with its best evidence line. In the first calibration run 10 of 50 findings were repeats of a defect already reported.
 
 ## [2.0.1] - 2026-11-19
 
