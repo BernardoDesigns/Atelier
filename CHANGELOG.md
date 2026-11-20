@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `taste.md`: 26 of its 37 items are approved as a baseline. They are the owner's migrated Decision Log entries (and the five principles) whose wording still matches the original. The 11 whose wording drifted in migration stay `draft` (T11, T14, T15, T16, T18, T19, T20, T26, T27, T34, T35). `quality.md`, `conventions.md` and `failures.md` are untouched and still drafts.
 - `taste.md`: the 11 held items (T11, T14, T15, T16, T18, T19, T20, T26, T27, T34, T35) are rewritten back to the owner's Decision Log wording, with everything the migration added removed, and approved. All 37 items are now approved. T9's `Verify:` line is marked unverified and stays open.
+- `taste.md`: American spelling throughout (color, behavior, summarize), to match the owner's log entries.
 
 ## [2.0.1] - 2026-11-19
 
