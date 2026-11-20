@@ -36,6 +36,12 @@ Flag drift from the SPEC: any state, criterion or protected path where the build
 ## Findings
 
 - Rank them, most important first, each with a severity and a one-line reason.
+- Severity is about the person using the build, not about how the code looks:
+  - `blocker`: the person cannot finish the task the SPEC describes, or loses their work.
+  - `major`: it breaks a SPEC acceptance criterion, an accessibility requirement, or something the person sees or relies on. A failed script gate (types, lint or format, tests) and an edit to a protected path count here, because the SPEC's definition of done names them.
+  - `minor`: everything else.
+- Code hygiene is minor at most, however much of it there is: dead code, an unused export, commented-out code, naming, comment quality, a redundant guard. It lowers the G8 score. It never makes a major on its own.
+- Before you grade a finding major, name what it breaks: the criterion, the accessibility requirement, or what the person sees. If you cannot name one, it is minor.
 - One finding per root cause. When the same problem shows in a screenshot and in the diff, or shows again as a knock-on effect (an axe failure, a broken flag-off screen, a test that no longer matches), write it once, with the evidence line that proves it best, and name the other places in its reason. Do not list it again as a second finding.
 - Every finding cites evidence, exactly one of: `Screenshot: .atelier/renders/<slug>/<state>.<theme>.<bp>.png` for anything visual or about taste (a finding about how something looks or feels without a screenshot is invalid), or `Diff: <file>:<line>` for anything about the code, using the diff the parent session gave you. A finding with neither is invalid, so leave it out.
 - Never claim to have run a tool. For the script-checked gates (G2 Types, G3 Lint/format, G4 Tests), read `.atelier/tests.json` and what the diff shows, score from that, and say so in the note.

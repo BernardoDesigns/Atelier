@@ -271,6 +271,9 @@ check "critic: core tension comes before scoring" core_before_scoring "$CRITIC"
 check "critic: finding with neither Screenshot nor Diff is invalid" \
   bash -c 'grep -Fq "Screenshot: .atelier/renders/" "$1" && grep -Fq "Diff: <file>:<line>" "$1" && grep -Fq "A finding with neither is invalid" "$1"' _ "$CRITIC"
 check "critic: an open blocker or major forces revise" has "$CRITIC" 'Any blocker or major finding forces the verdict to `revise`'
+check "critic: major is defined by what it breaks"     has "$CRITIC" 'it breaks a SPEC acceptance criterion, an accessibility requirement, or something the person sees or relies on'
+check "critic: code hygiene is minor at most"         has "$CRITIC" "Code hygiene is minor at most"
+check "template: states the severity definitions"     has "$CRITIQUE_TEMPLATE" "Code hygiene (dead code, unused exports, naming) is minor at most"
 check "critic: one finding per root cause"           has "$CRITIC" "One finding per root cause"
 check "template: states the blocker and major rule"  has "$CRITIQUE_TEMPLATE" 'any finding is a `blocker` or a `major`'
 check "critic: never claims to have run a tool"  has "$CRITIC" "Never claim to have run a tool"

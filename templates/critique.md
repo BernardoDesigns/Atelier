@@ -15,6 +15,8 @@ Ranked, most important first. Every finding has a severity (`blocker`, `major` o
 
 A finding with neither evidence line is invalid and is left out.
 
+Severity: `blocker` means the person cannot finish the SPEC's task or loses their work. `major` means it breaks a SPEC acceptance criterion, an accessibility requirement, or something the person sees or relies on. Everything else is `minor`. Code hygiene (dead code, unused exports, naming) is minor at most.
+
 One finding per root cause. A problem that shows in both a screenshot and the diff, or again as a knock-on effect, is one finding with its best evidence line.
 
 1. Severity: <blocker | major | minor>. <One-line reason.>

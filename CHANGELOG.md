@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Critic: severity is defined. `blocker` means the person cannot finish the SPEC's task or loses their work. `major` means it breaks a SPEC acceptance criterion, an accessibility requirement, or something the person sees or relies on. Everything else is `minor`, and code hygiene (dead code, unused exports, naming) is minor at most. Since 2.0.2 a major forces `revise`, and in the re-score a dead export was graded major, which would have held a build back on its own.
+- `evals/calibration/SCORING.md`: a repeat of an already-matched defect is verbosity, not noise, and has its own column. Only numbered findings count. A merged finding matches on either evidence kind when its reason describes the planted defect.
+
 ## [2.0.2] - 2026-11-20
 
 A patch release. `taste.md` is approved as the baseline, the Critic's verdict now follows its own severities, and the SPEC template, ticket 05 and the conventions pick up what the first Critic calibration run found. The local MCP servers are versioned.
