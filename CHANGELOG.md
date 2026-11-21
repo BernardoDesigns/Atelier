@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Learning from the first build on a Mantine host: `failures.md` gains F29 (a live region on a `display: contents` box) and F30 (zero axe violations do not prove a state is readable: non-text contrast and unrendered states); `conventions.md` gains C72 (consequence notes take the warning color); `taste.md` gains T38 (fix a shared primitive in the theme, not per feature). All four are drafts.
+
 ### Changed
 
 - Critic: severity is defined. `blocker` means the person cannot finish the SPEC's task or loses their work. `major` means it breaks a SPEC acceptance criterion, an accessibility requirement, or something the person sees or relies on. Everything else is `minor`, and code hygiene (dead code, unused exports, naming) is minor at most. Since 2.0.2 a major forces `revise`, and in the re-score a dead export was graded major, which would have held a build back on its own.

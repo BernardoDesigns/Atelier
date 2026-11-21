@@ -794,6 +794,26 @@
       "status": "approved",
       "text": null,
       "updated": "2026-11-20"
+    },
+    "taste.md#T38": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "conventions.md#C72": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F29": {
+      "status": "pending",
+      "text": null,
+      "updated": null
+    },
+    "failures.md#F30": {
+      "status": "pending",
+      "text": null,
+      "updated": null
     }
   }
 }

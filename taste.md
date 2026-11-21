@@ -228,3 +228,9 @@ A row action that the row's state blocks keeps its trigger visible. The dialog e
 Source: wrap:2026-11-19 finding 10
 Status: approved
 Applied as: Don't flag a visible-but-blocked trigger as an extra round trip when the SPEC asks for a blocked state.
+
+### T38
+A contrast or state fix for a shared primitive goes in the theme as the default for every instance, not as a one-off inside the feature's component.
+Source: wrap:2026-11-21
+Status: draft
+Applied as: Flag a per-component override of a primitive's base state as a one-off when the problem would show on every instance.
