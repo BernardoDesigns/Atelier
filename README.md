@@ -10,7 +10,7 @@ Built by [Bernardo Garcia](https://www.bellwetherdesigns.io), a product designer
 
 ## Release notes
 
-What each version brought, in plain English. Newest first. The full technical detail is in [CHANGELOG.md](CHANGELOG.md).
+What each version brought, in plain English. Newest first. The full technical detail is in [CHANGELOG.md](CHANGELOG.md). Every new version gets an entry here; [RELEASING.md](RELEASING.md) has the checklist.
 
 **[2.0.2](https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.2), November 20, 2026: tuning after the first exam**
 
@@ -314,6 +314,8 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `evals/metrics/` | Per-run metrics schema, sample row and append-only log |
 | `evals/calibration/` | Seeded defects, decoys and the scoring sheet for the Critic |
 | `evals/tests/check.sh` | Checks for the evals folder, run with `bash evals/tests/check.sh` |
+| `RELEASING.md` | Release checklist: CHANGELOG entry, plain-English README release note, checks, tag |
+| `tests/release-notes/check.sh` | Fails if a CHANGELOG version has no README release note, or the newest isn't first. Run before every tag |
 | `dev-aliases.sh` | `cc`, `devup`, `devdown` |
 | `aurora-usage/aurora-billboard/` | Usage billboard mod for Claude Code |
 | `aurora-usage/aurora-hud/` | Floating usage HUD for macOS (`main.swift` + build scripts) |
