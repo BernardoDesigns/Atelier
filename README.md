@@ -8,6 +8,44 @@ Built by [Bernardo Garcia](https://www.bellwetherdesigns.io), a product designer
 
 ---
 
+## Release notes
+
+What each version brought, in plain English. Newest first. The full technical detail is in [CHANGELOG.md](CHANGELOG.md).
+
+**[2.0.2](https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.2), November 20, 2026: tuning after the first exam**
+
+We tested the reviewer agent by hiding 11 known mistakes in finished work. It found 10 of them and raised no false alarms. This release acts on what that test taught us. My design taste is now the official baseline the agents work to, written in my own words. The reviewer got stricter, so a serious problem can no longer get a passing grade, and less repetitive, so each problem is reported once. The spec template now asks what should happen to unsaved work when someone leaves halfway through. The outside tools the agents rely on are pinned to exact versions, so every computer gets the same set.
+
+**[2.0.1](https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.1), November 19, 2026: small fixes**
+
+Ending a work session now always shuts down the preview server, even if you quit abruptly or close the window. The Design Director agent can now be installed in the Claude app, alongside Eames and Rand. The practice assignments were tightened to match the app they're built in.
+
+**[2.0.0](https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.0), November 19, 2026: the agents start building**
+
+The big one. Until now the agents could design and describe. Now they build real, working screens. One agent builds from a written spec. A camera then photographs every state of the screen in light and dark mode, at phone, tablet and desktop sizes. A separate reviewer agent grades the result against a quality checklist and has to show evidence for every problem it finds. The builder gets up to three tries, and I make the final call. Safety rails stop any work from being submitted until the photos, tests and review all exist. The old hand-kept learning log is retired. Instead, each session ends with suggested lessons, and only the ones I approve are kept.
+
+**[1.2.1](https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.1), November 18, 2026: a backup fix**
+
+The setup script could overwrite the backup of your settings if two of its steps ran in the same second. Backups now never replace each other, and setup tells you where each one is.
+
+**[1.2.0](https://github.com/BernardoDesigns/atelier/releases/tag/v1.2.0), November 18, 2026: groundwork for testing**
+
+A list of 24 known traps and how to avoid them. A spec template, plus an interview that won't write a spec until it's complete. A tool for reviewing my taste rules one at a time. Eames and Rand packaged for the Claude app. Five practice assignments, and a set of planted mistakes to measure how well the reviewer catches problems.
+
+**[1.1.0](https://github.com/BernardoDesigns/atelier/releases/tag/v1.1.0), November 18, 2026: the rulebook and the seatbelts**
+
+Written quality standards: ten pass-or-fail checks and five design principles. A file of my design taste and a file of house rules for the agents to follow. Safety rails that ask before anything risky, like deleting files, editing outside the project or contacting unknown websites. The usage gauge also learned to say "time to stop" when the plan runs low.
+
+**[1.0.1](https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.1), November 17, 2026: a new name**
+
+The project became Atelier and got an open source license.
+
+**[1.0.0](https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.0), November 17, 2026: the first version**
+
+A small studio of AI design agents: a director who routes each request, Eames for product design and Rand for brand. It also included a one-command preview that shares work in progress to any device, Aurora, a usage gauge that shows how much of my plan is left, and Sketchpad, a side conversation for shaping a request before handing it off.
+
+---
+
 ## The design agents
 
 Three slash commands in `commands/` that work as one system: a router, two specialists, and a set of contract files they all work to.
