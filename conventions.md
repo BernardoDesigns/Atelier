@@ -433,3 +433,9 @@ A build may add a prop to an existing shared UI component (a `components/ui` fil
 Source: wrap:2026-11-20
 Check: Does every prop added to a shared UI component meet all four conditions (opt-in with the default proven unchanged, own story and test, logged as a system change, presentation only)?
 Status: approved
+
+### C72
+A note that explains the consequence of a valid choice uses the system's warning color, never the error color kept for failures.
+Source: wrap:2026-11-21
+Check: Is every consequence note in the warning color, with the error color used only for failures?
+Status: draft

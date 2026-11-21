@@ -232,3 +232,20 @@ Shows up as: The narrow render overflows the viewport sideways (the render manif
 Instead: Use layout fullscreen (or padded) for width-dependent stories so the component gets the viewport's width, and read overflowX in the render manifest for every sm shot.
 Source: wrap:2026-11-19 finding 7
 Status: draft
+
+### F29
+Name: Live region on a display: contents box
+Trap: A `role="status"` or `aria-live` region is styled `display: contents` to avoid adding a gap while empty.
+Shows up as: VoiceOver and older WebKit can drop the role, so the note may never announce on a phone, while jsdom tests pass.
+Instead: Keep the region a real, always-mounted box that collapses to zero height while empty, and fill it with text when the note appears.
+Source: wrap:2026-11-21 finding 3
+Status: draft
+Verify: on an iPhone with VoiceOver, that a `display: contents` live region is silent on current iOS.
+
+### F30
+Name: axe passes, state still unreadable
+Trap: Treating zero axe violations as proof that every state is readable.
+Shows up as: An off Switch track far below 3:1 against the page passes axe, because axe does not test non-text contrast (WCAG 1.4.11), and it reads as disabled. A color that only appears in a state no shot renders, such as field error text, passes too.
+Instead: Check by hand that a toggle's off track and thumb reach 3:1 against what touches them, in both themes, and render every state that brings in a new color.
+Source: wrap:2026-11-21
+Status: draft
