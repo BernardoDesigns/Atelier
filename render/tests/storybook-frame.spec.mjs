@@ -92,6 +92,15 @@ test('a malformed parameters.harness.theme marks the shot error, naming the para
   }
 });
 
+test('attribute "data-theme" is rejected (case-insensitive) because the harness writes it itself', async () => {
+  const { manifest } = await render('baddatatheme', [story('d', 'baddatatheme--story')]);
+  expect(manifest.shots.length).toBe(6);
+  for (const s of manifest.shots) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/^parameters\.harness\.theme is malformed: the harness sets data-theme itself/);
+  }
+});
+
 test('waits for the finished phase: content added when play completes is in the shot and axe', async () => {
   const { res, axe } = await render('slowplay', [story('slow', 'slowplay--story')]);
   expect(res.code).toBe(1);

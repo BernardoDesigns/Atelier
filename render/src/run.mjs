@@ -242,6 +242,9 @@ export function resolveThemeCheck(h) {
     return { kind: 'class', name: t.class };
   }
   if (!isName(t.attribute)) throw bad('"attribute" must be a non-empty string');
+  if (t.attribute.trim().toLowerCase() === 'data-theme') {
+    throw bad('the harness sets data-theme itself, so checking it proves nothing; point "attribute" at the one your own theme code sets');
+  }
   let values = { light: 'light', dark: 'dark' };
   if ('values' in t) {
     const v = t.values;
