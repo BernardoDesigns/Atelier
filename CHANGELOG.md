@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Sketchpad is now **Co-driver** (`codriver/`, opened with `/codriver`). `/sketch` is gone. Kept: the docked pane, the Aurora palette, the model switcher, Session on/off, Clear, and Send to prompt (goes under a draft, never sends on its own). The default model is now Opus at medium effort.
+- `setup.sh` wires `codriver/` into `env.CLAUDE_CODE_PLUGIN_DIRS` and removes the old `sketchpad/` path from it. Re-run it once after pulling.
+
+### Added
+
+- Co-driver Debrief: paste Claude Code's output, or press Use last answer, then Debrief. Three parts: What happened (3 plain lines), On course? (on course, drifting or blocked, checked against the course files), Watch out (left out when there's nothing). Only runs on a press.
+- Co-driver course files: `CLAUDE.md`, plus `NEXT.md`, `STATUS.md`, `next-session-starter.md` and up to 4 plan or status files `CLAUDE.md` points to. Capped at 12,000 characters each and 40,000 in all. The pane lists what loaded.
+- Co-driver next prompt with guardrails (files in scope, ask first, stop and report, done when) in the Ready for Claude Code box, plus a chat below it for pushing back or asking what something means.
+- Co-driver Preflight: Haiku rates each prompt you type green, amber or red, with a 3 second limit. Amber or red holds it back with one line on why and a choice: Send anyway, Let Co-driver tighten it, or Dismiss. A timeout or an error lets the prompt through.
+
 ## [2.1.1] - 2026-11-22
 
 The fast gate could report a clean type check on a repo whose real type check fails. This patch makes it run the real check, and report only what the Builder caused.

@@ -50,7 +50,7 @@ The project became Atelier and got an open source license.
 
 **[1.0.0](https://github.com/BernardoDesigns/atelier/releases/tag/v1.0.0), November 17, 2026: the first version**
 
-A small studio of AI design agents: a director who routes each request, Eames for product design and Rand for brand. It also included a one-command preview that shares work in progress to any device, Aurora, a usage gauge that shows how much of my plan is left, and Sketchpad, a side conversation for shaping a request before handing it off.
+A small studio of AI design agents: a director who routes each request, Eames for product design and Rand for brand. It also included a one-command preview that shares work in progress to any device, Aurora, a usage gauge that shows how much of my plan is left, and Co-driver, a second pair of eyes that debriefs each step in plain language and flags risky prompts before they go.
 
 ---
 
@@ -252,9 +252,9 @@ Neither piece makes a network call, reads a login token, or pulls in third-party
 
 ---
 
-## Sketchpad
+## Co-driver
 
-A side conversation docked next to the session, where I brainstorm and refine a prompt before sending it to the prompt box. Details in [`sketchpad/`](sketchpad/).
+A second pair of eyes docked next to the session, opened with `/codriver`. Debrief turns Claude Code's output into three plain lines, checks it against my plan (`CLAUDE.md`, `NEXT.md` and friends), calls out risks, and writes a guarded next prompt I can send to the prompt box. Preflight rates the prompts I type with Haiku and holds back the risky ones for a second look. It never touches the build. Details in [`codriver/`](codriver/).
 
 ---
 
@@ -275,7 +275,7 @@ Then open a new terminal. `setup.sh`:
 - installs and registers the MCP servers in `mcp/servers.json` (today: Awwwards) at user scope, at pinned versions, with their skills and preferences. Skip it with `bash setup.sh --no-mcp`; details in `mcp/README.md`
 - installs the render harness dependencies (`npm install` and a Chromium download, inside `render/` only) when `npm` is there, so `/build` can take screenshots. It says up front that the download is about 150MB and how to skip it (`bash setup.sh --no-render`), then starts without asking; if it is skipped or fails, it prints the one line to run by hand: `cd render && npm install && npx playwright install chromium`
 - adds a source line to `.zshrc`
-- adds the Aurora billboard and Sketchpad to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
+- adds the Aurora billboard and Co-driver to `env.CLAUDE_CODE_PLUGIN_DIRS` (and removes the old `sketchpad` folder from it) in `~/.claude/settings.json` without touching any other key, and removes the old `statusLine` entry if it's still there
 - merges the guardrails into `~/.claude/settings.json`: ask before destructive commands, before any write outside the current repo, and before curl/wget reaches anything but localhost or a `cc` tunnel. It also installs the build-session hooks (`--enforce`, see Breaking changes above; undo with `bash guardrails/install.sh --relax`)
 - builds the Aurora HUD and starts it at login (skip with `bash setup.sh --no-hud`)
 - backs up any existing file it would replace (timestamped), and is safe to re-run
@@ -288,7 +288,7 @@ cp "$(ls -t ~/.claude/settings.json.bak.* | head -1)" ~/.claude/settings.json
 cp "$(ls -t ~/.claude/settings.local.json.bak.* | head -1)" ~/.claude/settings.local.json
 ```
 
-Open the backup first: if it still mentions `net-host-guard`, take the next one down. To put `settings.json` back exactly as it was before a `setup.sh` run, restore the backup listed under "Your files as they were before this run" at the end of that run. If that run added the Aurora and Sketchpad entry in `env.CLAUDE_CODE_PLUGIN_DIRS` (it does the first time), this removes it too. Restoring a later backup puts back the permission rules and hooks only. The symlinks `setup.sh` made stay either way.
+Open the backup first: if it still mentions `net-host-guard`, take the next one down. To put `settings.json` back exactly as it was before a `setup.sh` run, restore the backup listed under "Your files as they were before this run" at the end of that run. If that run added the Aurora and Co-driver entry in `env.CLAUDE_CODE_PLUGIN_DIRS` (it does the first time), this removes it too. Restoring a later backup puts back the permission rules and hooks only. The symlinks `setup.sh` made stay either way.
 
 ## Keeping machines in sync
 
@@ -329,7 +329,7 @@ The repo is the single source of truth. Everything is symlinked or loaded straig
 | `aurora-usage/aurora-billboard/` | Usage billboard mod for Claude Code |
 | `aurora-usage/aurora-hud/` | Floating usage HUD for macOS (`main.swift` + build scripts) |
 | `aurora-usage/aurora`, `profiles.json` | `aurora profile <name>`: swap threshold profiles (`default`, `fable-run`) |
-| `sketchpad/` | Side conversation mod for Claude Code, for shaping prompts |
+| `codriver/` | Co-driver mod for Claude Code: debriefs, course checks, guarded next prompts, Preflight |
 | `guardrails/` | Ask and allow rules, the outside-repo write hook, the curl/wget host hook, the build-session hooks (conventions injector, fast gate, Stop and PR gates, lane guard), the session scripts `/build` and `/wrap` use, `run-tests.sh`, `VETTING.md`, tests, and the installer (`--enforce`, `--relax`) |
 | `mcp/servers.json` | Pinned manifest of the MCP servers Claude Code installs locally |
 | `mcp/install.sh` | Installs and registers them at user scope (`--dry-run` to preview). Tests: `bash mcp/tests/check.sh` |
