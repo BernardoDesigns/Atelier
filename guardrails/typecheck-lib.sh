@@ -157,7 +157,8 @@ atelier_tsc_norun() {
 _ATELIER_AWK_PARSE='
     # tsc prints union members in an order that can change after an unrelated
     # edit. Sort the members of every single-quoted segment that has " | ", so the
-    # same error always gives the same key.
+    # same error always gives the same key. Callers run awk with LC_ALL=C so the
+    # sort order does not depend on the locale.
     function normmsg(m,   out, rest, i, j, seg, n, parts, a, b, t, q) {
         q = "\047"; out = ""; rest = m
         while ((i = index(rest, q)) > 0) {
@@ -194,7 +195,7 @@ _ATELIER_AWK_PARSE='
 # No line numbers: they shift when the Builder edits. Continuation lines (the
 # indented detail under an error) are not part of the key.
 atelier_tsc_keys() {
-    awk -v codes="$ATELIER_TSC_NORUN" "$_ATELIER_AWK_PARSE"'
+    LC_ALL=C awk -v codes="$ATELIER_TSC_NORUN" "$_ATELIER_AWK_PARSE"'
     BEGIN { n = split(codes, a, " "); for (i = 1; i <= n; i++) bad[a[i]] = 1 }
     { k = parse($0); if (k == "") next; split(k, parts, "\t"); if (!(parts[2] in bad)) print k }'
 }
@@ -209,7 +210,7 @@ atelier_tsc_keys() {
 # unedited files: file, code and message, with union members sorted. The whole error block is written, detail lines too.
 atelier_tsc_split() { # <base|""> <changed> <outC> <outU>   (stdin: tsc output)
     : >"$3"; : >"$4"
-    awk -v base="$1" -v changed="$2" -v outc="$3" -v outu="$4" -v codes="$ATELIER_TSC_NORUN" "$_ATELIER_AWK_PARSE"'
+    LC_ALL=C awk -v base="$1" -v changed="$2" -v outc="$3" -v outu="$4" -v codes="$ATELIER_TSC_NORUN" "$_ATELIER_AWK_PARSE"'
     function flush() {
         if (block == "") return
         if (isnew) { if (sect == "C") print block >> outc; else print block >> outu }
