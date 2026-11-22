@@ -112,7 +112,7 @@ Hooks installed by `setup.sh` (`guardrails/install.sh --enforce`) keep the loop 
 | Guardrail | What it does | Needs |
 |---|---|---|
 | Conventions injector | Adds `conventions.md` to context before UI file edits | `--enforce`, a `/build` session |
-| Fast gate | Runs the repo's real typecheck (`tsc -b --noEmit` for a solution-style tsconfig, `tsc --noEmit` otherwise) and lints the edited file, and reports only the errors the Builder added, measured against a baseline taken when the build opened | `--enforce`, a `/build` session |
+| Fast gate | Runs the repo's real typecheck (`tsc -b --force --noEmit` for a solution-style tsconfig, `tsc --noEmit` otherwise) and lints the edited file, and reports only the errors the Builder added, measured against a baseline taken when the build opened | `--enforce`, a `/build` session |
 | Bash write nudge | Blocks a Bash command that writes a file into the repo and points at Write and Edit | `--enforce`, a `/build` session |
 | Definition-of-done gates | The Stop gate nudges once; the PR gate blocks `gh pr create` until screenshots, assumptions, a recorded passing test run, a reviewed critique and a clean lane exist | `--enforce`, a `/build` session |
 | Lane guard | Blocks edits to `auth/`, `api/`, `payments/`, `lib/shared/` and any extra `protected` paths in `.claude/lane-rules.json` | `--enforce` for the hook, `guardrails/lane-guard-init.sh` for the deny rules |

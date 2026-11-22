@@ -255,5 +255,16 @@ printf '%s\n%s\n' "$OLD_ERR" "src/old.ts(9,7): error TS2304: Cannot find name 'y
 gate src/a.ts
 expect "a new error in an earlier-changed file is under 'you changed'" "$([ $GATE_CODE -eq 2 ] && has 'new errors in files you changed' && has 'src/old.ts(9,7)' && ! has 'did not edit'; echo $?)" "exit $GATE_CODE: $(cat "$C/gate.err")"
 
+# 18. N4: counts inside a message change with any edit and are not a new error
+mk
+open_build
+ESL_L1=$(ej 2 1 max-lines "File has too many lines (312). Maximum allowed is 300.")
+ESL_L2=$(ej 2 1 max-lines "File has too many lines (314). Maximum allowed is 300.")
+printf '%s\n' "$ESL_L1" >"$C/eslint.old.out"
+printf '%s\n' "$ESL_L2" >"$C/eslint.out"
+printf 'export const a = 3;\n' >>"$R/src/a.ts"
+gate src/a.ts
+expect "eslint: a changed count in the same message is not new" "$([ $GATE_CODE -eq 0 ]; echo $?)" "exit $GATE_CODE: $(cat "$C/gate.err")"
+
 echo "fast-gate-baseline: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

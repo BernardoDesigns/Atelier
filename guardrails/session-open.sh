@@ -144,13 +144,16 @@ if [ "$fresh" -eq 1 ]; then
         out="$a/baseline.tsc.out"
         atelier_tsc_check "$dir" "$out"
         keys="$a/baseline.tsc.txt.tmp.$$"
+        atelier_tsc_norun <"$out" >"$out.norun"
         atelier_tsc_keys <"$out" >"$keys"
         n=$(wc -l <"$keys" | tr -d ' ')
         if [ "$TC_CODE" -eq 124 ]; then
             echo "baseline: none (the type check timed out after ${TIMEOUT}s); the fast gate will report every error in changed files"
+        elif [ -s "$out.norun" ]; then
+            echo "baseline: none (the type check can't run for this layout: $(head -n 1 "$out.norun" | cut -c1-160); the fast gate will block until that is fixed)"
         elif [ "$TC_CODE" -ne 0 ] && [ "$n" -eq 0 ]; then
             echo "baseline: none (the type check failed to run: $(head -n 1 "$out")); the fast gate will report every error in changed files"
-        elif [ "$TC_CODE" -eq 0 ] && [ "$TC_FILES" = 0 ]; then
+        elif [ "$TC_CODE" -eq 0 ] && [ "$TC_ZERO" -eq 1 ]; then
             echo "baseline: none (the type check covers no files; the fast gate will say so)"
         elif mv -f "$keys" "$a/baseline.tsc.txt" \
             && jq --argjson n "$n" --arg cmd "$TC_CMD" '. + {baseline: {file: "baseline.tsc.txt", errors: $n, command: $cmd}}' "$marker" >"$tmp" \
@@ -160,7 +163,7 @@ if [ "$fresh" -eq 1 ]; then
             rm -f "$a/baseline.tsc.txt" "$tmp"
             echo "baseline: none (couldn't write it); the fast gate will report every error in changed files"
         fi
-        rm -f "$keys" "$out" "$tmp"
+        rm -f "$keys" "$out" "$out.norun" "$tmp"
     fi
 fi
 exit 0
