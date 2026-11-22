@@ -357,11 +357,18 @@ wrap_pick_grammar() {
     && grep -Fq 'nothing has been kept or dropped yet' "$WRAP"
 }
 wrap_undecided() {
-  [ "$(grep -c 'Learning proposals, undecided' "$WRAP")" -ge 2 ] \
-    && grep -Fq 'only when the user said `none`' "$WRAP"
+  sed -n '/^## Step 5/,$p' "$WRAP" | grep -Fq 'Learning proposals, undecided' \
+    && grep -Fq 'only when the user said `none`' "$WRAP" \
+    && grep -Fq 'put them in the final message to the user instead' "$WRAP" \
+    && ! grep -Fq 'closing report' "$WRAP" \
+    && ! grep -Fq 'If none are accepted, do nothing' "$WRAP"
 }
 wrap_proposals_file() {
-  grep -Fq '.atelier/learning-proposals.md' "$WRAP" && grep -Fq 'never stage or commit it' "$WRAP"
+  grep -Fq '.atelier/learning-proposals.md' "$WRAP" && grep -Fq 'never stage or commit it' "$WRAP" \
+    && grep -Fq 'For `mine` or `unowned`, write the file. For `none` or `other`, skip it' "$WRAP"
+}
+wrap_zero_proposals() {
+  grep -Fq 'If the session produced no proposals, say so in one line, write no file, ask nothing, and continue to step 5.' "$WRAP"
 }
 wrap_item_placement() {
   grep -Fq 'It goes at the end of the file' "$WRAP" && grep -Fq '`## From builds`' "$WRAP"
@@ -369,6 +376,7 @@ wrap_item_placement() {
 check "wrap: step 4 has a pick grammar with keep and none, and asks once more on a non-answer" wrap_pick_grammar
 check "wrap: step 4 carries undecided proposals into the build PR, and says none only on none" wrap_undecided
 check "wrap: step 4 saves proposals to .atelier/learning-proposals.md and never commits it" wrap_proposals_file
+check "wrap: step 4 with zero proposals asks nothing and moves on" wrap_zero_proposals
 check "wrap: step 4 says where a new item goes, including the From builds heading" wrap_item_placement
 check "wrap: step 4 uses the wrap source tag"    wrap_source_tag
 check "wrap: step 4 regenerates taste-review/state.json with the generator" wrap_regen_state

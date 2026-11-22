@@ -67,13 +67,15 @@ Draw proposals only from the user's verdicts and corrections in this session. Ne
 - `~/.claude/atelier/conventions.md`: the user set an exact, yes-or-no standard. Medium bar.
 - `~/.claude/atelier/taste.md`: a judgment that generalizes, or the user says it should be kept. High bar.
 
-List them numbered, then ask the user to pick. Parse the reply with the grammar below. A reply that is not a pick is never read as "none".
+If the session produced no proposals, say so in one line, write no file, ask nothing, and continue to step 5.
 
-Before you ask, write the numbered proposals to `.atelier/learning-proposals.md`, each with its target file and the exact quoted line, so they outlive the session. This file is scratch, like `critique.md`: never stage or commit it. If there is no `.atelier/` folder (the opening check said `none`), or the build belongs to another session (`other`), skip the file and say so. Do not write into another session's folder.
+Otherwise list them numbered, then ask the user to pick. Parse the reply with the grammar below. A reply that is not a pick is never read as "none".
+
+Before you ask, write the numbered proposals to `.atelier/learning-proposals.md`, each with its target file and the exact quoted line, so they outlive the session. This file is scratch, like `critique.md`: never stage or commit it. Key this on the opening check's word. For `mine` or `unowned`, write the file. For `none` or `other`, skip it and tell the user you skipped it: there is no folder of this session's to write into, and you never write into another session's folder.
 
 ### Pick grammar
 
-Tokens are separated by commas. Whitespace around a token is ignored. Words are lowercase.
+Tokens are separated by commas. Whitespace around a token is ignored. Words are matched without regard to case. A quoted line after `becomes` is one token, commas inside it included.
 
 | Reply | Meaning | Action |
 |---|---|---|
@@ -83,8 +85,8 @@ Tokens are separated by commas. Whitespace around a token is ignored. Words are 
 
 Rules:
 
-- Anything else is not an answer. That means silence on the question, a reply about something else, "continue", "ok", "ship it", or a number that is not on the list. Ask once more, and say plainly that nothing has been kept or dropped yet.
-- If the second reply is still not an answer, do not ask a third time and do not treat it as `none`. Mark the proposals undecided. Put them verbatim in the build PR description under the heading "Learning proposals, undecided" (in the closing report if there is no build PR), and say so in the closing report. Do nothing below.
+- Anything else is not an answer. That means silence on the question, a reply about something else, "continue", "ok", "ship it", or a number that is not on the list. Ask once more, show the grammar (`keep <n>, ...`, `<n> becomes "<line>"`, `none`), and say plainly that nothing has been kept or dropped yet.
+- If the second reply is still not an answer, do not ask a third time and do not treat it as `none`. Mark the proposals undecided. Put them verbatim in the build PR description under the heading "Learning proposals, undecided". If this session opens no build PR (`none` or `other`), put them in the final message to the user instead. Either way, say in the final message that they are undecided. Do nothing below.
 - Write "none accepted" or "no learning PR" only when the user said `none`.
 
 Example: `keep 1, 3` keeps proposals 1 and 3 and drops the rest. `ok` is not an answer.
