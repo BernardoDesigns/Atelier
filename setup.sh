@@ -206,18 +206,21 @@ if ! command -v jq >/dev/null 2>&1; then
     echo "    brew install jq"
 fi
 
-# --- Mods: load the Aurora billboard and Sketchpad from this repo in every session ---
+# --- Mods: load the Aurora billboard and Co-driver from this repo in every session ---
 # Adds each mod folder to env.CLAUDE_CODE_PLUGIN_DIRS (appended, ':' separated,
-# if other folders are already listed) and drops the old statusLine entry only
-# if it still points at our retired script. Every other key stays.
+# if other folders are already listed), removes the retired sketchpad folder
+# (renamed to codriver) and drops the old statusLine entry only if it still
+# points at our retired script. Every other key stays.
 SETTINGS="$CLAUDE_DIR/settings.json"
 BILLBOARD_DIR="$REPO_DIR/aurora-usage/aurora-billboard"
-SKETCHPAD_DIR="$REPO_DIR/sketchpad"
+CODRIVER_DIR="$REPO_DIR/codriver"
+RETIRED_SKETCHPAD_DIR="$REPO_DIR/sketchpad"
 OLD_STATUSLINE='{"type":"command","command":"~/.claude/statusline.sh"}'
 if command -v jq >/dev/null 2>&1; then
     [ -s "$SETTINGS" ] || echo '{}' > "$SETTINGS"
-    if MERGED=$(jq --arg billboard "$BILLBOARD_DIR" --arg sketchpad "$SKETCHPAD_DIR" --argjson old "$OLD_STATUSLINE" '
-            (reduce ($billboard, $sketchpad) as $dir (.env.CLAUDE_CODE_PLUGIN_DIRS // "";
+    if MERGED=$(jq --arg billboard "$BILLBOARD_DIR" --arg codriver "$CODRIVER_DIR" --arg retired "$RETIRED_SKETCHPAD_DIR" --argjson old "$OLD_STATUSLINE" '
+            ((.env.CLAUDE_CODE_PLUGIN_DIRS // "") | split(":") | map(select(. != $retired and . != "")) | join(":")) as $kept
+            | (reduce ($billboard, $codriver) as $dir ($kept;
                 if . == "" then $dir
                 elif (split(":") | index($dir)) then .
                 else . + ":" + $dir end)) as $dirs
@@ -230,18 +233,18 @@ if command -v jq >/dev/null 2>&1; then
             if [ "$HAVE_BACKUP_LIB" = 1 ] && BACKUP=$(atelier_backup_copy "$SETTINGS" aurora-mods); then
                 # Write in place (not mv) so a symlinked settings.json stays a symlink
                 printf '%s\n' "$MERGED" > "$SETTINGS"
-                echo "Wired the Aurora billboard and Sketchpad into $SETTINGS (backup: $BACKUP)"
+                echo "Wired the Aurora billboard and Co-driver into $SETTINGS (backup: $BACKUP)"
             else
                 SKIPPED="$SKIPPED
-  - Aurora billboard and Sketchpad wiring in $SETTINGS (no backup could be made, so the file was left untouched)"
-                echo "WARNING: skipped the Aurora billboard and Sketchpad wiring, $SETTINGS was left untouched."
+  - Aurora billboard and Co-driver wiring in $SETTINGS (no backup could be made, so the file was left untouched)"
+                echo "WARNING: skipped the Aurora billboard and Co-driver wiring, $SETTINGS was left untouched."
             fi
         fi
     else
         echo "ERROR: $SETTINGS is not valid JSON, left it alone. Fix it and re-run."
     fi
 else
-    echo "Skipped the Aurora billboard and Sketchpad in $SETTINGS (needs jq)"
+    echo "Skipped the Aurora billboard and Co-driver in $SETTINGS (needs jq)"
 fi
 
 # --- aurora command: switch Aurora threshold profiles (aurora profile fable-run) ---
@@ -368,4 +371,4 @@ ls "$COMMANDS_DIR"/*.md 2>/dev/null | while read f; do
     echo "  /$(basename "$f" .md)"
 done
 echo ""
-echo "Restart any running Claude Code sessions (and the desktop app) to pick up the commands, the billboard and Sketchpad."
+echo "Restart any running Claude Code sessions (and the desktop app) to pick up the commands, the billboard and Co-driver."
