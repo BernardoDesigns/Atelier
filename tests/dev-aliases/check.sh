@@ -427,6 +427,38 @@ host_suite() {
   check "$T: host: old-style tunnel kept in the pidfile" test "$(grep -cE '^[0-9]+$' "/tmp/devstack-$port.pids")" = 2
   down
   assert_clean "$T-host-public" "$ddir"
+
+  # which mode each kind of project gets: Next on its detected dev port keeps the
+  # public hostname, everything else (and the forced modes) is explicit
+  host_case "$T" next-on-its-port "next dev -p $port" "" noflag
+  host_case "$T" next-other-port "next dev -p 3999" "" flag
+  host_case "$T" vite "vite --port $port" "" flag
+  host_case "$T" next-forced-local "next dev -p $port" local flag
+  host_case "$T" vite-forced-public "vite --port $port" public noflag
+  host_case "$T" next-unknown-value-is-auto "next dev -p $port" bogus noflag
+}
+
+# host_case SHELL LABEL DEV_SCRIPT DEV_TUNNEL_HOST flag|noflag
+host_case() {
+  local T=$1 label=$2 devscript=$3 mode=$4 want=$5 last n
+  mkdir -p "$work/hostproj"
+  printf '{"scripts":{"dev":"%s"}}\n' "$devscript" > "$work/hostproj/package.json"
+  reset_state
+  : > "$ddir/cf.args"
+  if [ -n "$mode" ]; then
+    out="$(DEV_TUNNEL_HOST=$mode dev "$work/hostproj")"
+  else
+    out="$(dev "$work/hostproj")"
+  fi
+  last="$(tail -1 "$ddir/cf.args")"
+  n="$(echo "$last" | grep -c -- "--http-host-header localhost:$port ")"
+  if [ "$want" = flag ]; then
+    check "$T: host mode: $label gets the localhost Host header" test "$n" = 1
+  else
+    check "$T: host mode: $label forwards the public hostname (no flag)" test "$n" = 0 -a -n "$last"
+  fi
+  down
+  assert_clean "$T-host-$label" "$ddir"
 }
 
 # _dev_cf_pattern must match a tunnel started with or without the flag, either
@@ -436,6 +468,13 @@ pat="$(bash -c '. "$1"; _dev_cf_pattern 5555' _ "$script")"
 check "pattern: old command line (no flag)" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://[::1]:5555" | grep -qE "$1"' _ "$pat"
 check "pattern: flag before --url" bash -c 'echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://127.0.0.1:5555" | grep -qE "$1"' _ "$pat"
 check "pattern: flag after --url" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://127.0.0.1:5555 --http-host-header localhost:5555" | grep -qE "$1"' _ "$pat"
+for spell in localhost 127.0.0.1 "[::1]"; do
+  check "pattern: --url http://$spell:5555 with the flag" bash -c 'echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://$2:5555" | grep -qE "$1"' _ "$pat" "$spell"
+  check "pattern: --url http://$spell:5555 without the flag" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://$2:5555" | grep -qE "$1"' _ "$pat" "$spell"
+done
+check "pattern: header says this port but --url says another: no match" bash -c '! echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://127.0.0.1:5556" | grep -qE "$1"' _ "$pat"
+pat6="$(bash -c '. "$1"; _dev_cf_pattern 5556' _ "$script")"
+check "pattern: the same line does match the --url port" bash -c 'echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://127.0.0.1:5556" | grep -qE "$1"' _ "$pat6"
 check "pattern: another port does not match" bash -c '! echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5556 --url http://127.0.0.1:5556" | grep -qE "$1"' _ "$pat"
 check "pattern: a longer port does not match" bash -c '! echo "cloudflared tunnel --protocol http2 --url http://127.0.0.1:55550" | grep -qE "$1"' _ "$pat"
 
