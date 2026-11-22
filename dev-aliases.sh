@@ -49,11 +49,19 @@
 # so it can ask each launch. Set DEV_OPEN=local to open http://localhost:<port>
 # instead (no prompt), or DEV_OPEN=none to open nothing.
 #
-# The tunnel sends the dev server "Host: localhost:<port>" (cloudflared's
-# --http-host-header), so Vite and Storybook host checks do not block the public
-# hostname. This skips the dev server's host check for tunnel traffic only; local
-# browser traffic is unaffected. Set DEV_TUNNEL_HOST=public to forward the tunnel
-# hostname instead (the old behavior). Any other value or none means localhost.
+# Host header: cloudflared forwards the public hostname, which Vite and Storybook
+# host checks refuse. DEV_TUNNEL_HOST picks what the dev server sees:
+#   (unset, or any other value)  auto: the tunnel hostname for a Next project on
+#                                its detected dev port, "Host: localhost:<port>"
+#                                (cloudflared's --http-host-header) for the rest
+#   local                        always localhost
+#   public                       always the tunnel hostname (the old behavior)
+# Next keeps the public hostname by default as a precaution: its Server Actions
+# compare the browser's Origin with the Host, which localhost could break (not a
+# proven failure). Next still needs allowedDevOrigins either way (failures.md F19).
+# Localhost skips the dev server's host check for tunnel traffic only; local
+# browser traffic is unaffected. A running tunnel keeps the mode it was started
+# with until devdown.
 
 # Loopback only (both lines); the tunnel is the only way in from outside.
 _DEV_STATIC_PY='
@@ -78,23 +86,47 @@ for s in servers[1:]:
 servers[0].serve_forever()
 '
 
-# Matches any cloudflared quick tunnel pointed at this port, whichever loopback
-# spelling it used (older sessions used localhost).
+# Matches any cloudflared quick tunnel whose --url points at this port, whichever
+# loopback spelling it used (older sessions used localhost). Anchored on --url so
+# the localhost:<port> inside --http-host-header never counts; the flag can sit
+# before or after --url, and tunnels started without it match too.
 _dev_cf_pattern() {
-  printf 'cloudflared tunnel.*(localhost|127\\.0\\.0\\.1|\\[::1\\]):%s( |$)' "$1"
+  printf 'cloudflared tunnel.*--url (https?://)?(localhost|127\\.0\\.0\\.1|\\[::1\\]):%s( |$)' "$1"
+}
+
+# The dev script line from package.json (empty when there is none).
+_dev_script() {
+  [ -f package.json ] && grep -q '"dev"[[:space:]]*:' package.json || return 0
+  grep -o '"dev"[^,]*' package.json | head -1
 }
 
 _dev_detect() {
   local port kind script
   if [ -f package.json ] && grep -q '"dev"[[:space:]]*:' package.json; then
     kind=npm
-    script=$(grep -o '"dev"[^,]*' package.json | head -1)
+    script=$(_dev_script)
     port=$(echo "$script" | grep -oE -- '(-p|--port)[ =]+[0-9]+' | grep -oE '[0-9]+' | head -1)
     [ -z "$port" ] && { echo "$script" | grep -q vite && port=5173 || port=3000; }
   else
     kind=static; port=8000
   fi
   echo "$port $kind"
+}
+
+# Should the tunnel forward its public hostname as the Host header? Exit 0 for
+# yes. DEV_TUNNEL_HOST=public forces yes and =local forces no. Anything else is
+# auto: yes only for a Next project on its detected dev port, since Next Server
+# Actions compare the browser's Origin with the Host (a precaution, not a proven
+# failure). Vite, static and an explicit other port (Storybook) present as localhost.
+_dev_tunnel_public() {
+  local port=$1 detected
+  case "${DEV_TUNNEL_HOST:-}" in
+    public) return 0 ;;
+    local) return 1 ;;
+  esac
+  detected="$(_dev_detect)"
+  [ "${detected##* }" = npm ] && [ "${detected%% *}" = "$port" ] || return 1
+  _dev_script | grep -qE '(^|[^[:alnum:]_-])next([^[:alnum:]_-]|$)'
 }
 
 # PIDs listening on a port (not clients connected to it).
@@ -291,9 +323,9 @@ devup() {
 
     : > "$cflog"
     # cloudflared forwards the public hostname as the Host header, which Vite and
-    # Storybook refuse. Present as localhost instead. The flag goes before --url
-    # so the command line still ends in the origin (see _dev_cf_pattern).
-    if [ "${DEV_TUNNEL_HOST:-}" = public ]; then
+    # Storybook refuse. Present as localhost instead, except where
+    # _dev_tunnel_public says to keep the old behavior.
+    if _dev_tunnel_public "$port"; then
       nohup cloudflared tunnel --protocol http2 --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
     else
       nohup cloudflared tunnel --protocol http2 --http-host-header "localhost:$port" --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
