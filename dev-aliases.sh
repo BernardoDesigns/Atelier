@@ -13,7 +13,11 @@
 #
 # The server and the tunnel are both launched detached (nohup + disown), so
 # neither dies when the shell that ran devup exits or its window is closed, and
-# the Claude Code session can't signal them. After a plain devup, devdown is the
+# the Claude Code session can't signal them. What protects the server is
+# disown: the shell no longer lists it as a job, so it sends it no SIGHUP on exit
+# (tested with a server that resets SIGHUP to default, as Node does, and with
+# nohup removed). nohup's ignored SIGHUP does not carry into such a server; it
+# only backs up servers that keep it. After a plain devup, devdown is the
 # off switch (cc runs it for you). Teardown is PID-tracked so we never
 # blanket-kill a tunnel belonging to another project.
 #
@@ -224,7 +228,7 @@ devup() {
       echo "something's already on :$port, leaving it be"
     fi
   elif [ "$kind" = npm ]; then
-    # detached like the tunnel: closing this terminal must not take the server down
+    # detached like the tunnel (disown is what counts): closing this terminal must not take the server down
     nohup npm run dev < /dev/null > "$srvlog" 2>&1 & disown
     echo "$!" >> "$pidfile"; started=1
     echo "npm dev server booting on :$port"
@@ -332,6 +336,7 @@ devup() {
 
 devdown() {
   local port="${1:-$(_dev_detect | awk '{print $1}')}"
+  local p
   local pidfile="/tmp/devstack-$port.pids"
 
   # kill what we started, by tracked PID

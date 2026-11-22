@@ -99,6 +99,13 @@ class H(http.server.BaseHTTPRequestHandler):
         self.end_headers()
     def log_message(self, *a):
         pass
+import signal, socket, threading
+# a real Node server resets SIGHUP to default at startup, so an ignored SIGHUP
+# inherited from nohup must not be what keeps this stub alive
+if os.environ.get("STUB_SRV_HUP") == "default":
+    signal.signal(signal.SIGHUP, signal.SIG_DFL)
+class V6(http.server.ThreadingHTTPServer):
+    address_family = socket.AF_INET6
 s = http.server.ThreadingHTTPServer(("127.0.0.1", port), H)
 with open(os.environ["STUB_DIR"] + "/srv.pids", "a") as f:
     f.write("%d\n" % os.getpid())
@@ -106,6 +113,12 @@ with open(os.environ["STUB_DIR"] + "/srv.pids", "a") as f:
     if mode == "multi" and os.fork() == 0:
         f.write("%d\n" % os.getpid())
         f.flush()
+        # a third process that holds only the IPv6 loopback line
+        if os.fork() == 0:
+            f.write("%d\n" % os.getpid())
+            f.flush()
+            s.socket.close()
+            s = V6(("::1", port), H)
 s.serve_forever()
 EOF
 cat > "$stubs/npm" <<'EOF'
@@ -363,7 +376,8 @@ multi_suite() {
   out="$(STUB_NPM_MODE=multi dev "$work/npmsite")"
   check "$T: multi: server came up" test -n "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null)"
   n="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' ')"
-  check "$T: multi: two processes hold the port" test "$n" -ge 2
+  check "$T: multi: three processes hold the port" test "$n" -ge 3
+  check "$T: multi: an IPv6 (::1) listener is among them" test "$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | grep -c IPv6)" -ge 1
   python3 -I -c '
 import os, socket, sys, time
 socket.create_connection(("127.0.0.1", int(sys.argv[1])))
@@ -471,6 +485,9 @@ survive_case survive-static-hup site hup
 survive_case survive-static-exit site none
 survive_case survive-npm-hup npmsite hup
 survive_case survive-npm-exit npmsite none
+# a server that resets SIGHUP to default, like real Node does
+STUB_SRV_HUP=default survive_case survive-npm-hupdfl-hup npmsite hup
+STUB_SRV_HUP=default survive_case survive-npm-hupdfl-exit npmsite none
 
 echo
 if [ "$failures" -eq 0 ]; then

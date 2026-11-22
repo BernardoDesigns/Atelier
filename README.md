@@ -217,7 +217,7 @@ cc        # starts the dev server + a Cloudflare tunnel, then launches Claude Co
 |---|---|
 | `cc` | Launch Claude Code with the dev stack up before and torn down after. Passes args through |
 | `devup [port]` | Start server + tunnel manually. Port is auto-detected unless you pass one. Cleans up its own leftovers first: reuses a server it started from this folder, replaces one it started from another folder, and never touches anything it didn't start. The server runs detached, like the tunnel, so closing the terminal that ran `devup` leaves the stack up |
-| `devdown [port]` | Kill the server + tunnel on that port. After a plain `devup` it is the off switch, since nothing else stops the stack (`cc` calls it for you) |
+| `devdown [port]` | Kill the server + tunnel on that port. It stops whatever is listening on that port, including a server `devup` did not start. After a plain `devup` it is the off switch, since nothing else stops the stack (`cc` calls it for you) |
 
 **Implementation note:** `cc` runs Claude Code in the current shell, in the foreground, and calls `devdown` once when it is done, however that happens: `/exit`, a double Ctrl+C, a closed terminal window or SIGTERM. Nothing is torn down while Claude Code is still running. The traps and options `cc` sets are local to it, so your shell is left exactly as it was. Claude Code's session hooks don't fire reliably on resume or quit, so I don't depend on them. `DEV_PORT=4000 cc` overrides the detected port. `bash tests/dev-aliases/check.sh` drives all of this in a real pseudo-terminal with stubbed `claude` and `cloudflared`.
 
