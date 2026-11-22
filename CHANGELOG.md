@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-22
+
+The fast gate could report a clean type check on a repo whose real type check fails. This patch makes it run the real check, and report only what the Builder caused.
+
+### Fixed
+
+- Fast gate: false clean on a solution-style `tsconfig.json`. A root config with `"files": []` and `references` (the stock Vite layout) checks no files under `tsc --noEmit` and exits 0, so the gate passed every edit while `tsc -b` reported errors. The gate now runs `tsc -b --force --noEmit` when the root config has references, and `tsc --noEmit` otherwise. `--force` because `tsc -b` trusts build info timestamps, which go stale when worktrees share a linked `node_modules` or a broken file sits outside `include`. A TypeScript older than 5.6, which rejects `--noEmit` with `-b`, gets `tsc -p <each referenced config> --noEmit`.
+- Fast gate: a type check that could not run is never read as clean. A referenced project that can't be checked without emit, a config with no inputs and a config that can't be read (TS5083, TS6305, TS6306, TS6310, TS18002, TS18003) always block, with a line saying nothing was verified. A plain check whose root config lists no files blocks too.
+- Fast gate: it reports only errors the Builder caused, so a repo that starts with type or lint errors can be built in. `session-open.sh` records the starting commit and a baseline of the repo's type errors in `.atelier/baseline.tsc.txt`, and prints one `baseline:` line. After each edit, new errors block under one of two labels: "new errors in files you changed", or "new errors in files you did not edit, caused by your change". Baseline errors are never shown. Errors are matched without line numbers, and duplicates are counted. If the baseline can't be taken the build still opens, and the gate lists every error in changed files with a note.
+- Fast gate: eslint reports only errors that are new against the edited file's content at the starting commit. Warnings never block.
+- Fast gate: scratch files are per run, so two overlapping runs in one checkout can't read each other's output.
+
+### Added
+
+- `guardrails/typecheck-lib.sh`, shared by the gate and `session-open.sh`, so the baseline and the per-edit check run the same command.
+- Guardrail tests that run a real TypeScript compiler, pinned in `guardrails/tests/package.json`. One-time setup: `cd guardrails/tests && npm ci`. Without it those cases fail, they are never skipped. The headline case fails on the 2.1.0 gate.
+
+### Known limits
+
+- A repo whose project references can't be checked with `--noEmit` (a composite chain) blocks on every edit until its config changes. The gate does not fall back to a build that writes output.
+- A file outside every tsconfig is not type checked. The pre-5.6 fallback checks only the referenced configs.
+- Not tested on TypeScript 6 or later.
+
 ## [2.1.0] - 2026-11-22
 
 Atelier was built and tested on shadcn. This release carries what the first build on a different design system, Mantine, found. The render harness no longer assumes a `dark` class, `/wrap` can no longer drop learning proposals without a decision, and `devup` keeps its server alive and tracks it in zsh. A minor release: the harness gains a host setting, and `devup` changes two defaults (see Changed).
@@ -263,6 +286,7 @@ Everything in this release is opt-in. Nothing changes how Claude Code behaves un
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
+[2.1.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.1.1
 [2.1.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.1.0
 [2.0.2]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.2
 [2.0.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.1
