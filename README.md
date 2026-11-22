@@ -112,14 +112,14 @@ Hooks installed by `setup.sh` (`guardrails/install.sh --enforce`) keep the loop 
 | Guardrail | What it does | Needs |
 |---|---|---|
 | Conventions injector | Adds `conventions.md` to context before UI file edits | `--enforce`, a `/build` session |
-| Fast gate | Typecheck and lint on the files just edited | `--enforce`, a `/build` session |
+| Fast gate | Runs the repo's real typecheck (`tsc -b --noEmit` for a solution-style tsconfig, `tsc --noEmit` otherwise) and lints the edited file, and reports only the errors the Builder added, measured against a baseline taken when the build opened | `--enforce`, a `/build` session |
 | Bash write nudge | Blocks a Bash command that writes a file into the repo and points at Write and Edit | `--enforce`, a `/build` session |
 | Definition-of-done gates | The Stop gate nudges once; the PR gate blocks `gh pr create` until screenshots, assumptions, a recorded passing test run, a reviewed critique and a clean lane exist | `--enforce`, a `/build` session |
 | Lane guard | Blocks edits to `auth/`, `api/`, `payments/`, `lib/shared/` and any extra `protected` paths in `.claude/lane-rules.json` | `--enforce` for the hook, `guardrails/lane-guard-init.sh` for the deny rules |
 
 When `/build` opens a build, whatever an earlier build left in `.atelier/` moves to `.atelier/archive/<timestamp>-<branch>/`, so an old build can't satisfy the gates. The archive is yours to keep or delete.
 
-To turn the build-session hooks off, run `bash guardrails/install.sh --relax`. To protect a project's paths, run `bash guardrails/lane-guard-init.sh <path-to-repo>` on the repo root. Run `bash guardrails/tests/run.sh` to test the hooks and installer, and `bash agents/tests/check.sh` for the agents and commands. `guardrails/VETTING.md` is the checklist for reading a third-party skill, mod or MCP server before you install it.
+To turn the build-session hooks off, run `bash guardrails/install.sh --relax`. To protect a project's paths, run `bash guardrails/lane-guard-init.sh <path-to-repo>` on the repo root. Run `bash guardrails/tests/run.sh` to test the hooks and installer (one-time first: `cd guardrails/tests && npm ci`, which installs the pinned TypeScript the fast gate tests use; without it those cases fail), and `bash agents/tests/check.sh` for the agents and commands. `guardrails/VETTING.md` is the checklist for reading a third-party skill, mod or MCP server before you install it.
 
 ---
 

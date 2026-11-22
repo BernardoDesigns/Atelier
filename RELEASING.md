@@ -15,5 +15,5 @@ Every version gets two write-ups: the technical one in `CHANGELOG.md` and a plai
 
    Write it for someone who has never opened a terminal. Say what the agents or tools can now do, not which files changed. No file names, flags or jargon, and no em dashes. If a technical term is unavoidable, explain it in the same sentence.
 3. **Release notes for GitHub:** the release body can reuse the README entry plus the CHANGELOG detail.
-4. **Checks:** run every suite, including `bash tests/release-notes/check.sh`, which fails if any CHANGELOG version is missing its README entry or the newest one isn't first.
+4. **Checks:** run every suite (`bash guardrails/tests/run.sh` needs a one-time `cd guardrails/tests && npm ci` first, or its real-compiler cases fail), including `bash tests/release-notes/check.sh`, which fails if any CHANGELOG version is missing its README entry or the newest one isn't first.
 5. **Tag:** only after the owner says go. Annotated tag on the merge commit, pushed, then publish the GitHub release.

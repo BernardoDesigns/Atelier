@@ -6,7 +6,17 @@
 #   ~/.claude/atelier/guardrails/session-open.sh <spec> <branch> [<dir>]
 #
 # <dir> defaults to the current directory (the repo or option worktree that gets
-# the marker). The marker is { "spec": ..., "branch": ..., "sessionId": ... }.
+# the marker). The marker is { "spec": ..., "branch": ..., "sessionId": ... }, plus
+# "startCommit" (HEAD when the build opened, if the repo has one) and "baseline"
+# (see below).
+#
+# Baseline: on a fresh open (not a refresh) it also runs the repo's type check
+# (see typecheck-lib.sh) and stores the errors it finds in .atelier/baseline.tsc.txt,
+# as file, error code and message, no line numbers. fast-gate.sh then reports only
+# errors the Builder adds. The check gets the same time limit as the gate
+# (ATELIER_GATE_TIMEOUT, default 60s). If it can't run (no tsc, timeout, crash) the
+# open still succeeds, no baseline is stored and one line says so. It prints
+# "baseline: N type errors recorded". A refresh keeps the first open's baseline.
 #
 # The script can't see its caller's session id. pr-gate.sh (PreToolUse on Bash)
 # can: just before this command runs it recognises exactly this command and
@@ -104,7 +114,53 @@ fi
 
 mkdir -p "$a" || exit 2
 tmp="$marker.tmp.$$"
-jq -n --arg spec "$spec" --arg branch "$branch" --arg sid "$sid" \
-    '{spec: $spec, branch: $branch, sessionId: $sid}' >"$tmp" && mv -f "$tmp" "$marker" \
-    || { echo "session-open: couldn't write $marker" >&2; exit 2; }
+if [ -f "$marker" ]; then
+    # Refresh: keep what the first open recorded (starting commit, baseline), so
+    # the Builder's own errors never become part of the baseline.
+    fresh=0
+    jq --arg spec "$spec" --arg branch "$branch" --arg sid "$sid" \
+        '. + {spec: $spec, branch: $branch, sessionId: $sid}' "$marker" >"$tmp" && mv -f "$tmp" "$marker" \
+        || { rm -f "$tmp"; echo "session-open: couldn't write $marker" >&2; exit 2; }
+else
+    fresh=1
+    start=$(cd "$dir" && git rev-parse --verify -q HEAD 2>/dev/null) || start=""
+    jq -n --arg spec "$spec" --arg branch "$branch" --arg sid "$sid" --arg start "$start" \
+        '{spec: $spec, branch: $branch, sessionId: $sid} + (if $start != "" then {startCommit: $start} else {} end)' >"$tmp" && mv -f "$tmp" "$marker" \
+        || { rm -f "$tmp"; echo "session-open: couldn't write $marker" >&2; exit 2; }
+fi
 echo "opened: $marker (spec $spec, branch $branch, bound to this session)"
+
+# Baseline: the type errors the repo already has, so the fast gate only reports
+# what the Builder causes. Taken once, on a fresh open. Never stops the open:
+# any failure prints one line and the gate falls back to reporting every error
+# in the files the Builder changed.
+if [ "$fresh" -eq 1 ]; then
+    TIMEOUT=${ATELIER_GATE_TIMEOUT:-60}
+    if ! . "$(dirname "$0")/typecheck-lib.sh" 2>/dev/null; then
+        echo "baseline: none (typecheck-lib.sh is missing); the fast gate will report every error in changed files"
+    elif [ ! -x "$dir/node_modules/.bin/tsc" ]; then
+        echo "baseline: none (tsc is not installed in node_modules/.bin)"
+    else
+        out="$a/baseline.tsc.out"
+        atelier_tsc_check "$dir" "$out"
+        keys="$a/baseline.tsc.txt.tmp.$$"
+        atelier_tsc_keys <"$out" >"$keys"
+        n=$(wc -l <"$keys" | tr -d ' ')
+        if [ "$TC_CODE" -eq 124 ]; then
+            echo "baseline: none (the type check timed out after ${TIMEOUT}s); the fast gate will report every error in changed files"
+        elif [ "$TC_CODE" -ne 0 ] && [ "$n" -eq 0 ]; then
+            echo "baseline: none (the type check failed to run: $(head -n 1 "$out")); the fast gate will report every error in changed files"
+        elif [ "$TC_CODE" -eq 0 ] && [ "$TC_FILES" = 0 ]; then
+            echo "baseline: none (the type check covers no files; the fast gate will say so)"
+        elif mv -f "$keys" "$a/baseline.tsc.txt" \
+            && jq --argjson n "$n" --arg cmd "$TC_CMD" '. + {baseline: {file: "baseline.tsc.txt", errors: $n, command: $cmd}}' "$marker" >"$tmp" \
+            && mv -f "$tmp" "$marker"; then
+            echo "baseline: $n type error$([ "$n" -eq 1 ] || echo s) recorded ($TC_CMD); the fast gate will report only new ones"
+        else
+            rm -f "$a/baseline.tsc.txt" "$tmp"
+            echo "baseline: none (couldn't write it); the fast gate will report every error in changed files"
+        fi
+        rm -f "$keys" "$out" "$tmp"
+    fi
+fi
+exit 0

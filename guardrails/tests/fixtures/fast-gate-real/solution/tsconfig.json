@@ -1,0 +1,7 @@
+// Solution-style root, like the stock Vite layout: it checks no files itself.
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" }, /* the app */
+  ],
+}
