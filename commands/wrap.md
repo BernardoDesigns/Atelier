@@ -67,15 +67,35 @@ Draw proposals only from the user's verdicts and corrections in this session. Ne
 - `~/.claude/atelier/conventions.md`: the user set an exact, yes-or-no standard. Medium bar.
 - `~/.claude/atelier/taste.md`: a judgment that generalizes, or the user says it should be kept. High bar.
 
-List them numbered. The user picks which to keep. If none are accepted, do nothing.
+List them numbered, then ask the user to pick. Parse the reply with the grammar below. A reply that is not a pick is never read as "none".
+
+Before you ask, write the numbered proposals to `.atelier/learning-proposals.md`, each with its target file and the exact quoted line, so they outlive the session. This file is scratch, like `critique.md`: never stage or commit it. If there is no `.atelier/` folder (the opening check said `none`), or the build belongs to another session (`other`), skip the file and say so. Do not write into another session's folder.
+
+### Pick grammar
+
+Tokens are separated by commas. Whitespace around a token is ignored. Words are lowercase.
+
+| Reply | Meaning | Action |
+|---|---|---|
+| `keep <n>, <n>, ...` or bare numbers (`1, 3`) | Keep those proposals | Apply them below. Proposals not listed are dropped. |
+| the same, with new wording for a proposal (`keep 1, 3, 3 becomes "<line>"`) | Keep those, with the edit | Apply them with the edited line. |
+| `none` | Keep nothing | Do nothing below. |
+
+Rules:
+
+- Anything else is not an answer. That means silence on the question, a reply about something else, "continue", "ok", "ship it", or a number that is not on the list. Ask once more, and say plainly that nothing has been kept or dropped yet.
+- If the second reply is still not an answer, do not ask a third time and do not treat it as `none`. Mark the proposals undecided. Put them verbatim in the build PR description under the heading "Learning proposals, undecided" (in the closing report if there is no build PR), and say so in the closing report. Do nothing below.
+- Write "none accepted" or "no learning PR" only when the user said `none`.
+
+Example: `keep 1, 3` keeps proposals 1 and 3 and drops the rest. `ok` is not an answer.
 
 Never write accepted lines into the working tree of `~/.claude/atelier`. That checkout is live config and its `main` branch changes only through pull requests. Instead:
 
 1. In `~/.claude/atelier`, create a branch `learn/<yyyy-mm-dd>-<short-slug>` in a new git worktree (`git worktree add`). The worktree lives at `~/.claude/atelier/.claude/worktrees/learn-<yyyy-mm-dd>-<slug>` (that path is git-ignored locally in the Atelier checkout), never under a temp or scratch directory: a worktree in a folder that later gets cleaned leaves a dangling entry. Call it `WT` below.
-2. Apply the accepted lines in `WT`, in the item format each file documents in its own header and in `skills/taste-review/SKILL.md` ("What an item is"). A new item takes the next free number in its file (one above the highest `### F<n>`, `### C<n>` or `### T<n>` there, gaps from cut items are never reused) and `Status: draft`. Every item carries a `Source:` line, and the check rejects free text. For an item born from a verdict in this session use the wrap form: `Source: wrap:<yyyy-mm-dd> finding <n>` or `Source: wrap:<yyyy-mm-dd> assumption A<n>`. One filled example per file:
+2. Apply the accepted lines in `WT`, in the item format each file documents in its own header and in `skills/taste-review/SKILL.md` ("What an item is"). A new item takes the next free number in its file (one above the highest `### F<n>`, `### C<n>` or `### T<n>` there, gaps from cut items are never reused) and `Status: draft`. It goes at the end of the file. In `taste.md` that is under the heading `## From builds`; if an older checkout lacks that heading, add it first. Every item carries a `Source:` line, and the check rejects free text. For an item born from a verdict in this session use the wrap form: `Source: wrap:<yyyy-mm-dd> finding <n>` or `Source: wrap:<yyyy-mm-dd> assumption A<n>`. One filled example per file:
 
 ```
-### F29
+### F<n>
 Name: Flag gates the control, not the layout
 Trap: A feature flag hides the button but the column built for it still renders.
 Shows up as: An empty column in production while the feature ships dark.
@@ -85,7 +105,7 @@ Status: draft
 ```
 
 ```
-### C71
+### C<n>
 In a segmented control, the default option is the first segment.
 Source: wrap:2026-11-19 finding 3
 Check: Is the default the first segment in every segmented control?
@@ -93,7 +113,7 @@ Status: draft
 ```
 
 ```
-### T38
+### T<n>
 A blocked row action keeps its trigger visible, and the dialog explains the block.
 Source: wrap:2026-11-19 finding 10
 Status: draft
@@ -122,7 +142,7 @@ This is the only way those four files change.
 
 If this session had no build, there is no host PR: stop here.
 
-Only now create the PR for the build, in the host repo. Check the branch is not `main` first. The description holds the critique summary, the user's verdicts (findings and assumptions), the deferred findings under "Deferred", any findings with no token under "Not addressed", and a link to the learning PR from step 4 if there is one.
+Only now create the PR for the build, in the host repo. Check the branch is not `main` first. The description holds the critique summary, the user's verdicts (findings and assumptions), the deferred findings under "Deferred", any findings with no token under "Not addressed", and a link to the learning PR from step 4 if there is one, and any proposals the user left undecided, verbatim, under "Learning proposals, undecided".
 
 ```
 gh pr create --title "<title>" --body "<description>"
