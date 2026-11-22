@@ -255,7 +255,8 @@ Status: draft
 ### F31
 Name: Dev server refuses the tunnel hostname
 Trap: A dev server opened through the `devup` Cloudflare tunnel checks the Host header and rejects the tunnel's hostname. Vite and Storybook each have their own allow list.
-Shows up as: localhost works, and the tunnel link shows a blocked message: "Blocked request. This host is not allowed" from Vite, "Invalid host" from Storybook. Next serves the page but never hydrates, which is F19.
+Shows up as: Localhost works, and the tunnel link shows a blocked message. Vite answers "Blocked request" and says the host is not allowed. Storybook answers "Invalid host" (seen on Storybook 10.6.8). Next serves the page but never hydrates, which is F19.
 Instead: Allow the tunnel domain in the host's dev config: `.trycloudflare.com` in Vite's `server.allowedHosts`, and in `core.allowedHosts` in `.storybook/main` (read only at startup, so restart Storybook). While a tunnel to Storybook is up, anyone with the link can reach its MCP endpoint.
 Source: log:F8
 Status: draft
+Verify: the Vite and Storybook option names and messages against current versions.

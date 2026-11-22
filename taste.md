@@ -2,7 +2,7 @@
 
 Judgment, to be interpreted rather than followed word for word. Each item says what to aim for and how an agent applies it. `conventions.md` holds the literal rules.
 
-Each item is a `### T<n>` heading, the one-line judgment, then `Source:`, `Status:` and `Applied as:`. Items under `## From builds` came from build reviews.
+Each item is a `### T<n>` heading, the one-line judgment, then `Source:`, `Status:`, `Applied as:` and, optionally, `Verify:`. Items under `## From builds` came from build reviews.
 
 Every item is a draft until `/taste-review` approves it.
 

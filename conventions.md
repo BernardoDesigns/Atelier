@@ -2,7 +2,7 @@
 
 Literal standards. Each item is one rule with an exact value or pattern, and a Check line a reviewer can answer yes or no. `taste.md` holds the judgment calls.
 
-Each item is a `### C<n>` heading, the one-line rule, then `Source:`, `Check:` and `Status:`.
+Each item is a `### C<n>` heading, the one-line rule, then `Source:`, `Check:`, `Status:` and, optionally, `Verify:`.
 
 Every item is a draft until `/taste-review` approves it.
 
