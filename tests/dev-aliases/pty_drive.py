@@ -10,7 +10,8 @@ is sent and the driver waits for the prompt.
 
 ACTION is one of: none, int (one Ctrl+C), int2 (two Ctrl+C, 0.15s apart),
 term (SIGTERM to the shell, then to the stub claude), hup (close the pty
-master, the closed-window case).
+master, the closed-window case). With no blocking LINE, hup closes the pty after
+the last LINE, and none types "exit".
 
 Environment: STUB_DIR (holds claude.pid) and DEV_PORT (probed for term).
 Needs a ZDOTDIR whose .zshrc sets PROMPT='READY> '.
@@ -126,7 +127,23 @@ for line in lines:
             sys.exit(0)
         note("no prompt after action")
 
+if action == "hup" and not any(l.startswith("@") for l in lines):
+    # no blocking line: close the window once every line has run
+    os.close(fd)
+    end = time.time() + 30
+    while time.time() < end and not exited():
+        time.sleep(0.1)
+    note("pty master closed, shell exited=%s" % exited())
+    finish()
+    sys.exit(0)
+
 os.write(fd, b"exit\n")
+# with running jobs zsh warns first and only leaves on the second exit
+pump(1.5)
+try:
+    os.write(fd, b"exit\n")
+except OSError:
+    pass
 end = time.time() + 5
 while time.time() < end and not exited():
     pump(0.1)
