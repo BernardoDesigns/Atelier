@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Co-driver Debrief no longer trips the 10 second press limit ("ui.press hook skipped: ran past its 10s budget"). The press starts the debrief and returns at once, and the pane shows thinking… until it lands.
+- Co-driver Debrief no longer trips the 10 second press limit ("ui.press hook skipped: ran past its 10s budget"). The press starts the debrief and returns at once, and the pane shows thinking… until it lands. Let Co-driver tighten it and the chat box work the same way.
 - Co-driver said "no course files" in a repo without its own `CLAUDE.md`. It now always reads `~/.claude/CLAUDE.md` as well, and the pane lists each file it loaded.
 - Preflight lost pasted text: Send anyway on a held prompt sent "[Pasted text #N]" instead of what was pasted. It now sends the full text, and Send to prompt still swaps a tightened version in over a draft that holds a paste.
 

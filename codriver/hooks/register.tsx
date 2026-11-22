@@ -419,6 +419,15 @@ function sameDraft(draft: string, expanded: string): boolean {
   return new RegExp(`^${pattern}$`).test(x)
 }
 
+// Starts slow model work from a press or a submit and hands it back at once: the
+// call can take longer than a press may hold, and the pane says thinking… meanwhile.
+function startInBackground($: EngineInterface, work: Promise<void>, what: string) {
+  void work.catch(async () => {
+    await update($, busy, () => false)
+    await update($, messages, (l): Msg[] => [...l, { role: 'note', text: `The ${what} failed. Try again.` }])
+  })
+}
+
 async function sendAnyway($: EngineInterface, s: Scratch) {
   const f = await read($, flag)
   if (!f) return
@@ -544,7 +553,7 @@ export const register: Register = on => {
         </Text>
         <Text>{f.why}</Text>
         <Button key="cd-anyway" label="Send anyway" onPress={() => sendAnyway($, s)} />
-        <Button key="cd-tighten" variant="primary" label="Let Co-driver tighten it" onPress={() => runTighten($, s)} />
+        <Button key="cd-tighten" variant="primary" label="Let Co-driver tighten it" onPress={() => startInBackground($, runTighten($, s), 'rewrite')} />
         <Button key="cd-dismiss" label="Dismiss" onPress={() => update($, flag, () => null)} />
       </Box>
     )
@@ -651,14 +660,7 @@ export const register: Register = on => {
           <Button
             key="debrief"
             variant="primary"
-            onPress={() => {
-              // Start it and hand the press back at once: the model call can take
-              // longer than a press may hold, and the pane says thinking… meanwhile.
-              void runDebrief($, s).catch(async () => {
-                await update($, busy, () => false)
-                await update($, messages, (l): Msg[] => [...l, { role: 'note', text: 'The debrief failed. Try again.' }])
-              })
-            }}
+            onPress={() => startInBackground($, runDebrief($, s), 'debrief')}
           >
             Debrief
           </Button>
@@ -734,7 +736,7 @@ export const register: Register = on => {
           onInput={value => {
             s.typedChat = value
           }}
-          onSubmit={value => runChat($, s, value)}
+          onSubmit={value => startInBackground($, runChat($, s, value), 'reply')}
         />
 
         <Box flexDirection="row" gap={1} flexWrap="wrap">
