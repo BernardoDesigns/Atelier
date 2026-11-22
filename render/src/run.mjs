@@ -213,20 +213,23 @@ const targetUrl = (target, baseUrl, theme) =>
 const readHarness = (page) =>
   page.evaluate(() => {
     try {
-      return window.__STORYBOOK_PREVIEW__.currentRender.story.parameters.harness ?? null;
+      const h = window.__STORYBOOK_PREVIEW__.currentRender.story.parameters.harness;
+      // Only the keys the harness reads cross the page boundary.
+      return h ? { hover: h.hover, theme: h.theme } : null;
     } catch {
       return null;
     }
   });
 
-const isName = (v) => typeof v === 'string' && v.trim() !== '';
+// A usable name or value: a string, not empty, no leading or trailing whitespace (the raw string is used).
+const isName = (v) => typeof v === 'string' && v !== '' && v === v.trim();
 
 // parameters.harness.theme says how <html> shows the theme. Absent: the "dark" class. {class} or {attribute}
 // (optional values map) otherwise. There is no off switch, and a malformed value is an error, so a wrong-theme
 // shot can never pass silently.
 export function resolveThemeCheck(h) {
   const t = h && h.theme;
-  if (t === undefined || t === null) return { kind: 'class', name: 'dark' };
+  if (t === undefined || t === null) return { kind: 'class', name: 'dark', fallback: true };
   const bad = (why) =>
     new Error(`parameters.harness.theme is malformed: ${why}. Use { "class": "<name>" } or { "attribute": "<name>", "values": { "light": "<v>", "dark": "<v>" } }`);
   if (typeof t !== 'object' || Array.isArray(t)) throw bad('it must be an object');
@@ -237,20 +240,21 @@ export function resolveThemeCheck(h) {
   const extra = Object.keys(t).filter((k) => !['class', 'attribute', 'values'].includes(k));
   if (extra.length) throw bad(`unknown key "${extra[0]}"`);
   if (hasClass) {
-    if (!isName(t.class)) throw bad('"class" must be a non-empty string');
+    if (!isName(t.class) || /\s/.test(t.class)) throw bad('"class" must be one class name: a non-empty string with no whitespace');
     if ('values' in t) throw bad('"values" only applies to "attribute"');
     return { kind: 'class', name: t.class };
   }
-  if (!isName(t.attribute)) throw bad('"attribute" must be a non-empty string');
-  if (t.attribute.trim().toLowerCase() === 'data-theme') {
+  if (!isName(t.attribute)) throw bad('"attribute" must be a non-empty string with no leading or trailing whitespace');
+  if (t.attribute.toLowerCase() === 'data-theme') {
     throw bad('the harness sets data-theme itself, so checking it proves nothing; point "attribute" at the one your own theme code sets');
   }
   let values = { light: 'light', dark: 'dark' };
   if ('values' in t) {
     const v = t.values;
     if (!v || typeof v !== 'object' || Array.isArray(v) || !isName(v.light) || !isName(v.dark) || Object.keys(v).some((k) => k !== 'light' && k !== 'dark')) {
-      throw bad('"values" must be { "light": "<v>", "dark": "<v>" } with non-empty strings');
+      throw bad('"values" must be { "light": "<v>", "dark": "<v>" } with non-empty strings and no leading or trailing whitespace');
     }
+    if (v.light === v.dark) throw bad('"values" light and dark are the same, so every shot would pass');
     values = { light: v.light, dark: v.dark };
   }
   return { kind: 'attribute', name: t.attribute, values };
@@ -275,7 +279,7 @@ async function assertStoryTheme(page, theme, settleMs) {
   const why = `a story-level globals override or the theme decorator's mapping may be forcing it`;
   if (check.kind === 'class') {
     throw new Error(
-      `Theme mismatch: requested ${theme} but <html> ${dark ? 'has no' : 'still has the'} "${check.name}" class after the story rendered (${why})`,
+      `Theme mismatch: requested ${theme} but <html> ${dark ? 'has no' : 'still has the'} "${check.name}" class after the story rendered (${why})${check.fallback ? '. If your host marks its theme another way, set parameters.harness.theme' : ''}`,
     );
   }
   const found = await page.evaluate((n) => document.documentElement.getAttribute(n), check.name);

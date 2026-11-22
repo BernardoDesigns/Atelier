@@ -48,11 +48,13 @@
     // Like withThemeByClassName with light = "": the decorator owns the class and strips anything else.
     // Theme systems that do not use the "dark" class (ids below). They never touch the dark class.
     //   mantine / mantinewrong : data-mantine-color-scheme = light|dark (wrong: always "light").
+    //   mantinedarkstuck : like mantine but the attribute is always "dark".
     //   nightday : data-mode = day|night.   modeclass : class "mode-dark" instead of "dark".
     //   bad*     : malformed parameters.harness.theme (badstring, badboth, badnone, badnonstr, badvalues).
     var root0 = document.documentElement;
     function applyTheme() {
       if (id.indexOf('mantinewrong') !== -1) root0.setAttribute('data-mantine-color-scheme', 'light');
+      else if (id.indexOf('mantinedarkstuck') !== -1) root0.setAttribute('data-mantine-color-scheme', 'dark');
       else if (id.indexOf('mantine') !== -1) root0.setAttribute('data-mantine-color-scheme', wantDark ? 'dark' : 'light');
       else if (id.indexOf('nightday') !== -1) root0.setAttribute('data-mode', wantDark ? 'night' : 'day');
       else if (id.indexOf('modeclass') !== -1) root0.classList.toggle('mode-dark', wantDark);
@@ -72,6 +74,11 @@
       badboth: { class: 'dark', attribute: 'data-x' },
       badnone: {},
       badnonstr: { class: 7 },
+      badpadded: { attribute: ' data-x' },
+      badclassws: { class: 'a b' },
+      badunknown: { class: 'x', foo: 1 },
+      badclassvalues: { class: 'x', values: { light: 'a', dark: 'b' } },
+      badsamevalues: { attribute: 'data-x', values: { light: 'same', dark: 'same' } },
       baddatatheme: { attribute: 'Data-Theme' },
       badvalues: { attribute: 'data-x', values: { light: 'day' } }
     };

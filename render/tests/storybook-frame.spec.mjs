@@ -74,14 +74,25 @@ test('attribute form maps theme names with values; a custom class name works', a
   expect(manifest.shots.every((s) => s.status === 'ok'), JSON.stringify(manifest.shots)).toBe(true);
 });
 
+test('attribute form also fails a light shot when the attribute still says dark', async () => {
+  const { manifest } = await render('mantinedarkstuck', [story('s', 'mantinedarkstuck--story')]);
+  const light = manifest.shots.filter((s) => s.theme === 'light');
+  expect(light.length).toBe(3);
+  for (const s of light) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/requested light but <html> data-mantine-color-scheme is "dark", expected "light"/);
+  }
+  expect(manifest.shots.filter((s) => s.theme === 'dark').every((s) => s.status === 'ok')).toBe(true);
+});
+
 test('the default class check names the class it looked for', async () => {
   const { manifest } = await render('override2', [story('forced', 'forced-override--story')]);
   const dark = manifest.shots.filter((s) => s.theme === 'dark');
-  for (const s of dark) expect(s.error).toMatch(/requested dark but <html> has no "dark" class/);
+  for (const s of dark) expect(s.error).toMatch(/requested dark but <html> has no "dark" class.*set parameters\.harness\.theme/);
 });
 
-test('a malformed parameters.harness.theme marks the shot error, naming the parameter', async () => {
-  for (const id of ['badstring', 'badboth', 'badnone', 'badnonstr', 'badvalues']) {
+for (const id of ['badstring', 'badboth', 'badnone', 'badnonstr', 'badvalues', 'badpadded', 'badclassws', 'badunknown', 'badclassvalues', 'badsamevalues']) {
+  test(`a malformed parameters.harness.theme (${id}) marks the shot error, naming the parameter`, async () => {
     const { manifest } = await render(id, [story('b', `${id}--story`)]);
     expect(manifest.shots.length, id).toBe(6);
     for (const s of manifest.shots) {
@@ -89,8 +100,8 @@ test('a malformed parameters.harness.theme marks the shot error, naming the para
       expect(s.error, id).toMatch(/^parameters\.harness\.theme is malformed: /);
       expect(s.error, id).not.toContain('\n');
     }
-  }
-});
+  });
+}
 
 test('attribute "data-theme" is rejected (case-insensitive) because the harness writes it itself', async () => {
   const { manifest } = await render('baddatatheme', [story('d', 'baddatatheme--story')]);
