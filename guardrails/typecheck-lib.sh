@@ -88,7 +88,7 @@ atelier_tsc_check() { # <cwd> <outfile>
 
     # Build info the check creates inside the source tree is removed afterwards
     # (see the end of this function); snapshot what is there now.
-    _atelier_buildinfo_list "$cwd" >"$scratch/.tsbuildinfo.before.$$" 2>/dev/null
+    _atelier_buildinfo_list "$cwd" >"$scratch/.fast-gate.$$.bi-before" 2>/dev/null
 
     if [ "$mode" = build ]; then
         TC_CMD="tsc -b --force --noEmit"
@@ -119,15 +119,30 @@ atelier_tsc_check() { # <cwd> <outfile>
     # and incremental builds put it beside the tsconfig or in outDir), then any
     # directories that leaves empty. Build info that already existed, and
     # anything under node_modules (the Vite layout), stays and is tsc's to keep.
-    _atelier_buildinfo_list "$cwd" >"$scratch/.tsbuildinfo.after.$$" 2>/dev/null
+    _atelier_buildinfo_list "$cwd" >"$scratch/.fast-gate.$$.bi-after" 2>/dev/null
     while IFS= read -r f; do
         [ -n "$f" ] || continue
         rm -f "$cwd/$f"
         d=$(dirname "$cwd/$f")
         while [ "$d" != "$cwd" ] && rmdir "$d" 2>/dev/null; do d=$(dirname "$d"); done
-    done < <(comm -13 "$scratch/.tsbuildinfo.before.$$" "$scratch/.tsbuildinfo.after.$$")
-    rm -f "$scratch/.tsbuildinfo.before.$$" "$scratch/.tsbuildinfo.after.$$"
+    done < <(comm -13 "$scratch/.fast-gate.$$.bi-before" "$scratch/.fast-gate.$$.bi-after")
+    rm -f "$scratch/.fast-gate.$$.bi-before" "$scratch/.fast-gate.$$.bi-after"
     return 0
+}
+
+# One plain hint for the could-not-run errors in <file>, matched to the codes seen.
+atelier_norun_hint() { # <file of could-not-run error lines>
+    local hint=""
+    if grep -q 'TS6310\|TS6306\|TS6305' "$1"; then
+        hint="This layout, a project that references another project, cannot be type checked without emitting files. The gate will not emit, so nothing was verified. A type error you add here will not be caught by this gate; run the repo's own build to check."
+    fi
+    if grep -q 'TS18002\|TS18003' "$1"; then
+        hint="$hint A tsconfig matches no files: point its \"include\" or \"files\" at sources."
+    fi
+    if grep -q 'TS5083' "$1"; then
+        hint="$hint A tsconfig it references or extends can't be read: fix that path."
+    fi
+    printf '%s' "${hint# }"
 }
 
 # stdin: tsc output. stdout: the error lines whose code means the check did not run.
@@ -140,16 +155,34 @@ atelier_tsc_norun() {
 # awk function shared by the key extractor and the splitter: one error line in,
 # "file<TAB>code<TAB>message" out (empty when the line is not an error headline).
 _ATELIER_AWK_PARSE='
+    # tsc prints union members in an order that can change after an unrelated
+    # edit. Sort the members of every single-quoted segment that has " | ", so the
+    # same error always gives the same key.
+    function normmsg(m,   out, rest, i, j, seg, n, parts, a, b, t, q) {
+        q = "\047"; out = ""; rest = m
+        while ((i = index(rest, q)) > 0) {
+            out = out substr(rest, 1, i); rest = substr(rest, i + 1)
+            j = index(rest, q); if (j == 0) break
+            seg = substr(rest, 1, j - 1); rest = substr(rest, j + 1)
+            if (index(seg, " | ") > 0) {
+                n = split(seg, parts, / \| /)
+                for (a = 2; a <= n; a++) { t = parts[a]; for (b = a - 1; b >= 1 && parts[b] > t; b--) parts[b + 1] = parts[b]; parts[b + 1] = t }
+                seg = parts[1]; for (a = 2; a <= n; a++) seg = seg " | " parts[a]
+            }
+            out = out seg q
+        }
+        return out rest
+    }
     function parse(line,   rest, f, c, m) {
         if (match(line, /\([0-9]+,[0-9]+\): error TS[0-9]+: /)) {
             f = substr(line, 1, RSTART - 1); rest = substr(line, RSTART, RLENGTH)
-            m = substr(line, RSTART + RLENGTH)
+            m = normmsg(substr(line, RSTART + RLENGTH))
             match(rest, /TS[0-9]+/); c = substr(rest, RSTART, RLENGTH)
             sub(/^\.\//, "", f)
             return f "\t" c "\t" m
         }
         if (match(line, /^error TS[0-9]+: /)) {
-            rest = substr(line, 1, RLENGTH); m = substr(line, RLENGTH + 1)
+            rest = substr(line, 1, RLENGTH); m = normmsg(substr(line, RLENGTH + 1))
             match(rest, /TS[0-9]+/)
             return "\t" substr(rest, RSTART, RLENGTH) "\t" m
         }
@@ -172,8 +205,8 @@ atelier_tsc_keys() {
 #   $3  output file for new errors in changed files (and errors tied to no file)
 #   $4  output file for new errors in files that are not in the changed list
 # A baseline key covers as many errors as it appears: one more of the same
-# message in the same changed file is new. For files NOT in the changed list the
-# match is by file and code only, counted the same way. The whole error block is written, detail lines too.
+# message in the same file is new. The key is the same for changed and
+# unedited files: file, code and message, with union members sorted. The whole error block is written, detail lines too.
 atelier_tsc_split() { # <base|""> <changed> <outC> <outU>   (stdin: tsc output)
     : >"$3"; : >"$4"
     awk -v base="$1" -v changed="$2" -v outc="$3" -v outu="$4" -v codes="$ATELIER_TSC_NORUN" "$_ATELIER_AWK_PARSE"'
@@ -185,10 +218,7 @@ atelier_tsc_split() { # <base|""> <changed> <outC> <outU>   (stdin: tsc output)
     BEGIN {
         n = split(codes, a, " "); for (i = 1; i <= n; i++) bad[a[i]] = 1
         if (base != "") {
-            while ((getline line < base) > 0) {
-                cnt[line]++
-                split(line, bp, "\t"); cntu[bp[1] "\t" bp[2]]++
-            }
+            while ((getline line < base) > 0) cnt[line]++
         }
         while ((getline line < changed) > 0) chg[line] = 1
     }
@@ -200,13 +230,7 @@ atelier_tsc_split() { # <base|""> <changed> <outC> <outU>   (stdin: tsc output)
             if (parts[2] in bad) { block = ""; next }   # reported separately, never baselined
             sect = (parts[1] == "" || (parts[1] in chg)) ? "C" : "U"
             isnew = 1
-            if (base != "") {
-                # Changed files: file, code and message. Other files: file and
-                # code only, because a message can change with an unrelated edit
-                # (union member order, for one).
-                if (sect == "C") { if (cnt[k] > 0) { cnt[k]--; isnew = 0 } }
-                else { u = parts[1] "\t" parts[2]; if (cntu[u] > 0) { cntu[u]--; isnew = 0 } }
-            }
+            if (base != "" && cnt[k] > 0) { cnt[k]--; isnew = 0 }
             block = $0
         } else if (block != "" && $0 ~ /^[ \t]/) {
             block = block "\n" $0

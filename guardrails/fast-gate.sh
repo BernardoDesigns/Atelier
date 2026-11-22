@@ -56,6 +56,9 @@
 # the main checkout, that is the linked checkout's directory. It does not write
 # .atelier/tests.json; the Builder does that after a test run.
 #
+# --force means an incremental or composite project gets a full check on every
+# edit (the cost is a few seconds on a small app), and a timeout blocks.
+#
 # Known limits: the pre-5.6 fallback checks only the referenced configs, and a file
 # outside every tsconfig is not type checked at all.
 #
@@ -126,7 +129,7 @@ if [ -x "$bin/tsc" ]; then
         errors="$errors
 the type check did not run for this layout, so nothing was verified ($TC_CMD):
 $(capped "$run.norun")
-These errors are never baselined. Until they are fixed, a clean result from this check means nothing. Make the tsconfig layout checkable with --noEmit (for example, referenced projects that are composite and build with --noEmit, and configs that match some files)."
+These errors are never baselined. Until they are fixed, a clean result from this check means nothing. $(atelier_norun_hint "$run.norun")"
     fi
     if [ "$TC_CODE" -eq 0 ]; then
         if [ "$TC_ZERO" -eq 1 ]; then

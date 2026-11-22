@@ -136,6 +136,7 @@ echo "opened: $marker (spec $spec, branch $branch, bound to this session)"
 # in the files the Builder changed.
 if [ "$fresh" -eq 1 ]; then
     TIMEOUT=${ATELIER_GATE_TIMEOUT:-60}
+    trap 'rm -f "$a"/.fast-gate.$$.*' EXIT
     if ! . "$(dirname "$0")/typecheck-lib.sh" 2>/dev/null; then
         echo "baseline: none (typecheck-lib.sh is missing); the fast gate will report every error in changed files"
     elif [ ! -x "$dir/node_modules/.bin/tsc" ]; then

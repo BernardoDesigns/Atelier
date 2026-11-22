@@ -43,7 +43,8 @@ stale-shared-build-info-composite
 broken-file-outside-include-not-stale
 union-member-order-change-in-untouched-file
 non-ascii-path-counts-as-changed
-scratch-files-are-per-run-and-removed"
+scratch-files-are-per-run-and-removed
+same-code-different-message-in-untouched-file-blocks"
 
 if [ ! -f "$REALTSC" ] || ! node "$REALTSC" -v >/dev/null 2>&1; then
     while IFS= read -r c; do
@@ -200,7 +201,7 @@ expect "zero-inputs-could-not-run-never-baselined" "$([ $OPEN_CODE -eq 0 ] && gr
 stale_shared() { # <compiler option to enable: incremental|composite>
     local opt=$1 M A B code
     mkproj "$FX/incremental"; M=$R
-    sed -i '' "s/\"incremental\": true/\"$opt\": true/" "$M/tsconfig.app.json"
+    sed "s/\"incremental\": true/\"$opt\": true/" "$M/tsconfig.app.json" >"$M/tsconfig.app.json.new" && mv "$M/tsconfig.app.json.new" "$M/tsconfig.app.json"
     for w in A B; do
         mkdir -p "$ROOT/sh-$opt-$w"
         cp -R "$M/src" "$M"/tsconfig*.json "$ROOT/sh-$opt-$w/"
@@ -263,6 +264,19 @@ mkproj "$FX/solution"; plain_marker
 gate src/a.ts
 left=$(ls -A "$R/.atelier" | grep '^\.\{0,1\}fast-gate\.' | grep -vc '^fast-gate\.tsc\.out$')
 expect "scratch-files-are-per-run-and-removed" "$([ "$left" -eq 0 ] && [ -s "$R/.atelier/fast-gate.tsc.out" ]; echo $?)" "left $left: $(ls -A "$R/.atelier")"
+
+# 18. NB1: one error goes away and a different one of the same code appears in
+# the same untouched file. The count is unchanged, but the message differs, so the
+# new one must block.
+mkproj "$FX/solution"
+printf 'export const a: number = 1;\n' >"$R/src/a.ts"
+printf 'export function greet(name: string): string {\n  return `hi ${name}`;\n}\n' >"$R/src/lib.ts"
+printf 'import { greet } from "./lib";\nexport const x = greet(1);\nexport const y = greet("there");\n' >"$R/src/use.ts"
+git -C "$R" add -A . >/dev/null; git -C "$R" commit -q -m greet
+open_build
+printf 'export function greet(n: number): string {\n  return `hi ${n}`;\n}\n' >"$R/src/lib.ts"
+gate src/lib.ts
+expect "same-code-different-message-in-untouched-file-blocks" "$([ $GATE_CODE -eq 2 ] && has 'did not edit' && has 'src/use.ts(3,'; echo $?)" "exit $GATE_CODE: $(err)"
 
 echo "fast-gate-real: $pass passed, $fail failed (TypeScript $TSC_VERSION)"
 [ "$fail" -eq 0 ]
