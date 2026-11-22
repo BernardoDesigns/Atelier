@@ -7,14 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-22
+
+Atelier was built and tested on shadcn. This release carries what the first build on a different design system, Mantine, found. The render harness no longer assumes a `dark` class, `/wrap` can no longer drop learning proposals without a decision, and `devup` keeps its server alive and tracks it in zsh. A minor release: the harness gains a host setting, and `devup` changes two defaults (see Changed).
+
 ### Added
 
+- Render harness: the Storybook theme check is configurable. A host sets `parameters.harness.theme` once in `.storybook/preview` to say how its `<html>` shows the theme: `{ class: "<name>" }`, or `{ attribute: "<name>" }` with an optional `values` map for systems that use other words. Mantine is `{ attribute: "data-mantine-color-scheme" }` and needs no shim. With nothing set the check is the `dark` class, as before. There is no way to switch the check off. A malformed value marks the shot `error`, and so do `data-theme` (the harness writes that attribute itself) and a `values` map that gives light and dark the same word. Mismatch messages name what was checked and what was found.
+- `/wrap` step 4 has a pick grammar: `keep 1, 3`, optionally with new wording for a proposal, or `none`. The proposals are written to `.atelier/learning-proposals.md` before the question is asked, so they outlive the session. The file is scratch and is never staged.
+- `failures.md` F31 (draft): a dev server opened through the `devup` tunnel can refuse the tunnel's hostname, with the Vite and Storybook settings that allow it and a pointer to F19 for Next.
+- `devup`: `DEV_TUNNEL_HOST=public` forwards the tunnel's hostname to the dev server, which was the behavior before this release.
 - Learning from the first build on a Mantine host: `failures.md` gains F29 (a live region on a `display: contents` box) and F30 (zero axe violations do not prove a state is readable: non-text contrast and unrendered states); `conventions.md` gains C72 (consequence notes take the warning color); `taste.md` gains T38 (fix a shared primitive in the theme, not per feature). All four are drafts.
+- `RELEASING.md`, a `## Release notes` section in the README and `tests/release-notes/check.sh`: every version gets a plain-English README note beside its changelog entry, and the check fails when one is missing or the newest is not first.
 
 ### Changed
 
+- `devup` starts the dev server detached, the way it already started the tunnel. Before, the server was a job of the shell that ran `devup`, so closing that terminal killed the server and left the tunnel pointing at nothing. After a plain `devup`, `devdown` is the off switch. `cc` still tears both down when Claude Code ends.
+- `devup` tunnels send the dev server `Host: localhost:<port>` (cloudflared's `--http-host-header`), so the Vite and Storybook host checks no longer block the tunnel link. Only tunnel traffic skips the dev server's host check. A framework that checks the browser's `Origin`, such as Next with `allowedDevOrigins`, still needs its own setting.
+- `/wrap` step 4: a reply that is not a pick is never read as "none". `/wrap` asks once more and says nothing has been kept or dropped yet. If the second reply is still not an answer, the proposals are marked undecided and go into the build PR under "Learning proposals, undecided". With no proposals it asks nothing.
+- `/wrap`: the worked examples for new items use `### F<n>`, `### C<n>` and `### T<n>`. The numbers they used before are now real items. Step 4 also says where a new item goes: the end of its file, and in `taste.md` under `## From builds`.
+- `taste.md`: T37 and T38 sit under a new `## From builds` heading. They were under "Moved from conventions" only because they were appended. Each contract file's header now lists its item fields.
+- Draft wording: F30 says "in every theme the host ships", C72 holds when a system has no warning color, and F29 no longer states current VoiceOver behavior as fact (its `Verify:` line stays open).
 - Critic: severity is defined. `blocker` means the person cannot finish the SPEC's task or loses their work. `major` means it breaks a SPEC acceptance criterion, an accessibility requirement, or something the person sees or relies on. Everything else is `minor`, and code hygiene (dead code, unused exports, naming) is minor at most. Since 2.0.2 a major forces `revise`, and in the re-score a dead export was graded major, which would have held a build back on its own.
 - `evals/calibration/SCORING.md`: a repeat of an already-matched defect is verbosity, not noise, and has its own column. Only numbered findings count. A merged finding matches on either evidence kind when its reason describes the planted defect.
+
+### Fixed
+
+- `dev-aliases.sh` lost track of its own processes in zsh. Its PID lists were looped with an unquoted `for p in $list`, which zsh does not split, so the pidfile was wiped, the server PID was never kept and a second `devup` started a second tunnel beside the first. The lists are now one PID per line. The tests ran these cases only in bash; they now run in bash and zsh.
+- `devdown` killed every process connected to the port, a browser tab's network process included. It now stops only what is listening on it.
 
 ## [2.0.2] - 2026-11-20
 
@@ -242,6 +262,7 @@ Everything in this release is opt-in. Nothing changes how Claude Code behaves un
 - Refine turns the sketch into a structured prompt; Send to prompt drops it in the prompt box.
 - Model switcher (Sonnet, Opus, Haiku) and an optional read-only view of the build session.
 
+[2.1.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.1.0
 [2.0.2]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.2
 [2.0.1]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.1
 [2.0.0]: https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.0
