@@ -60,7 +60,7 @@ type Opts = {
   files?: Record<string, string>
   preflight?: string | 'timeout' | 'error'
   debrief?: string
-  slowDebriefMs?: number
+  slowMs?: number // every pane call (debrief, chat, tighten) answers this late
 }
 
 // Stand in for the engine. Returns what the mod sent so tests can check it.
@@ -124,10 +124,10 @@ function engine(on: any, opts: Opts = {}) {
       return { value: { isAnswered: true, text, usage } }
     }
     sent.complete.push(e)
+    if (opts.slowMs) await clock.sleep(opts.slowMs)
     let text = 'Sure. A migration is like moving furniture to a new house: the stuff stays, the layout changes.'
     if (all.includes('Reply with JSON only')) {
       text = opts.debrief ?? DEBRIEF_JSON
-      if (opts.slowDebriefMs) await clock.sleep(opts.slowDebriefMs)
     }
     else if (all.includes('looked risky or loose'))
       text = 'List the merged branches older than 30 days.\n\nAsk first: before deleting any branch.\n\nDone when: I have a list to approve.'
@@ -216,7 +216,7 @@ test('Debrief on pasted output: three parts, next prompt ready, opus at medium e
 })
 
 test('Debrief returns the press right away and shows thinking… until the debrief lands', async ($, on) => {
-  const sent = engine(on, { slowDebriefMs: 15_000 })
+  const sent = engine(on, { slowMs: 15_000 })
   await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   await ui.input({ key: 'source', text: SAMPLE_OUTPUT })
@@ -228,6 +228,27 @@ test('Debrief returns the press right away and shows thinking… until the debri
 
   await sent.clock.advance(15_000)
   expect(await ui.find({ type: 'Text', text: 'What happened' })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: 'thinking…' })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('chat returns the submit right away and shows thinking… until the reply lands', async ($, on) => {
+  const sent = engine(on, { slowMs: 15_000 })
+  await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.input({ key: 'source', text: SAMPLE_OUTPUT })
+  await ui.press({ key: 'debrief' })
+  await sent.clock.advance(15_000)
+  expect(await ui.find({ type: 'Text', text: 'What happened' })).toBeTruthy()
+
+  await ui.input({ key: 'chat', text: 'what does migration mean?' })
+  // The submit is back while the reply is still out.
+  expect(sent.complete.length).toBe(2)
+  expect(await ui.find({ type: 'Text', text: 'thinking…' })).toBeTruthy()
+  expect(await ui.find({ type: 'Markdown', text: /moving furniture/ })).toBeFalsy()
+
+  await sent.clock.advance(15_000)
+  expect(await ui.find({ type: 'Markdown', text: /moving furniture/ })).toBeTruthy()
   expect(await ui.find({ type: 'Text', text: 'thinking…' })).toBeFalsy()
   await ui.unmount()
 })
@@ -422,6 +443,25 @@ test('preflight: Let Co-driver tighten it opens the pane with a guarded rewrite 
   expect(sent.fills.at(-1).mode).toBe('replace')
   expect(sent.toasts.at(-1)).toContain('Swapped in the tightened version')
   expect(sent.submits.length).toBe(0) // the flagged one was held back, and nothing is auto-sent
+  await ui.unmount()
+})
+
+test('preflight: Let Co-driver tighten it returns the press right away, thinking… until the rewrite lands', async ($, on) => {
+  const sent = engine(on, { promptBox: 'delete the old branches and force push', slowMs: 15_000 })
+  await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
+  await $.prompt.submit(typed('delete the old branches and force push'))
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await band.press({ key: 'cd-tighten' })
+  await band.unmount()
+  // The press is back while the rewrite is still out.
+  expect(sent.complete.length).toBe(1)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: 'thinking…' })).toBeTruthy()
+  expect(await ui.find({ type: 'Markdown', text: /Ask first: before deleting any branch/ })).toBeFalsy()
+
+  await sent.clock.advance(15_000)
+  expect(await ui.find({ type: 'Markdown', text: /Ask first: before deleting any branch/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: 'thinking…' })).toBeFalsy()
   await ui.unmount()
 })
 
