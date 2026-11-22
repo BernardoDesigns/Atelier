@@ -2,6 +2,8 @@
 
 Literal standards. Each item is one rule with an exact value or pattern, and a Check line a reviewer can answer yes or no. `taste.md` holds the judgment calls.
 
+Each item is a `### C<n>` heading, the one-line rule, then `Source:`, `Check:`, `Status:` and, optionally, `Verify:`.
+
 Every item is a draft until `/taste-review` approves it.
 
 ### C1
@@ -435,7 +437,7 @@ Check: Does every prop added to a shared UI component meet all four conditions (
 Status: approved
 
 ### C72
-A note that explains the consequence of a valid choice uses the system's warning color, never the error color kept for failures.
+A note that explains the consequence of a valid choice uses the system's warning color, or a neutral or informational color where the system has none, never the error color kept for failures.
 Source: wrap:2026-11-21
-Check: Is every consequence note in the warning color, with the error color used only for failures?
+Check: Is every consequence note in the warning color (or a neutral or informational one where the system has none), with the error color used only for failures?
 Status: draft

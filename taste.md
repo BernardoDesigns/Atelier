@@ -2,6 +2,8 @@
 
 Judgment, to be interpreted rather than followed word for word. Each item says what to aim for and how an agent applies it. `conventions.md` holds the literal rules.
 
+Each item is a `### T<n>` heading, the one-line judgment, then `Source:`, `Status:`, `Applied as:` and, optionally, `Verify:`. Items under `## From builds` came from build reviews.
+
 Every item is a draft until `/taste-review` approves it.
 
 ### T1
@@ -222,6 +224,8 @@ In diagrams, setup precedes the punchline, and reading order is validated agains
 Source: log:C19
 Status: approved
 Applied as: Read the diagram as someone who has not seen the brief, and reorder until each step depends only on what came before it.
+
+## From builds
 
 ### T37
 A row action that the row's state blocks keeps its trigger visible. The dialog explains the block and when it lifts, rather than the action disappearing per row.

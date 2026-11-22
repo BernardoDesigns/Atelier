@@ -2,6 +2,8 @@
 
 Known traps: things that go wrong in prototype work, how they show up, and what to do instead. Only the Critic and the Builder read this file. New entries arrive through accepted `/wrap` proposals.
 
+Each item is a `### F<n>` heading, then `Name:`, `Trap:`, `Shows up as:`, `Instead:`, `Source:`, `Status:` and, optionally, `Verify:`.
+
 Every item is a draft until `/taste-review` approves it.
 
 ### F1
@@ -236,7 +238,7 @@ Status: draft
 ### F29
 Name: Live region on a display: contents box
 Trap: A `role="status"` or `aria-live` region is styled `display: contents` to avoid adding a gap while empty.
-Shows up as: VoiceOver and older WebKit can drop the role, so the note may never announce on a phone, while jsdom tests pass.
+Shows up as: Older WebKit drops the role, so the note may never announce on a phone, and current VoiceOver may too, while jsdom tests pass.
 Instead: Keep the region a real, always-mounted box that collapses to zero height while empty, and fill it with text when the note appears.
 Source: wrap:2026-11-21 finding 3
 Status: draft
@@ -246,6 +248,15 @@ Verify: on an iPhone with VoiceOver, that a `display: contents` live region is s
 Name: axe passes, state still unreadable
 Trap: Treating zero axe violations as proof that every state is readable.
 Shows up as: An off Switch track far below 3:1 against the page passes axe, because axe does not test non-text contrast (WCAG 1.4.11), and it reads as disabled. A color that only appears in a state no shot renders, such as field error text, passes too.
-Instead: Check by hand that a toggle's off track and thumb reach 3:1 against what touches them, in both themes, and render every state that brings in a new color.
+Instead: Check by hand that a toggle's off track and thumb reach 3:1 against what touches them, in every theme the host ships, and render every state that brings in a new color.
 Source: wrap:2026-11-21
 Status: draft
+
+### F31
+Name: Dev server refuses the tunnel hostname
+Trap: A dev server opened through the `devup` Cloudflare tunnel checks the Host header and rejects the tunnel's hostname. Vite and Storybook each have their own allow list.
+Shows up as: Localhost works, and the tunnel link shows a blocked message. Vite answers "Blocked request" and says the host is not allowed. Storybook answers "Invalid host" (seen on Storybook 10.6.8). Next serves the page but never hydrates, which is F19.
+Instead: Allow the tunnel domain in the host's dev config: `.trycloudflare.com` in Vite's `server.allowedHosts`, and in `core.allowedHosts` in `.storybook/main` (read only at startup, so restart Storybook). While a tunnel to Storybook is up, anyone with the link can reach its MCP endpoint.
+Source: log:F8
+Status: draft
+Verify: the Vite and Storybook option names and messages against current versions.
