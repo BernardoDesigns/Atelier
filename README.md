@@ -1,6 +1,6 @@
 # Atelier
 
-Atelier: a studio of design agents (Design Director, Eames, Rand) and the tooling that turns their work into production-grade prototypes.
+Atelier: a studio of design agents (Design Director, Eames, Rand) and the tooling that turns their work into production-grade prototypes built on contemporary engineering practices for absorbing prototypes into production codebases.
 
 **Version-controlled and synced across machines.** It holds a small team of design agents, a one-command dev environment, and Aurora Usage, a pair of plan-usage gauges. Clone it anywhere, run `setup.sh`, and the whole kit is wired in.
 
