@@ -208,19 +208,77 @@ export function storyUrl(url, baseUrl, theme) {
 const targetUrl = (target, baseUrl, theme) =>
   isStoryFrame(target.url, baseUrl) ? storyUrl(target.url, baseUrl, theme) : new URL(target.url, baseUrl).href;
 
-// Fails the shot when <html> does not carry the requested theme. Storybook story-level globals override the
-// URL global, so a mismatch is a failed capture, never a silent wrong-theme shot.
+// The story's parameters.harness object (hover, theme), or null when there is none. One reader for every
+// harness parameter, evaluated inside the story frame.
+const readHarness = (page) =>
+  page.evaluate(() => {
+    try {
+      return window.__STORYBOOK_PREVIEW__.currentRender.story.parameters.harness ?? null;
+    } catch {
+      return null;
+    }
+  });
+
+const isName = (v) => typeof v === 'string' && v.trim() !== '';
+
+// parameters.harness.theme says how <html> shows the theme. Absent: the "dark" class. {class} or {attribute}
+// (optional values map) otherwise. There is no off switch, and a malformed value is an error, so a wrong-theme
+// shot can never pass silently.
+export function resolveThemeCheck(h) {
+  const t = h && h.theme;
+  if (t === undefined || t === null) return { kind: 'class', name: 'dark' };
+  const bad = (why) =>
+    new Error(`parameters.harness.theme is malformed: ${why}. Use { "class": "<name>" } or { "attribute": "<name>", "values": { "light": "<v>", "dark": "<v>" } }`);
+  if (typeof t !== 'object' || Array.isArray(t)) throw bad('it must be an object');
+  const hasClass = 'class' in t;
+  const hasAttr = 'attribute' in t;
+  if (hasClass && hasAttr) throw bad('set "class" or "attribute", not both');
+  if (!hasClass && !hasAttr) throw bad('it needs a "class" or an "attribute" key');
+  const extra = Object.keys(t).filter((k) => !['class', 'attribute', 'values'].includes(k));
+  if (extra.length) throw bad(`unknown key "${extra[0]}"`);
+  if (hasClass) {
+    if (!isName(t.class)) throw bad('"class" must be a non-empty string');
+    if ('values' in t) throw bad('"values" only applies to "attribute"');
+    return { kind: 'class', name: t.class };
+  }
+  if (!isName(t.attribute)) throw bad('"attribute" must be a non-empty string');
+  let values = { light: 'light', dark: 'dark' };
+  if ('values' in t) {
+    const v = t.values;
+    if (!v || typeof v !== 'object' || Array.isArray(v) || !isName(v.light) || !isName(v.dark) || Object.keys(v).some((k) => k !== 'light' && k !== 'dark')) {
+      throw bad('"values" must be { "light": "<v>", "dark": "<v>" } with non-empty strings');
+    }
+    values = { light: v.light, dark: v.dark };
+  }
+  return { kind: 'attribute', name: t.attribute, values };
+}
+
+// Fails the shot when <html> does not carry the requested theme, as the host's parameters.harness.theme
+// describes it (default: the "dark" class). Storybook story-level globals override the URL global, so a
+// mismatch is a failed capture, never a silent wrong-theme shot.
 async function assertStoryTheme(page, theme, settleMs) {
-  const want = theme === 'dark';
-  const matches = () => document.documentElement.classList.contains('dark');
+  const check = resolveThemeCheck(await readHarness(page));
+  const dark = theme === 'dark';
+  const expected = check.kind === 'attribute' ? check.values[theme] : null;
+  const matches = ([c, wantDark, wantValue]) => {
+    const el = document.documentElement;
+    return c.kind === 'class' ? el.classList.contains(c.name) === wantDark : el.getAttribute(c.name) === wantValue;
+  };
+  const arg = [check, dark, expected];
   try {
-    if (settleMs) await page.waitForFunction((w) => document.documentElement.classList.contains('dark') === w, want, { timeout: settleMs });
+    if (settleMs) await page.waitForFunction(matches, arg, { timeout: settleMs });
   } catch {}
-  if ((await page.evaluate(matches)) !== want) {
+  if (await page.evaluate(matches, arg)) return;
+  const why = `a story-level globals override or the theme decorator's mapping may be forcing it`;
+  if (check.kind === 'class') {
     throw new Error(
-      `Theme mismatch: requested ${theme} but <html> ${want ? 'has no' : 'still has the'} "dark" class after the story rendered (a story-level globals override or the theme decorator's mapping may be forcing it)`,
+      `Theme mismatch: requested ${theme} but <html> ${dark ? 'has no' : 'still has the'} "${check.name}" class after the story rendered (${why})`,
     );
   }
+  const found = await page.evaluate((n) => document.documentElement.getAttribute(n), check.name);
+  throw new Error(
+    `Theme mismatch: requested ${theme} but <html> ${check.name} is ${found === null ? 'not set' : `"${found}"`}, expected "${expected}" (${why})`,
+  );
 }
 
 const FIRST_INTERACTIVE = [
@@ -237,14 +295,8 @@ async function applyHover(page, target, isStory) {
   if ((target.setup || []).some((s) => 'hover' in s)) return;
   let want = null;
   if (isStory) {
-    want = await page.evaluate(() => {
-      try {
-        const h = window.__STORYBOOK_PREVIEW__.currentRender.story.parameters.harness;
-        return h && h.hover !== undefined ? h.hover : null;
-      } catch {
-        return null;
-      }
-    });
+    const h = await readHarness(page);
+    want = h && h.hover !== undefined ? h.hover : null;
   }
   // parameters.harness.hover: a selector, true (first interactive), false (no hover at all, name fallback
   // included) or "" (a mistake, reported).

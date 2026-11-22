@@ -50,6 +50,48 @@ test('a story whose own globals override the theme fails the mismatching shots, 
   expect(light.every((s) => s.status === 'ok')).toBe(true);
 });
 
+test('parameters.harness.theme attribute form passes on a host that only sets the attribute, never a dark class', async () => {
+  const { res, manifest } = await render('mantine', [story('m', 'mantine--story')]);
+  expect(res.code, res.stdout + res.stderr).toBe(0);
+  expect(manifest.shots.length).toBe(6);
+  expect(manifest.shots.every((s) => s.status === 'ok'), JSON.stringify(manifest.shots)).toBe(true);
+});
+
+test('attribute form fails with a message naming the attribute and the value found', async () => {
+  const { manifest } = await render('mantinewrong', [story('w', 'mantinewrong--story')]);
+  const dark = manifest.shots.filter((s) => s.theme === 'dark');
+  expect(dark.length).toBe(3);
+  for (const s of dark) {
+    expect(s.status).toBe('error');
+    expect(s.error).toMatch(/Theme mismatch: requested dark but <html> data-mantine-color-scheme is "light", expected "dark"/);
+  }
+  expect(manifest.shots.filter((s) => s.theme === 'light').every((s) => s.status === 'ok')).toBe(true);
+});
+
+test('attribute form maps theme names with values; a custom class name works', async () => {
+  const { manifest } = await render('themeother', [story('n', 'nightday--story'), story('c', 'modeclass--story')]);
+  expect(manifest.shots.length).toBe(12);
+  expect(manifest.shots.every((s) => s.status === 'ok'), JSON.stringify(manifest.shots)).toBe(true);
+});
+
+test('the default class check names the class it looked for', async () => {
+  const { manifest } = await render('override2', [story('forced', 'forced-override--story')]);
+  const dark = manifest.shots.filter((s) => s.theme === 'dark');
+  for (const s of dark) expect(s.error).toMatch(/requested dark but <html> has no "dark" class/);
+});
+
+test('a malformed parameters.harness.theme marks the shot error, naming the parameter', async () => {
+  for (const id of ['badstring', 'badboth', 'badnone', 'badnonstr', 'badvalues']) {
+    const { manifest } = await render(id, [story('b', `${id}--story`)]);
+    expect(manifest.shots.length, id).toBe(6);
+    for (const s of manifest.shots) {
+      expect(s.status, id).toBe('error');
+      expect(s.error, id).toMatch(/^parameters\.harness\.theme is malformed: /);
+      expect(s.error, id).not.toContain('\n');
+    }
+  }
+});
+
 test('waits for the finished phase: content added when play completes is in the shot and axe', async () => {
   const { res, axe } = await render('slowplay', [story('slow', 'slowplay--story')]);
   expect(res.code).toBe(1);
