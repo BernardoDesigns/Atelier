@@ -57,6 +57,7 @@ cat > "$stubs/cloudflared" <<'EOF'
 #!/bin/sh
 # fake quick tunnel: prints a URL, then sits there until killed
 echo $$ >> "$STUB_DIR/cf.pids"
+echo "$*" >> "$STUB_DIR/cf.args"
 echo "INF  https://stub-$$-tunnel.trycloudflare.com"
 trap 'exit 0' TERM INT
 while :; do sleep 1; done
@@ -383,12 +384,55 @@ time.sleep(120)
   assert_clean "$T-multi" "$ddir"
 }
 
+# the Host header flag, and _dev_cf_pattern against tunnels with and without it
+host_suite() {
+  local T=$1 out pat last
+  echo "== tunnel Host header, in $T"
+  reset_state
+  : > "$ddir/cf.args"
+  out="$(dev "$work/site")"
+  last="$(tail -1 "$ddir/cf.args")"
+  check "$T: host: default passes the localhost Host header" test "$(echo "$last" | grep -c -- "--http-host-header localhost:$port ")" = 1
+  check "$T: host: default still passes --protocol http2" test "$(echo "$last" | grep -c -- '--protocol http2')" = 1
+  check "$T: host: default still passes --url <origin>" test "$(echo "$last" | grep -c -- "--url http://[^ ]*:$port\$")" = 1
+  out="$(dev "$work/site")"
+  check "$T: host: second devup reuses the tunnel (no new process)" test "$(wc -l < "$ddir/cf.args" | tr -d ' ')" = 1
+  check "$T: host: pidfile holds server and tunnel" test "$(grep -cE '^[0-9]+$' "/tmp/devstack-$port.pids")" = 2
+  down
+  assert_clean "$T-host-default" "$ddir"
+
+  reset_state
+  : > "$ddir/cf.args"
+  out="$(DEV_TUNNEL_HOST=public dev "$work/site")"
+  last="$(tail -1 "$ddir/cf.args")"
+  check "$T: host: public mode omits the Host header flag" test "$(echo "$last" | grep -c -- 'http-host-header')" = 0
+  check "$T: host: public mode keeps --protocol http2 and --url" test "$(echo "$last" | grep -c -- "--protocol http2 --url http://[^ ]*:$port\$")" = 1
+  # a tunnel started the old way is still recognised and reused by a default devup
+  out="$(dev "$work/site")"
+  check "$T: host: an old-style tunnel is reused" test "$(wc -l < "$ddir/cf.args" | tr -d ' ')" = 1
+  check "$T: host: old-style tunnel kept in the pidfile" test "$(grep -cE '^[0-9]+$' "/tmp/devstack-$port.pids")" = 2
+  down
+  assert_clean "$T-host-public" "$ddir"
+}
+
+# _dev_cf_pattern must match a tunnel started with or without the flag, either
+# flag order, and nothing for another port
+echo "== _dev_cf_pattern"
+pat="$(bash -c '. "$1"; _dev_cf_pattern 5555' _ "$script")"
+check "pattern: old command line (no flag)" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://[::1]:5555" | grep -qE "$1"' _ "$pat"
+check "pattern: flag before --url" bash -c 'echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://127.0.0.1:5555" | grep -qE "$1"' _ "$pat"
+check "pattern: flag after --url" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://127.0.0.1:5555 --http-host-header localhost:5555" | grep -qE "$1"' _ "$pat"
+check "pattern: another port does not match" bash -c '! echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5556 --url http://127.0.0.1:5556" | grep -qE "$1"' _ "$pat"
+check "pattern: a longer port does not match" bash -c '! echo "cloudflared tunnel --protocol http2 --url http://127.0.0.1:55550" | grep -qE "$1"' _ "$pat"
+
 T=bash
 leftover_suite bash
 multi_suite bash
+host_suite bash
 T=zsh
 leftover_suite zsh
 multi_suite zsh
+host_suite zsh
 
 echo "== the server outlives the shell that ran devup (pty)"
 # case NAME FOLDER ACTION: devup in an interactive zsh, then close the window

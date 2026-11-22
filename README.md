@@ -208,7 +208,8 @@ cc        # starts the dev server + a Cloudflare tunnel, then launches Claude Co
 ```
 
 - The public tunnel URL is copied to the clipboard and opened in the browser, so I can share a live preview right away. `DEV_OPEN=local` opens `localhost` instead (skips Chrome's Local Network Access prompt), `DEV_OPEN=none` opens nothing.
-- The tunnel dials whichever loopback address the server actually answers on (`127.0.0.1` or `::1`), so it stays steady whether the project is static, Next or Vite.
+- The tunnel dials whichever loopback address the server actually answers on (`127.0.0.1` or `::1`), so it works with static, Next and Vite servers whichever loopback line they bind.
+- The tunnel presents itself to your dev server as `localhost`, so the Vite and Storybook host checks ("Blocked request", "Invalid host") do not block it. `DEV_TUNNEL_HOST=public` restores the old behavior of forwarding the tunnel hostname. A framework that checks the browser's `Origin` instead of the Host (Next's `allowedDevOrigins`) still needs its own setting.
 - Works the same on a fresh start or a resume (`cc --resume`, `cc --continue`).
 - The port is auto-detected: a `-p` or `--port` in the `dev` script wins, otherwise 5173 if the script mentions Vite and 3000 if not. With no `dev` script it serves the folder statically on 8000.
 

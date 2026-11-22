@@ -44,6 +44,12 @@
 # Access prompt if the page calls localhost; every tunnel is a new hostname,
 # so it can ask each launch. Set DEV_OPEN=local to open http://localhost:<port>
 # instead (no prompt), or DEV_OPEN=none to open nothing.
+#
+# The tunnel sends the dev server "Host: localhost:<port>" (cloudflared's
+# --http-host-header), so Vite and Storybook host checks do not block the public
+# hostname. This skips the dev server's host check for tunnel traffic only; local
+# browser traffic is unaffected. Set DEV_TUNNEL_HOST=public to forward the tunnel
+# hostname instead (the old behavior). Any other value or none means localhost.
 
 # Loopback only (both lines); the tunnel is the only way in from outside.
 _DEV_STATIC_PY='
@@ -280,7 +286,14 @@ devup() {
     [ -n "$foreign" ] && echo "  note: other cloudflared on :$port ($foreign) — run devdown $port to clear"
 
     : > "$cflog"
-    nohup cloudflared tunnel --protocol http2 --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
+    # cloudflared forwards the public hostname as the Host header, which Vite and
+    # Storybook refuse. Present as localhost instead. The flag goes before --url
+    # so the command line still ends in the origin (see _dev_cf_pattern).
+    if [ "${DEV_TUNNEL_HOST:-}" = public ]; then
+      nohup cloudflared tunnel --protocol http2 --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
+    else
+      nohup cloudflared tunnel --protocol http2 --http-host-header "localhost:$port" --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
+    fi
     echo "$!" >> "$pidfile"
   fi
 
