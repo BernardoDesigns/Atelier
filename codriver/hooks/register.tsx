@@ -216,17 +216,24 @@ type Scratch = {
   lastSentReady: string
 }
 
+// The person's own rules, read in every project, before the repo's files.
+const GLOBAL_CLAUDE_MD = '~/.claude/CLAUDE.md'
+
 // Reads the course files fresh each time, so a NEXT.md edited mid-session counts.
 async function loadCourse($: EngineInterface, s: Scratch): Promise<LoadedCourse> {
   const files: CourseFile[] = []
   const parts: string[] = []
   let total = 0
+  const home = ((await $.env.get('HOME').catch(() => undefined)) ?? '').replace(/\/+$/, '')
   // Always the session's own folder, spelled out, never wherever a relative path lands.
-  const at = (path: string) => (s.cwd ? `${s.cwd}/${path}` : path)
+  // The one home path is the global CLAUDE.md, shown as ~/.claude/CLAUDE.md.
+  const at = (path: string) =>
+    path === GLOBAL_CLAUDE_MD ? `${home}/.claude/CLAUDE.md` : s.cwd ? `${s.cwd}/${path}` : path
   const claudeMd = (await $.fs.exists(at('CLAUDE.md')).catch(() => false))
     ? String(await $.fs.read(at('CLAUDE.md')).catch(() => ''))
     : ''
-  for (const path of [...COURSE_FIXED, ...pointedFiles(claudeMd)]) {
+  const paths = [...(home ? [GLOBAL_CLAUDE_MD] : []), ...COURSE_FIXED, ...pointedFiles(claudeMd)]
+  for (const path of paths) {
     if (total >= MAX_COURSE) break
     try {
       if (!(await $.fs.exists(at(path)))) continue
@@ -390,12 +397,35 @@ async function runTighten($: EngineInterface, s: Scratch) {
   await update($, busy, () => false)
 }
 
+// The box shows a paste as "[Pasted text #2 +5 lines]"; the prompt Preflight held
+// has it expanded. A plugin's submit never expands placeholders, so the held words
+// are the ones to send whenever the box still holds one.
+const PASTE = /\[Pasted text #\d+(?: \+\d+ lines?)?\]/g
+
+function hasPaste(draft: string): boolean {
+  return new RegExp(PASTE.source).test(draft)
+}
+
+// Does the draft in the box stand for the expanded words, pastes and all?
+function sameDraft(draft: string, expanded: string): boolean {
+  const d = draft.trim()
+  const x = expanded.trim()
+  if (d === x) return true
+  if (!hasPaste(d)) return false
+  const pattern = d
+    .split(PASTE)
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('[\\s\\S]*')
+  return new RegExp(`^${pattern}$`).test(x)
+}
+
 async function sendAnyway($: EngineInterface, s: Scratch) {
   const f = await read($, flag)
   if (!f) return
   await update($, flag, () => null)
   const box = await $.prompt.read()
-  const text = box.text.trim() || f.text
+  const draft = box.text.trim()
+  const text = !draft || hasPaste(draft) ? f.text : draft
   await $.prompt.fill({ text: '', mode: 'replace' })
   await $.prompt.submit({ text, asUser: true })
 }
@@ -554,7 +584,7 @@ export const register: Register = on => {
       const draft = box.text.trim()
       const from = await read($, tightenedFrom)
       // Replacing is only for the exact risky prompt Co-driver put back for tightening.
-      const replacesFlagged = !!from && draft === from.trim()
+      const replacesFlagged = !!from && sameDraft(draft, from)
       const hasDraft = draft.length > 0 && !replacesFlagged
       await $.prompt.fill({ text: hasDraft ? `\n\n${text}` : text, mode: hasDraft ? 'append' : 'replace' })
       s.lastSentReady = text
@@ -618,7 +648,18 @@ export const register: Register = on => {
         />
 
         <Box flexDirection="row" gap={1} flexWrap="wrap">
-          <Button key="debrief" variant="primary" onPress={() => runDebrief($, s)}>
+          <Button
+            key="debrief"
+            variant="primary"
+            onPress={() => {
+              // Start it and hand the press back at once: the model call can take
+              // longer than a press may hold, and the pane says thinking… meanwhile.
+              void runDebrief($, s).catch(async () => {
+                await update($, busy, () => false)
+                await update($, messages, (l): Msg[] => [...l, { role: 'note', text: 'The debrief failed. Try again.' }])
+              })
+            }}
+          >
             Debrief
           </Button>
           <Button key="last" onPress={() => useLast()}>
@@ -626,7 +667,7 @@ export const register: Register = on => {
           </Button>
         </Box>
 
-        {isBusy && <Text color={C.mute}>reading…</Text>}
+        {isBusy && <Text color={C.mute}>thinking…</Text>}
 
         {d && (
           <Box flexDirection="column" gap={1}>

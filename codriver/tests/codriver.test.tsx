@@ -52,9 +52,16 @@ const FILES: Record<string, string> = {
   'CLAUDE.md': '# Project\nThe plan lives in `docs/plan.md`. See [status](STATUS-old.txt) too.\nNever touch .env.',
   'NEXT.md': 'Next: rebuild the pricing cards. Nothing else.',
   'docs/plan.md': 'Phase 2: pricing page.',
+  '~/.claude/CLAUDE.md': '# Global\nSkip basics. Peer-level tone.',
 }
 
-type Opts = { promptBox?: string; files?: Record<string, string>; preflight?: string | 'timeout' | 'error'; debrief?: string }
+type Opts = {
+  promptBox?: string
+  files?: Record<string, string>
+  preflight?: string | 'timeout' | 'error'
+  debrief?: string
+  slowDebriefMs?: number
+}
 
 // Stand in for the engine. Returns what the mod sent so tests can check it.
 function engine(on: any, opts: Opts = {}) {
@@ -81,7 +88,8 @@ function engine(on: any, opts: Opts = {}) {
   const clock = mock.clock(on)
   on('store.get', () => ({ value: undefined }))
   on('store.set', () => ({ value: undefined }))
-  const rel = (p: string) => p.replace(/^\/(w|work\/banner-cms)\//, '')
+  on('env.get', (_: unknown, e: any) => ({ value: e.name === 'HOME' ? '/Users/me' : undefined }))
+  const rel = (p: string) => p.replace(/^\/Users\/me\//, '~/').replace(/^\/(w|work\/banner-cms)\//, '')
   on('fs.exists', (_: unknown, e: any) => ({ value: rel(e.path) in files }))
   on('fs.read', (_: unknown, e: any) => ({ value: files[rel(e.path)] ?? '' }))
   on('session.start', (_: unknown, e: any) => ({ cwd: e.cwd }))
@@ -103,7 +111,7 @@ function engine(on: any, opts: Opts = {}) {
     sent.forks++
     return { value: { isAnswered: false, reason: 'nothing-to-fork' } }
   })
-  on('model.complete', (_: unknown, e: any) => {
+  on('model.complete', async (_: unknown, e: any) => {
     const all = JSON.stringify(e)
     if (all.includes('You rate a prompt')) {
       sent.preflights.push(e)
@@ -117,7 +125,10 @@ function engine(on: any, opts: Opts = {}) {
     }
     sent.complete.push(e)
     let text = 'Sure. A migration is like moving furniture to a new house: the stuff stays, the layout changes.'
-    if (all.includes('Reply with JSON only')) text = opts.debrief ?? DEBRIEF_JSON
+    if (all.includes('Reply with JSON only')) {
+      text = opts.debrief ?? DEBRIEF_JSON
+      if (opts.slowDebriefMs) await clock.sleep(opts.slowDebriefMs)
+    }
     else if (all.includes('looked risky or loose'))
       text = 'List the merged branches older than 30 days.\n\nAsk first: before deleting any branch.\n\nDone when: I have a list to approve.'
     return { value: { isAnswered: true, text, usage } }
@@ -138,7 +149,7 @@ test('/codriver opens the pane and names the course files it loaded; /sketch is 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     const course = await ui.find({ type: 'Text', text: /^Course:/ })
-    expect(course?.text).toBe('Course: CLAUDE.md, NEXT.md, docs/plan.md')
+    expect(course?.text).toBe('Course: ~/.claude/CLAUDE.md, CLAUDE.md, NEXT.md, docs/plan.md')
     await ui.unmount()
   }
 })
@@ -148,6 +159,17 @@ test('a course file that is too long says so', async ($, on) => {
   await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect((await ui.find({ type: 'Text', text: /^Course:/ }))?.text).toBe('Course: CLAUDE.md (trimmed)')
+  await ui.unmount()
+})
+
+test('the global ~/.claude/CLAUDE.md always loads, even in a repo with no CLAUDE.md', async ($, on) => {
+  const sent = engine(on, { files: { '~/.claude/CLAUDE.md': '# Global\nSkip basics. Peer-level tone.' } })
+  await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /^Course:/ }))?.text).toBe('Course: ~/.claude/CLAUDE.md')
+  await ui.input({ key: 'source', text: SAMPLE_OUTPUT })
+  await ui.press({ key: 'debrief' })
+  expect(JSON.stringify(sent.complete.at(-1).prompt)).toContain('Skip basics. Peer-level tone.')
   await ui.unmount()
 })
 
@@ -191,6 +213,23 @@ test('Debrief on pasted output: three parts, next prompt ready, opus at medium e
     expect(sent.submits.length).toBe(0) // never auto-sends
     await ui.unmount()
   }
+})
+
+test('Debrief returns the press right away and shows thinking… until the debrief lands', async ($, on) => {
+  const sent = engine(on, { slowDebriefMs: 15_000 })
+  await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.input({ key: 'source', text: SAMPLE_OUTPUT })
+  await ui.press({ key: 'debrief' })
+  // The press is back while the model call is still out: longer than a press may hold.
+  expect(sent.complete.length).toBe(1)
+  expect(await ui.find({ type: 'Text', text: 'thinking…' })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: 'What happened' })).toBeFalsy()
+
+  await sent.clock.advance(15_000)
+  expect(await ui.find({ type: 'Text', text: 'What happened' })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: 'thinking…' })).toBeFalsy()
+  await ui.unmount()
 })
 
 test('Watch out is left out when there are no risks', async ($, on) => {
@@ -326,6 +365,36 @@ test('preflight: Send anyway sends the words as typed, unchecked', async ($, on)
   expect(sent.preflights.length).toBe(1)
   expect(await band.find({ type: 'Button', key: 'cd-anyway' })).toBeFalsy()
   await band.unmount()
+})
+
+test('preflight: a held prompt with a paste sends the pasted text, never the placeholder', async ($, on) => {
+  const pasted = 'git branch -D old-1 old-2\ngit push --force origin main'
+  const expanded = `delete the old branches and force push, like this:\n${pasted}`
+  const sent = engine(on, { promptBox: 'delete the old branches and force push, like this:\n[Pasted text #1 +2 lines]' })
+  await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
+  const r = await $.prompt.submit(typed(expanded))
+  expect(r.drop).toContain('red')
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await band.press({ key: 'cd-anyway' })
+  expect(sent.submits.at(-1).text).toBe(expanded)
+  expect(sent.submits.at(-1).text).not.toContain('[Pasted text')
+  await band.unmount()
+})
+
+test('preflight: tightening a prompt with a paste swaps it in, and the paste reaches the rewrite', async ($, on) => {
+  const expanded = 'delete the old branches and force push:\ngit branch -D old-1 old-2'
+  const sent = engine(on, { promptBox: 'delete the old branches and force push:\n[Pasted text #1]' })
+  await $.session.start({ cwd: '/w', surface: 'desktop', isInteractive: true })
+  await $.prompt.submit(typed(expanded))
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await band.press({ key: 'cd-tighten' })
+  expect(JSON.stringify(sent.complete.at(-1).prompt)).toContain('git branch -D old-1 old-2')
+  await band.unmount()
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'send' })
+  expect(sent.fills.at(-1).mode).toBe('replace')
+  expect(sent.toasts.at(-1)).toContain('Swapped in the tightened version')
+  await ui.unmount()
 })
 
 test('preflight: Enter again on the same flagged words sends them', async ($, on) => {

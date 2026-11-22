@@ -11,7 +11,7 @@ Type `/codriver` to open the pane. Esc closes it, and it keeps everything for th
 | Control | Does |
 | --- | --- |
 | **Claude Code output** | Paste what Claude Code just said |
-| **Debrief** | Reads it and answers in three parts. Only runs when you press it |
+| **Debrief** | Reads it and answers in three parts. Only runs when you press it. The pane says thinking… until the answer lands |
 | **Use last answer** | Grabs Claude Code's most recent answer for you, so there's nothing to paste |
 | **Ready for Claude Code** | The next prompt, with guardrails built in: files in scope, ask before anything destructive, when to stop and report, a "done when" line |
 | **Chat** (Enter) | Push back on the debrief, or ask "what does this mean?". Ask it to change the prompt and the box updates |
@@ -32,7 +32,8 @@ Commands: `/codriver`, `/codriver clear`, `/codriver model opus|sonnet|haiku`
 
 What Co-driver checks the work against, read fresh on every Debrief:
 
-- `CLAUDE.md`
+- `~/.claude/CLAUDE.md`, your global rules, in every project
+- the repo's `CLAUDE.md`
 - `NEXT.md`, `STATUS.md` and `next-session-starter.md`, if they exist
 - up to 4 plan or status files `CLAUDE.md` points to (a link, a `path`, or an `@import` whose name has plan, status, next, roadmap, progress, todo, spec or handoff in it). Only files inside the project
 
