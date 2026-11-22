@@ -11,9 +11,18 @@
 # some wired networks: the tunnel registers fine but the hostname never becomes
 # publicly resolvable. http2 rides TCP and works everywhere.
 #
-# The tunnel is launched detached (nohup + disown) so the Claude Code session
-# can't signal it, and teardown is PID-tracked so we never blanket-kill a tunnel
-# belonging to another project.
+# The server and the tunnel are both launched detached (nohup + disown), so
+# neither dies when the shell that ran devup exits or its window is closed, and
+# the Claude Code session can't signal them. What protects the server is
+# disown: the shell no longer lists it as a job, so it sends it no SIGHUP on exit
+# (tested with a server that resets SIGHUP to default, as Node does, and with
+# nohup removed). nohup's ignored SIGHUP does not carry into such a server; it
+# only backs up servers that keep it. After a plain devup, devdown is the
+# off switch (cc runs it for you). Teardown is PID-tracked so we never
+# blanket-kill a tunnel belonging to another project.
+#
+# PID lists are kept one per line and walked with `while read`, never with an
+# unquoted `for p in $list`: zsh does not split those, bash does.
 #
 # Static mode never serves dotfiles (.git, .env, .DS_Store...): any path with a
 # segment starting with "." gets a 404. It refuses to run in $HOME, and warns
@@ -39,6 +48,20 @@
 # Access prompt if the page calls localhost; every tunnel is a new hostname,
 # so it can ask each launch. Set DEV_OPEN=local to open http://localhost:<port>
 # instead (no prompt), or DEV_OPEN=none to open nothing.
+#
+# Host header: cloudflared forwards the public hostname, which Vite and Storybook
+# host checks refuse. DEV_TUNNEL_HOST picks what the dev server sees:
+#   (unset, or any other value)  auto: the tunnel hostname for a Next project on
+#                                its detected dev port, "Host: localhost:<port>"
+#                                (cloudflared's --http-host-header) for the rest
+#   local                        always localhost
+#   public                       always the tunnel hostname (the old behavior)
+# Next keeps the public hostname by default as a precaution: its Server Actions
+# compare the browser's Origin with the Host, which localhost could break (not a
+# proven failure). Next still needs allowedDevOrigins either way (failures.md F19).
+# Localhost skips the dev server's host check for tunnel traffic only; local
+# browser traffic is unaffected. A running tunnel keeps the mode it was started
+# with until devdown.
 
 # Loopback only (both lines); the tunnel is the only way in from outside.
 _DEV_STATIC_PY='
@@ -63,17 +86,25 @@ for s in servers[1:]:
 servers[0].serve_forever()
 '
 
-# Matches any cloudflared quick tunnel pointed at this port, whichever loopback
-# spelling it used (older sessions used localhost).
+# Matches any cloudflared quick tunnel whose --url points at this port, whichever
+# loopback spelling it used (older sessions used localhost). Anchored on --url so
+# the localhost:<port> inside --http-host-header never counts; the flag can sit
+# before or after --url, and tunnels started without it match too.
 _dev_cf_pattern() {
-  printf 'cloudflared tunnel.*(localhost|127\\.0\\.0\\.1|\\[::1\\]):%s( |$)' "$1"
+  printf 'cloudflared tunnel.*--url (https?://)?(localhost|127\\.0\\.0\\.1|\\[::1\\]):%s( |$)' "$1"
+}
+
+# The dev script line from package.json (empty when there is none).
+_dev_script() {
+  [ -f package.json ] && grep -q '"dev"[[:space:]]*:' package.json || return 0
+  grep -o '"dev"[^,]*' package.json | head -1
 }
 
 _dev_detect() {
   local port kind script
   if [ -f package.json ] && grep -q '"dev"[[:space:]]*:' package.json; then
     kind=npm
-    script=$(grep -o '"dev"[^,]*' package.json | head -1)
+    script=$(_dev_script)
     port=$(echo "$script" | grep -oE -- '(-p|--port)[ =]+[0-9]+' | grep -oE '[0-9]+' | head -1)
     [ -z "$port" ] && { echo "$script" | grep -q vite && port=5173 || port=3000; }
   else
@@ -82,9 +113,36 @@ _dev_detect() {
   echo "$port $kind"
 }
 
+# Should the tunnel forward its public hostname as the Host header? Exit 0 for
+# yes. DEV_TUNNEL_HOST=public forces yes and =local forces no. Anything else is
+# auto: yes only for a Next project on its detected dev port, since Next Server
+# Actions compare the browser's Origin with the Host (a precaution, not a proven
+# failure). Vite, static and an explicit other port (Storybook) present as localhost.
+_dev_tunnel_public() {
+  local port=$1 detected
+  case "${DEV_TUNNEL_HOST:-}" in
+    public) return 0 ;;
+    local) return 1 ;;
+  esac
+  detected="$(_dev_detect)"
+  [ "${detected##* }" = npm ] && [ "${detected%% *}" = "$port" ] || return 1
+  _dev_script | grep -qE '(^|[^[:alnum:]_-])next([^[:alnum:]_-]|$)'
+}
+
 # PIDs listening on a port (not clients connected to it).
 _dev_listeners() {
   lsof -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null
+}
+
+# Send signal $1 to every PID in $2 (one per line; see _dev_reconcile for why).
+_dev_kill_list() {
+  local sig=$1 p
+  while read -r p; do
+    [ -n "$p" ] && kill -s "$sig" "$p" 2>/dev/null
+  done <<EOF
+$2
+EOF
+  return 0
 }
 
 # True when pid $1 is pid $2 or one of its ancestors.
@@ -113,35 +171,55 @@ _dev_reconcile() {
   local listeners recorded tracked p l keep=""
   _DEV_OWN_SERVER=""; _DEV_OWN_DIR=""; _DEV_OWN_TUNNEL=""
 
-  listeners=$(_dev_listeners "$port" | tr '\n' ' ')
-  recorded=$(sed -n 's/^listeners=//p' "$statefile" 2>/dev/null | head -1)
+  # Every list here is one PID per line and is walked with `while read`.
+  # Looping over an unquoted "a b c" works in bash but zsh keeps it as one
+  # word, so never write `for p in $list`.
+  listeners=$(_dev_listeners "$port")
+  recorded=$(sed -n 's/^listeners=//p' "$statefile" 2>/dev/null | head -1 | tr -s ' ' '\n')
   _DEV_OWN_DIR=$(sed -n 's/^dir=//p' "$statefile" 2>/dev/null | head -1)
   tracked=""
-  [ -f "$pidfile" ] && tracked=$(grep -E '^[0-9]+$' "$pidfile" | tr '\n' ' ')
+  [ -f "$pidfile" ] && tracked=$(grep -E '^[0-9]+$' "$pidfile")
 
-  for l in $listeners; do
-    for p in $recorded; do
-      [ "$l" = "$p" ] && _DEV_OWN_SERVER=1
-    done
-    for p in $tracked; do
+  while read -r l; do
+    [ -n "$l" ] || continue
+    while read -r p; do
+      [ -n "$p" ] && [ "$l" = "$p" ] && _DEV_OWN_SERVER=1
+    done <<EOF
+$recorded
+EOF
+    while read -r p; do
+      [ -n "$p" ] || continue
       kill -0 "$p" 2>/dev/null && _dev_is_ancestor "$p" "$l" && _DEV_OWN_SERVER=1
-    done
-  done
+    done <<EOF
+$tracked
+EOF
+  done <<EOF
+$listeners
+EOF
 
-  for p in $tracked; do
+  while read -r p; do
+    [ -n "$p" ] || continue
     kill -0 "$p" 2>/dev/null || continue
     if ps -p "$p" -o command= 2>/dev/null | grep -qE "$(_dev_cf_pattern "$port")"; then
-      keep="$keep $p"; _DEV_OWN_TUNNEL="$p"; continue
+      keep="$keep$p
+"
+      _DEV_OWN_TUNNEL="$p"; continue
     fi
     if [ -n "$_DEV_OWN_SERVER" ]; then
-      for l in $listeners; do
-        if _dev_is_ancestor "$p" "$l"; then keep="$keep $p"; break; fi
-      done
+      while read -r l; do
+        [ -n "$l" ] || continue
+        if _dev_is_ancestor "$p" "$l"; then keep="$keep$p
+"; break; fi
+      done <<EOF
+$listeners
+EOF
     fi
-  done
+  done <<EOF
+$tracked
+EOF
 
   if [ -n "$keep" ]; then
-    printf '%s\n' $keep > "$pidfile"
+    printf '%s' "$keep" > "$pidfile"
   else
     rm -f "$pidfile"
   fi
@@ -182,7 +260,8 @@ devup() {
       echo "something's already on :$port, leaving it be"
     fi
   elif [ "$kind" = npm ]; then
-    npm run dev < /dev/null > "$srvlog" 2>&1 &
+    # detached like the tunnel (disown is what counts): closing this terminal must not take the server down
+    nohup npm run dev < /dev/null > "$srvlog" 2>&1 & disown
     echo "$!" >> "$pidfile"; started=1
     echo "npm dev server booting on :$port"
   else
@@ -191,7 +270,7 @@ devup() {
     fi
     # -I keeps a stray http.py etc. in the served folder from being imported
     if command -v python3 >/dev/null 2>&1; then
-      python3 -I -c "$_DEV_STATIC_PY" "$port" < /dev/null > "$srvlog" 2>&1 &
+      nohup python3 -I -c "$_DEV_STATIC_PY" "$port" < /dev/null > "$srvlog" 2>&1 & disown
     else
       echo "need python3 to serve static files"; return 1
     fi
@@ -243,7 +322,14 @@ devup() {
     [ -n "$foreign" ] && echo "  note: other cloudflared on :$port ($foreign) — run devdown $port to clear"
 
     : > "$cflog"
-    nohup cloudflared tunnel --protocol http2 --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
+    # cloudflared forwards the public hostname as the Host header, which Vite and
+    # Storybook refuse. Present as localhost instead, except where
+    # _dev_tunnel_public says to keep the old behavior.
+    if _dev_tunnel_public "$port"; then
+      nohup cloudflared tunnel --protocol http2 --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
+    else
+      nohup cloudflared tunnel --protocol http2 --http-host-header "localhost:$port" --url "$origin" < /dev/null > "$cflog" 2>&1 & disown
+    fi
     echo "$!" >> "$pidfile"
   fi
 
@@ -282,6 +368,7 @@ devup() {
 
 devdown() {
   local port="${1:-$(_dev_detect | awk '{print $1}')}"
+  local p
   local pidfile="/tmp/devstack-$port.pids"
 
   # kill what we started, by tracked PID
@@ -298,11 +385,12 @@ devdown() {
 
   # kill whatever actually holds the port — catches the next-server grandchild
   # that a parent kill would miss. escalate to -9 if it clings.
+  # Listeners only: a browser connected to the port is a client, not a holder.
   local pids
-  pids=$(lsof -ti ":$port" 2>/dev/null)
-  [ -n "$pids" ] && kill $pids 2>/dev/null && sleep 1
-  pids=$(lsof -ti ":$port" 2>/dev/null)
-  [ -n "$pids" ] && kill -9 $pids 2>/dev/null
+  pids=$(_dev_listeners "$port")
+  if [ -n "$pids" ]; then _dev_kill_list TERM "$pids"; sleep 1; fi
+  pids=$(_dev_listeners "$port")
+  [ -n "$pids" ] && _dev_kill_list KILL "$pids"
 
   rm -f "/tmp/tunnel-url-$port" "/tmp/devstack-$port.state"
   echo "killed server + tunnel on :$port"

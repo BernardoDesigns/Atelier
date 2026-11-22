@@ -326,7 +326,8 @@ check "wrap: grammar example present"            wrap_example
 
 wrap_item_format() {
   grep -Fq 'in the item format each file documents in its own header' "$WRAP" \
-    && grep -Fq '### F29' "$WRAP" && grep -Fq '### C71' "$WRAP" && grep -Fq '### T38' "$WRAP" \
+    && grep -Fq '### F<n>' "$WRAP" && grep -Fq '### C<n>' "$WRAP" && grep -Fq '### T<n>' "$WRAP" \
+    && ! grep -Eq '^### (F29|C71|T38)$' "$WRAP" \
     && grep -Fq 'next free number' "$WRAP" && grep -Fq 'Status: draft' "$WRAP"
 }
 wrap_source_tag() {
@@ -350,6 +351,33 @@ wrap_worktree_location() {
     && grep -Fq 'never under a temp or scratch directory' "$WRAP"
 }
 check "wrap: step 4 points at the item format and gives one example each for F, C and T" wrap_item_format
+wrap_pick_grammar() {
+  grep -Fq '### Pick grammar' "$WRAP" && grep -Fq '`keep <n>, <n>, ...`' "$WRAP" && grep -Fq '| `none` |' "$WRAP" \
+    && grep -Fq 'Ask once more' "$WRAP" && grep -Fq 'do not ask a third time and do not treat it as `none`' "$WRAP" \
+    && grep -Fq 'nothing has been kept or dropped yet' "$WRAP"
+}
+wrap_undecided() {
+  sed -n '/^## Step 5/,$p' "$WRAP" | grep -Fq 'Learning proposals, undecided' \
+    && grep -Fq 'only when the user said `none`' "$WRAP" \
+    && grep -Fq 'put them in the final message to the user instead' "$WRAP" \
+    && ! grep -Fq 'closing report' "$WRAP" \
+    && ! grep -Fq 'If none are accepted, do nothing' "$WRAP"
+}
+wrap_proposals_file() {
+  grep -Fq '.atelier/learning-proposals.md' "$WRAP" && grep -Fq 'never stage or commit it' "$WRAP" \
+    && grep -Fq 'For `mine` or `unowned`, write the file. For `none` or `other`, skip it' "$WRAP"
+}
+wrap_zero_proposals() {
+  grep -Fq 'If the session produced no proposals, say so in one line, write no file, ask nothing, and continue to step 5.' "$WRAP"
+}
+wrap_item_placement() {
+  grep -Fq 'It goes at the end of the file' "$WRAP" && grep -Fq '`## From builds`' "$WRAP"
+}
+check "wrap: step 4 has a pick grammar with keep and none, and asks once more on a non-answer" wrap_pick_grammar
+check "wrap: step 4 carries undecided proposals into the build PR, and says none only on none" wrap_undecided
+check "wrap: step 4 saves proposals to .atelier/learning-proposals.md and never commits it" wrap_proposals_file
+check "wrap: step 4 with zero proposals asks nothing and moves on" wrap_zero_proposals
+check "wrap: step 4 says where a new item goes, including the From builds heading" wrap_item_placement
 check "wrap: step 4 uses the wrap source tag"    wrap_source_tag
 check "wrap: step 4 regenerates taste-review/state.json with the generator" wrap_regen_state
 check "wrap: step 4 runs the taste-review check and holds the commit until it passes" wrap_runs_check_before_commit

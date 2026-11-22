@@ -12,6 +12,10 @@ Built by [Bernardo Garcia](https://www.bellwetherdesigns.io), a product designer
 
 What each version brought, in plain English. Newest first. The full technical detail is in [CHANGELOG.md](CHANGELOG.md). Every new version gets an entry here; [RELEASING.md](RELEASING.md) has the checklist.
 
+**[2.1.0](https://github.com/BernardoDesigns/atelier/releases/tag/v2.1.0), November 22, 2026: lessons from a second design system**
+
+Until now the agents had only ever built with one design system, the kit of ready-made buttons, switches and colors a product team builds its screens from. So I had them build the same screen with a different one, to see what they had been taking for granted. They coped well, and the test showed where the tools needed work. The camera that photographs each screen used to recognize dark mode in only one way, and now each project can tell it how to check. At the end of a session, when the agents propose lessons worth keeping, an unclear reply from me can no longer be taken as "keep nothing", and the proposals are saved so they can't get lost. The preview server no longer shuts down when I close the window I started it from, and the shareable preview link now works with more kinds of projects without extra setup.
+
 **[2.0.2](https://github.com/BernardoDesigns/atelier/releases/tag/v2.0.2), November 20, 2026: tuning after the first exam**
 
 We tested the reviewer agent by hiding 11 known mistakes in finished work. It found 10 of them and raised no false alarms. This release acts on what that test taught us. My design taste is now the official baseline the agents work to, written in my own words. The reviewer got stricter, so a serious problem can no longer get a passing grade, and less repetitive, so each problem is reported once. The spec template now asks what should happen to unsaved work when someone leaves halfway through. The outside tools the agents rely on are pinned to exact versions, so every computer gets the same set.
@@ -208,15 +212,16 @@ cc        # starts the dev server + a Cloudflare tunnel, then launches Claude Co
 ```
 
 - The public tunnel URL is copied to the clipboard and opened in the browser, so I can share a live preview right away. `DEV_OPEN=local` opens `localhost` instead (skips Chrome's Local Network Access prompt), `DEV_OPEN=none` opens nothing.
-- The tunnel dials whichever loopback address the server actually answers on (`127.0.0.1` or `::1`), so it stays steady whether the project is static, Next or Vite.
+- The tunnel dials whichever loopback address the server actually answers on (`127.0.0.1` or `::1`), so it works with static, Next and Vite servers whichever loopback line they bind.
+- Host header: by default the tunnel presents itself to your dev server as `localhost`, so the Vite and Storybook host checks ("Blocked request", "Invalid host") do not block it. A Next project on its detected dev port keeps the old behavior and forwards the tunnel hostname, as a precaution: Next Server Actions compare the browser's `Origin` with the Host, and localhost could break that (not a proven failure). `DEV_TUNNEL_HOST=local` forces localhost, `DEV_TUNNEL_HOST=public` forces the tunnel hostname, and any other value means the default. A tunnel that is already running keeps the mode it was started with until `devdown`. Next still needs `allowedDevOrigins` either way (see `failures.md` F19).
 - Works the same on a fresh start or a resume (`cc --resume`, `cc --continue`).
 - The port is auto-detected: a `-p` or `--port` in the `dev` script wins, otherwise 5173 if the script mentions Vite and 3000 if not. With no `dev` script it serves the folder statically on 8000.
 
 | Command | What it does |
 |---|---|
 | `cc` | Launch Claude Code with the dev stack up before and torn down after. Passes args through |
-| `devup [port]` | Start server + tunnel manually. Port is auto-detected unless you pass one. Cleans up its own leftovers first: reuses a server it started from this folder, replaces one it started from another folder, and never touches anything it didn't start |
-| `devdown [port]` | Kill the server + tunnel on that port. A fallback for orphaned processes |
+| `devup [port]` | Start server + tunnel manually. Port is auto-detected unless you pass one. Cleans up its own leftovers first: reuses a server it started from this folder, replaces one it started from another folder, and never touches anything it didn't start. The server runs detached, like the tunnel, so closing the terminal that ran `devup` leaves the stack up |
+| `devdown [port]` | Kill the server + tunnel on that port. It stops whatever is listening on that port, including a server `devup` did not start. After a plain `devup` it is the off switch, since nothing else stops the stack (`cc` calls it for you) |
 
 **Implementation note:** `cc` runs Claude Code in the current shell, in the foreground, and calls `devdown` once when it is done, however that happens: `/exit`, a double Ctrl+C, a closed terminal window or SIGTERM. Nothing is torn down while Claude Code is still running. The traps and options `cc` sets are local to it, so your shell is left exactly as it was. Claude Code's session hooks don't fire reliably on resume or quit, so I don't depend on them. `DEV_PORT=4000 cc` overrides the detected port. `bash tests/dev-aliases/check.sh` drives all of this in a real pseudo-terminal with stubbed `claude` and `cloudflared`.
 

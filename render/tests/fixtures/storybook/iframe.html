@@ -46,13 +46,45 @@
     var wantDark = globalsParam.split(';').indexOf('theme:dark') !== -1 && id.indexOf('override') === -1;
 
     // Like withThemeByClassName with light = "": the decorator owns the class and strips anything else.
-    function applyTheme() { document.documentElement.classList.toggle('dark', wantDark); }
+    // Theme systems that do not use the "dark" class (ids below). They never touch the dark class.
+    //   mantine / mantinewrong : data-mantine-color-scheme = light|dark (wrong: always "light").
+    //   mantinedarkstuck : like mantine but the attribute is always "dark".
+    //   nightday : data-mode = day|night.   modeclass : class "mode-dark" instead of "dark".
+    //   bad*     : malformed parameters.harness.theme (badstring, badboth, badnone, badnonstr, badvalues).
+    var root0 = document.documentElement;
+    function applyTheme() {
+      if (id.indexOf('mantinewrong') !== -1) root0.setAttribute('data-mantine-color-scheme', 'light');
+      else if (id.indexOf('mantinedarkstuck') !== -1) root0.setAttribute('data-mantine-color-scheme', 'dark');
+      else if (id.indexOf('mantine') !== -1) root0.setAttribute('data-mantine-color-scheme', wantDark ? 'dark' : 'light');
+      else if (id.indexOf('nightday') !== -1) root0.setAttribute('data-mode', wantDark ? 'night' : 'day');
+      else if (id.indexOf('modeclass') !== -1) root0.classList.toggle('mode-dark', wantDark);
+      else root0.classList.toggle('dark', wantDark);
+    }
     new MutationObserver(function () {
-      if (document.documentElement.classList.contains('dark') !== wantDark) applyTheme();
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+      if (root0.classList.contains('dark') !== wantDark && id.indexOf('mantine') === -1 && id.indexOf('nightday') === -1 && id.indexOf('modeclass') === -1) applyTheme();
+    }).observe(root0, { attributes: true, attributeFilter: ['class'] });
     applyTheme();
 
     var render = { phase: 'preparing', story: { parameters: {} } };
+    var themeParams = {
+      mantine: { attribute: 'data-mantine-color-scheme' },
+      nightday: { attribute: 'data-mode', values: { light: 'day', dark: 'night' } },
+      modeclass: { class: 'mode-dark' },
+      badstring: 'dark',
+      badboth: { class: 'dark', attribute: 'data-x' },
+      badnone: {},
+      badnonstr: { class: 7 },
+      badpadded: { attribute: ' data-x' },
+      badclassws: { class: 'a b' },
+      badunknown: { class: 'x', foo: 1 },
+      badclassvalues: { class: 'x', values: { light: 'a', dark: 'b' } },
+      badsamevalues: { attribute: 'data-x', values: { light: 'same', dark: 'same' } },
+      baddatatheme: { attribute: 'Data-Theme' },
+      badvalues: { attribute: 'data-x', values: { light: 'day' } }
+    };
+    Object.keys(themeParams).forEach(function (k) {
+      if (id.indexOf(k) !== -1) render.story.parameters.harness = { theme: themeParams[k] };
+    });
     if (id.indexOf('hoverparam') !== -1) render.story.parameters.harness = { hover: '#b2' };
     if (id.indexOf('hovernone') !== -1) render.story.parameters.harness = { hover: false };
     if (id.indexOf('hoverempty') !== -1) render.story.parameters.harness = { hover: '' };

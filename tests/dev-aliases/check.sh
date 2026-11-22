@@ -26,7 +26,7 @@ check() { # description, then a command
 work="$(mktemp -d "${TMPDIR:-/tmp}/devalias-test.XXXXXX")"
 work="$(cd "$work" && pwd -P)"
 stubs="$work/bin"
-mkdir -p "$stubs" "$work/zdot" "$work/site" "$work/site2" "$work/foreign"
+mkdir -p "$stubs" "$work/zdot" "$work/site" "$work/site2" "$work/foreign" "$work/npmsite"
 echo "temp dir: $work (left in place)"
 
 # --- a free high port, never one of the usual dev ports ---
@@ -57,6 +57,7 @@ cat > "$stubs/cloudflared" <<'EOF'
 #!/bin/sh
 # fake quick tunnel: prints a URL, then sits there until killed
 echo $$ >> "$STUB_DIR/cf.pids"
+echo "$*" >> "$STUB_DIR/cf.args"
 echo "INF  https://stub-$$-tunnel.trycloudflare.com"
 trap 'exit 0' TERM INT
 while :; do sleep 1; done
@@ -86,6 +87,47 @@ while True:
     if os.getppid() != ppid:  # the terminal is gone, like the real thing
         sys.exit(1)
 EOF
+# fake `npm run dev`: like the real thing the server is a grandchild of the
+# npm process (npm -> server), so killing npm alone leaves it listening.
+# STUB_NPM_MODE=multi makes two processes hold the listening socket.
+cat > "$work/srv.py" <<'EOF'
+import http.server, os, sys
+port, mode = int(sys.argv[1]), sys.argv[2]
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+    def log_message(self, *a):
+        pass
+import signal, socket, threading
+# a real Node server resets SIGHUP to default at startup, so an ignored SIGHUP
+# inherited from nohup must not be what keeps this stub alive
+if os.environ.get("STUB_SRV_HUP") == "default":
+    signal.signal(signal.SIGHUP, signal.SIG_DFL)
+class V6(http.server.ThreadingHTTPServer):
+    address_family = socket.AF_INET6
+s = http.server.ThreadingHTTPServer(("127.0.0.1", port), H)
+with open(os.environ["STUB_DIR"] + "/srv.pids", "a") as f:
+    f.write("%d\n" % os.getpid())
+    f.flush()
+    if mode == "multi" and os.fork() == 0:
+        f.write("%d\n" % os.getpid())
+        f.flush()
+        # a third process that holds only the IPv6 loopback line
+        if os.fork() == 0:
+            f.write("%d\n" % os.getpid())
+            f.flush()
+            s.socket.close()
+            s = V6(("::1", port), H)
+s.serve_forever()
+EOF
+cat > "$stubs/npm" <<'EOF'
+#!/bin/sh
+echo $$ >> "$STUB_DIR/npm.pids"
+python3 -I "$STUB_SRV" "$DEV_PORT" "${STUB_NPM_MODE:-single}" &
+wait
+EOF
+printf '{"scripts":{"dev":"vite"}}\n' > "$work/npmsite/package.json"
 printf '#!/bin/sh\nexit 0\n' > "$stubs/open"
 printf '#!/bin/sh\ncat > /dev/null\n' > "$stubs/pbcopy"
 printf '#!/bin/sh\nexit 0\n' > "$stubs/nslookup"
@@ -103,7 +145,7 @@ EOF
 # --- bookkeeping so cleanup only ever kills what this test started ---
 cleanup() {
   local f p
-  for f in "$work"/*/cf.pids "$work"/*/claude.pid "$work"/foreign.pid; do
+  for f in "$work"/*/cf.pids "$work"/*/claude.pid "$work"/*/npm.pids "$work"/*/srv.pids "$work"/*/client.pid "$work"/foreign.pid; do
     [ -f "$f" ] || continue
     for p in $(cat "$f"); do
       if ps -p "$p" -o command= 2>/dev/null | grep -q "$work"; then kill -9 "$p" 2>/dev/null; fi
@@ -145,7 +187,7 @@ assert_clean() { # case dir
 
 stub_env() { # exports shared by the pty cases
   export STUB_DIR="$1" CLAUDE_MODE="$2" DEV_PORT="$port" DEV_OPEN=none
-  export ZDOTDIR="$work/zdot" COUNT="$1/count" PATH="$stubs:$PATH"
+  export ZDOTDIR="$work/zdot" COUNT="$1/count" PATH="$stubs:$PATH" STUB_SRV="$work/srv.py"
 }
 
 # case NAME CLAUDE_MODE ACTION : runs cc in a real zsh on a pty, then checks.
@@ -219,79 +261,272 @@ check "bash: claude's exit status comes back" grep -q "RC=3" "$bdir/traps.rc"
 check "bash: traps unchanged after cc" cmp -s "$bdir/traps.before" "$bdir/traps.after"
 check "bash: devdown reported once" test "$(grep -c 'killed server + tunnel' "$bdir/out")" = 1
 
-echo "== devup stale-state handling"
-ddir="$work/devup"
-mkdir -p "$ddir"
-reset_state
-dev() { # folder: run devup there in non-interactive bash, output on stdout
-  (
-    stub_env "$ddir" wait
-    /bin/bash -c '. "$1"; cd "$2" && devup "$3"' _ "$script" "$1" "$port" 2>&1
-  )
+leftover_suite() {
+  local T=$1 out srv1 tun1 srv2 tun2 dead1 dead2 dead_url site_real site2_real foreign i p
+  echo "== devup leftovers and devdown in $T"
+  ddir="$work/devup"
+  mkdir -p "$ddir"
+  reset_state
+  runsh() { # run `-c SCRIPT ARGS...` in the shell under test ($T): bash 3.2 or zsh
+    case "$T" in
+      bash) /bin/bash -c "$@" ;;
+      *) zsh -f -c "$@" ;;
+    esac
+  }
+  dev() { # folder: run devup there in a non-interactive shell, output on stdout
+    (
+      stub_env "$ddir" wait
+      runsh '. "$1"; cd "$2" && devup "$3"' _ "$script" "$1" "$port" 2>&1
+    )
+  }
+  down() { (stub_env "$ddir" wait; runsh '. "$1"; devdown "$2"' _ "$script" "$port" >/dev/null 2>&1); }
+  alive_count() { # how many of the PIDs listed in file $1 are alive
+    local n=0 q
+    for q in $(cat "$1" 2>/dev/null); do alive "$q" && n=$((n + 1)); done
+    echo "$n"
+  }
+  # true when pid $1 is pid $2 or an ancestor of it
+  is_anc() {
+    local cur=$2 n=0
+    while [ -n "$cur" ] && [ "$cur" -gt 1 ] && [ "$n" -lt 12 ]; do
+      [ "$cur" = "$1" ] && return 0
+      cur="$(ps -o ppid= -p "$cur" 2>/dev/null | tr -d ' ')"
+      n=$((n + 1))
+    done
+    return 1
+  }
+  pidline() { sed -n "$1p" "/tmp/devstack-$port.pids" 2>/dev/null; }
+  state_dir() { sed -n 's/^dir=//p' "/tmp/devstack-$port.state" 2>/dev/null; }
+  has() { echo "$out" | grep -q -- "$1"; }
+  url_in() { grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1; }
+
+  # dead PIDs and a dead URL in the state
+  ( sleep 0 & echo $! > "$ddir/dead1"; wait ) ; ( sleep 0 & echo $! > "$ddir/dead2"; wait )
+  dead1="$(cat "$ddir/dead1")"; dead2="$(cat "$ddir/dead2")"
+  printf '%s\n%s\n' "$dead1" "$dead2" > "/tmp/devstack-$port.pids"
+  printf '%s' "https://dead-dead.trycloudflare.com" > "/tmp/tunnel-url-$port"
+  out="$(dev "$work/site")"
+  site_real="$(cd "$work/site" && pwd -P)"
+  check "$T: dead PIDs: pruned from the pidfile" test -z "$(grep -E "^($dead1|$dead2)\$" "/tmp/devstack-$port.pids")"
+  check "$T: dead PIDs: pruned quietly" test -z "$(echo "$out" | grep -E "$dead1|$dead2|stale|leaving")"
+  check "$T: dead URL: not handed out, a new tunnel started" test "$(echo "$out" | url_in)" != "" -a "$(echo "$out" | url_in)" != "https://dead-dead.trycloudflare.com"
+  check "$T: dead URL: the URL file holds the new one" test "$(cat "/tmp/tunnel-url-$port")" = "$(echo "$out" | url_in)"
+  check "$T: state file records the folder" test "$(state_dir)" = "$site_real"
+  srv1="$(pidline 1)"; tun1="$(pidline 2)"
+  check "$T: pidfile has a live server and a live tunnel" test -n "$srv1" -a -n "$tun1"
+  alive "$srv1" && alive "$tun1" && ok "$T: server and tunnel alive" || fail "$T: server and tunnel alive"
+
+  out="$(dev "$work/site")"
+  check "$T: same folder: reused, said so in one line" test "$(echo "$out" | grep -c 'reusing')" = 1
+  check "$T: same folder: same server, not restarted" test "$(pidline 1)" = "$srv1" && alive "$srv1"
+  check "$T: same folder: same tunnel kept" test "$(pidline 2)" = "$tun1" && alive "$tun1"
+  check "$T: same folder: exactly one tunnel process alive" test "$(alive_count "$ddir/cf.pids")" = 1
+  check "$T: same folder: pidfile still holds both PIDs" test "$(grep -cE '^[0-9]+$' "/tmp/devstack-$port.pids")" = 2
+
+  out="$(dev "$work/site2")"
+  site2_real="$(cd "$work/site2" && pwd -P)"
+  check "$T: other folder: called out as stale" has "stale server"
+  check "$T: other folder: old server is gone" wait_dead "$srv1"
+  check "$T: other folder: old tunnel is gone" wait_dead "$tun1"
+  check "$T: other folder: exactly one tunnel process alive" test "$(alive_count "$ddir/cf.pids")" = 1
+  check "$T: other folder: new server is up from the new folder" test -n "$(lsof -tiTCP:"$port" -sTCP:LISTEN)" -a "$(state_dir)" = "$site2_real"
+  check "$T: other folder: new tunnel URL printed" test -n "$(echo "$out" | url_in)"
+  srv2="$(pidline 1)"; tun2="$(pidline 2)"
+
+  # tracked tunnel dead, URL file still there, server alive from the same folder
+  kill -9 "$tun2" 2>/dev/null
+  wait_dead "$tun2"
+  dead_url="$(cat "/tmp/tunnel-url-$port")"
+  out="$(dev "$work/site2")"
+  check "$T: dead tunnel: server reused" has "reusing"
+  check "$T: dead tunnel: a new tunnel started" test -n "$(pidline 2)" -a "$(pidline 2)" != "$tun2"
+  check "$T: dead tunnel: the dead URL was not printed" test -z "$(echo "$out" | grep -F "$dead_url")"
+  check "$T: dead tunnel: URL file holds the new URL" test "$(cat "/tmp/tunnel-url-$port")" = "$(echo "$out" | url_in)"
+  down
+  assert_clean "$T-devup-cleanup" "$ddir"
+
+  # a listener we did not start
+  reset_state
+  ( cd "$work/foreign" && python3 -I -m http.server "$port" --bind 127.0.0.1 < /dev/null > "$work/foreign.log" 2>&1 & echo $! > "$work/foreign.pid" )
+  i=0
+  while [ -z "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null)" ] && [ "$i" -lt 50 ]; do sleep 0.2; i=$((i + 1)); done
+  foreign="$(cat "$work/foreign.pid")"
+  out="$(dev "$work/site")"
+  check "$T: foreign listener: devup says it is leaving it be" has "leaving it be"
+  check "$T: foreign listener: still alive afterwards" alive "$foreign"
+  check "$T: foreign listener: not in our pidfile" test -z "$(grep -x "$foreign" "/tmp/devstack-$port.pids" 2>/dev/null)"
+  check "$T: foreign listener: no state recorded for it" test ! -e "/tmp/devstack-$port.state"
+  # only our stub tunnel goes; the foreign server is stopped by its recorded PID
+  for p in $(cat "$ddir/cf.pids"); do alive "$p" && kill "$p" 2>/dev/null; done
+  kill "$foreign" 2>/dev/null
+  wait_dead "$foreign"
+  # python3 on macOS can fork the real interpreter, so the recorded PID is only
+  # the launcher. The port is ours alone, so stop whatever still holds it.
+  for p in $(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null); do kill "$p" 2>/dev/null; done
+  check "$T: foreign listener: port is free again" wait_port_free
 }
-down() { (stub_env "$ddir" wait; /bin/bash -c '. "$1"; devdown "$2"' _ "$script" "$port" >/dev/null 2>&1); }
-pidline() { sed -n "$1p" "/tmp/devstack-$port.pids" 2>/dev/null; }
-state_dir() { sed -n 's/^dir=//p' "/tmp/devstack-$port.state" 2>/dev/null; }
-has() { echo "$out" | grep -q -- "$1"; }
-url_in() { grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1; }
 
-# dead PIDs and a dead URL in the state
-( sleep 0 & echo $! > "$ddir/dead1"; wait ) ; ( sleep 0 & echo $! > "$ddir/dead2"; wait )
-dead1="$(cat "$ddir/dead1")"; dead2="$(cat "$ddir/dead2")"
-printf '%s\n%s\n' "$dead1" "$dead2" > "/tmp/devstack-$port.pids"
-printf '%s' "https://dead-dead.trycloudflare.com" > "/tmp/tunnel-url-$port"
-out="$(dev "$work/site")"
-site_real="$(cd "$work/site" && pwd -P)"
-check "dead PIDs: pruned from the pidfile" test -z "$(grep -E "^($dead1|$dead2)\$" "/tmp/devstack-$port.pids")"
-check "dead PIDs: pruned quietly" test -z "$(echo "$out" | grep -E "$dead1|$dead2|stale|leaving")"
-check "dead URL: not handed out, a new tunnel started" test "$(echo "$out" | url_in)" != "" -a "$(echo "$out" | url_in)" != "https://dead-dead.trycloudflare.com"
-check "dead URL: the URL file holds the new one" test "$(cat "/tmp/tunnel-url-$port")" = "$(echo "$out" | url_in)"
-check "state file records the folder" test "$(state_dir)" = "$site_real"
-srv1="$(pidline 1)"; tun1="$(pidline 2)"
-check "pidfile has a live server and a live tunnel" test -n "$srv1" -a -n "$tun1"
-alive "$srv1" && alive "$tun1" && ok "server and tunnel alive" || fail "server and tunnel alive"
+# a server with two processes on the port: devdown must take both down, and
+# must leave a client that merely holds a connection to the port alone.
+multi_suite() {
+  local T=$1 out p n allgone=1 cpid
+  echo "== devdown with several holders of the port, in $T"
+  reset_state
+  : > "$ddir/srv.pids"; : > "$ddir/npm.pids"; : > "$ddir/client.pid"
+  out="$(STUB_NPM_MODE=multi dev "$work/npmsite")"
+  check "$T: multi: server came up" test -n "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null)"
+  n="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | wc -l | tr -d ' ')"
+  check "$T: multi: three processes hold the port" test "$n" -ge 3
+  check "$T: multi: an IPv6 (::1) listener is among them" test "$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | grep -c IPv6)" -ge 1
+  python3 -I -c '
+import os, socket, sys, time
+socket.create_connection(("127.0.0.1", int(sys.argv[1])))
+open(sys.argv[2], "w").write(str(os.getpid()))
+time.sleep(120)
+' "$port" "$ddir/client.pid" < /dev/null > /dev/null 2>&1 &
+  disown
+  i=0
+  while [ ! -s "$ddir/client.pid" ] && [ "$i" -lt 25 ]; do sleep 0.2; i=$((i + 1)); done
+  cpid="$(cat "$ddir/client.pid")"
+  down
+  for p in $(cat "$ddir/srv.pids"); do wait_dead "$p" || allgone=0; done
+  check "$T: multi: every server process is gone" test "$allgone" = 1 -a -s "$ddir/srv.pids"
+  check "$T: multi: nothing listens on the test port" wait_port_free
+  check "$T: multi: the connected client was not killed" alive "$cpid"
+  kill "$cpid" 2>/dev/null
+  wait_dead "$cpid"
+  assert_clean "$T-multi" "$ddir"
+}
 
-out="$(dev "$work/site")"
-check "same folder: reused, said so in one line" test "$(echo "$out" | grep -c 'reusing')" = 1
-check "same folder: same server, not restarted" test "$(pidline 1)" = "$srv1" && alive "$srv1"
-check "same folder: same tunnel kept" test "$(pidline 2)" = "$tun1" && alive "$tun1"
+# the Host header flag, and _dev_cf_pattern against tunnels with and without it
+host_suite() {
+  local T=$1 out pat last
+  echo "== tunnel Host header, in $T"
+  reset_state
+  : > "$ddir/cf.args"
+  out="$(dev "$work/site")"
+  last="$(tail -1 "$ddir/cf.args")"
+  check "$T: host: default passes the localhost Host header" test "$(echo "$last" | grep -c -- "--http-host-header localhost:$port ")" = 1
+  check "$T: host: default still passes --protocol http2" test "$(echo "$last" | grep -c -- '--protocol http2')" = 1
+  check "$T: host: default still passes --url <origin>" test "$(echo "$last" | grep -c -- "--url http://[^ ]*:$port\$")" = 1
+  out="$(dev "$work/site")"
+  check "$T: host: second devup reuses the tunnel (no new process)" test "$(wc -l < "$ddir/cf.args" | tr -d ' ')" = 1
+  check "$T: host: pidfile holds server and tunnel" test "$(grep -cE '^[0-9]+$' "/tmp/devstack-$port.pids")" = 2
+  down
+  assert_clean "$T-host-default" "$ddir"
 
-out="$(dev "$work/site2")"
-site2_real="$(cd "$work/site2" && pwd -P)"
-check "other folder: called out as stale" has "stale server"
-check "other folder: old server is gone" wait_dead "$srv1"
-check "other folder: old tunnel is gone" wait_dead "$tun1"
-check "other folder: new server is up from the new folder" test -n "$(lsof -tiTCP:"$port" -sTCP:LISTEN)" -a "$(state_dir)" = "$site2_real"
-check "other folder: new tunnel URL printed" test -n "$(echo "$out" | url_in)"
-srv2="$(pidline 1)"; tun2="$(pidline 2)"
+  reset_state
+  : > "$ddir/cf.args"
+  out="$(DEV_TUNNEL_HOST=public dev "$work/site")"
+  last="$(tail -1 "$ddir/cf.args")"
+  check "$T: host: public mode omits the Host header flag" test "$(echo "$last" | grep -c -- 'http-host-header')" = 0
+  check "$T: host: public mode keeps --protocol http2 and --url" test "$(echo "$last" | grep -c -- "--protocol http2 --url http://[^ ]*:$port\$")" = 1
+  # a tunnel started the old way is still recognised and reused by a default devup
+  out="$(dev "$work/site")"
+  check "$T: host: an old-style tunnel is reused" test "$(wc -l < "$ddir/cf.args" | tr -d ' ')" = 1
+  check "$T: host: old-style tunnel kept in the pidfile" test "$(grep -cE '^[0-9]+$' "/tmp/devstack-$port.pids")" = 2
+  down
+  assert_clean "$T-host-public" "$ddir"
 
-# tracked tunnel dead, URL file still there, server alive from the same folder
-kill -9 "$tun2" 2>/dev/null
-wait_dead "$tun2"
-dead_url="$(cat "/tmp/tunnel-url-$port")"
-out="$(dev "$work/site2")"
-check "dead tunnel: server reused" has "reusing"
-check "dead tunnel: a new tunnel started" test -n "$(pidline 2)" -a "$(pidline 2)" != "$tun2"
-check "dead tunnel: the dead URL was not printed" test -z "$(echo "$out" | grep -F "$dead_url")"
-check "dead tunnel: URL file holds the new URL" test "$(cat "/tmp/tunnel-url-$port")" = "$(echo "$out" | url_in)"
-down
-assert_clean devup-cleanup "$ddir"
+  # which mode each kind of project gets: Next on its detected dev port keeps the
+  # public hostname, everything else (and the forced modes) is explicit
+  host_case "$T" next-on-its-port "next dev -p $port" "" noflag
+  host_case "$T" next-other-port "next dev -p 3999" "" flag
+  host_case "$T" vite "vite --port $port" "" flag
+  host_case "$T" next-forced-local "next dev -p $port" local flag
+  host_case "$T" vite-forced-public "vite --port $port" public noflag
+  host_case "$T" next-unknown-value-is-auto "next dev -p $port" bogus noflag
+}
 
-# a listener we did not start
-reset_state
-( cd "$work/foreign" && python3 -I -m http.server "$port" --bind 127.0.0.1 < /dev/null > "$work/foreign.log" 2>&1 & echo $! > "$work/foreign.pid" )
-i=0
-while [ -z "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null)" ] && [ "$i" -lt 50 ]; do sleep 0.2; i=$((i + 1)); done
-foreign="$(cat "$work/foreign.pid")"
-out="$(dev "$work/site")"
-check "foreign listener: devup says it is leaving it be" has "leaving it be"
-check "foreign listener: still alive afterwards" alive "$foreign"
-check "foreign listener: not in our pidfile" test -z "$(grep -x "$foreign" "/tmp/devstack-$port.pids" 2>/dev/null)"
-check "foreign listener: no state recorded for it" test ! -e "/tmp/devstack-$port.state"
-# only our stub tunnel goes; the foreign server is stopped by its recorded PID
-for p in $(cat "$ddir/cf.pids"); do alive "$p" && kill "$p" 2>/dev/null; done
-kill "$foreign" 2>/dev/null
-wait_dead "$foreign"
+# host_case SHELL LABEL DEV_SCRIPT DEV_TUNNEL_HOST flag|noflag
+host_case() {
+  local T=$1 label=$2 devscript=$3 mode=$4 want=$5 last n
+  mkdir -p "$work/hostproj"
+  printf '{"scripts":{"dev":"%s"}}\n' "$devscript" > "$work/hostproj/package.json"
+  reset_state
+  : > "$ddir/cf.args"
+  if [ -n "$mode" ]; then
+    out="$(DEV_TUNNEL_HOST=$mode dev "$work/hostproj")"
+  else
+    out="$(dev "$work/hostproj")"
+  fi
+  last="$(tail -1 "$ddir/cf.args")"
+  n="$(echo "$last" | grep -c -- "--http-host-header localhost:$port ")"
+  if [ "$want" = flag ]; then
+    check "$T: host mode: $label gets the localhost Host header" test "$n" = 1
+  else
+    check "$T: host mode: $label forwards the public hostname (no flag)" test "$n" = 0 -a -n "$last"
+  fi
+  down
+  assert_clean "$T-host-$label" "$ddir"
+}
+
+# _dev_cf_pattern must match a tunnel started with or without the flag, either
+# flag order, and nothing for another port
+echo "== _dev_cf_pattern"
+pat="$(bash -c '. "$1"; _dev_cf_pattern 5555' _ "$script")"
+check "pattern: old command line (no flag)" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://[::1]:5555" | grep -qE "$1"' _ "$pat"
+check "pattern: flag before --url" bash -c 'echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://127.0.0.1:5555" | grep -qE "$1"' _ "$pat"
+check "pattern: flag after --url" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://127.0.0.1:5555 --http-host-header localhost:5555" | grep -qE "$1"' _ "$pat"
+for spell in localhost 127.0.0.1 "[::1]"; do
+  check "pattern: --url http://$spell:5555 with the flag" bash -c 'echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://$2:5555" | grep -qE "$1"' _ "$pat" "$spell"
+  check "pattern: --url http://$spell:5555 without the flag" bash -c 'echo "cloudflared tunnel --protocol http2 --url http://$2:5555" | grep -qE "$1"' _ "$pat" "$spell"
+done
+check "pattern: header says this port but --url says another: no match" bash -c '! echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://127.0.0.1:5556" | grep -qE "$1"' _ "$pat"
+pat6="$(bash -c '. "$1"; _dev_cf_pattern 5556' _ "$script")"
+check "pattern: the same line does match the --url port" bash -c 'echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5555 --url http://127.0.0.1:5556" | grep -qE "$1"' _ "$pat6"
+check "pattern: another port does not match" bash -c '! echo "cloudflared tunnel --protocol http2 --http-host-header localhost:5556 --url http://127.0.0.1:5556" | grep -qE "$1"' _ "$pat"
+check "pattern: a longer port does not match" bash -c '! echo "cloudflared tunnel --protocol http2 --url http://127.0.0.1:55550" | grep -qE "$1"' _ "$pat"
+
+T=bash
+leftover_suite bash
+multi_suite bash
+host_suite bash
+T=zsh
+leftover_suite zsh
+multi_suite zsh
+host_suite zsh
+
+echo "== the server outlives the shell that ran devup (pty)"
+# case NAME FOLDER ACTION: devup in an interactive zsh, then close the window
+# (hup) or type exit (none). The stack must keep running; devdown from a fresh
+# shell is the only off switch.
+survive_case() {
+  local name=$1 folder=$2 action=$3 dir="$work/$1" srv p
+  mkdir -p "$dir"
+  reset_state
+  (
+    stub_env "$dir" wait
+    cd "$work/$folder" || exit 1
+    python3 -I "$driver" "$dir/transcript" "$action" "$dir/none.up" \
+      "source $work/setup.zsh" "cd $work/$folder" "devup $port"
+  )
+  sleep 1
+  check "$name: the server is still listening after the shell is gone" test -n "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null)"
+  srv="$(sed -n 1p "/tmp/devstack-$port.pids" 2>/dev/null)"
+  check "$name: the recorded server PID is alive" test -n "$srv" && alive "$srv"
+  # the first PID must still identify the server: the listener or its parent
+  check "$name: the recorded PID is the server (or its parent)" is_anc "$srv" "$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | head -1)"
+  [ "$folder" = npmsite ] && check "$name: the recorded PID is the npm process" test "$srv" = "$(sed -n 1p "$dir/npm.pids" 2>/dev/null)"
+  allalive=1
+  for p in $(cat "$dir/cf.pids" 2>/dev/null); do alive "$p" || allalive=0; done
+  check "$name: the tunnel is still up too" test "$allalive" = 1 -a -s "$dir/cf.pids"
+  (stub_env "$dir" wait; zsh -f -c '. "$1"; devdown "$2"' _ "$script" "$port" >/dev/null 2>&1)
+  assert_clean "$name-devdown" "$dir"
+  if [ "$folder" = npmsite ]; then
+    p="$(cat "$dir/srv.pids" 2>/dev/null)"
+    allgone=1
+    for p in $p; do wait_dead "$p" || allgone=0; done
+    check "$name-devdown: the npm server grandchild is gone" test "$allgone" = 1
+  fi
+}
+survive_case survive-static-hup site hup
+survive_case survive-static-exit site none
+survive_case survive-npm-hup npmsite hup
+survive_case survive-npm-exit npmsite none
+# a server that resets SIGHUP to default, like real Node does
+STUB_SRV_HUP=default survive_case survive-npm-hupdfl-hup npmsite hup
+STUB_SRV_HUP=default survive_case survive-npm-hupdfl-exit npmsite none
 
 echo
 if [ "$failures" -eq 0 ]; then
