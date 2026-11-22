@@ -1,7 +1,12 @@
 #!/bin/bash
 # Guardrail test runner.
 #   bash guardrails/tests/run.sh              every hook, then the extra suites
-#   bash guardrails/tests/run.sh <hook-name>  one fixtures dir (or: installer, lane-init, session-scripts, loop-gaps)
+#   bash guardrails/tests/run.sh <hook-name>  one fixtures dir (or: installer, lane-init, session-scripts, loop-gaps,
+#                                             fast-gate-baseline, fast-gate-real)
+#
+# One-time setup: fast-gate-real runs a real TypeScript compiler. Install it with
+#   cd guardrails/tests && npm ci
+# Until then those cases FAIL (they are never skipped).
 #
 # Adding a hook: add fixtures/<name>/<case>/ dirs and one line to HOOKS_MAP.
 # Everything runs against mktemp dirs. Nothing here touches the real ~/.claude.
@@ -54,6 +59,8 @@ run_installer_tests() { run_suite installer.sh 1; }
 run_lane_init_tests() { run_suite lane-init.sh 0; }
 run_session_tests() { run_suite session-scripts.sh 1; }
 run_loop_gap_tests() { run_suite loop-gaps.sh 1; }
+run_gate_baseline_tests() { run_suite fast-gate-baseline.sh 1; }
+run_gate_real_tests() { run_suite fast-gate-real.sh 1; }
 
 only=${1:-}
 known=0
@@ -66,6 +73,8 @@ done <<<"$HOOKS_MAP"
 if [ -z "$only" ] || [ "$only" = lane-init ]; then known=1; run_lane_init_tests; fi
 if [ -z "$only" ] || [ "$only" = session-scripts ]; then known=1; run_session_tests; fi
 if [ -z "$only" ] || [ "$only" = loop-gaps ]; then known=1; run_loop_gap_tests; fi
+if [ -z "$only" ] || [ "$only" = fast-gate-baseline ]; then known=1; run_gate_baseline_tests; fi
+if [ -z "$only" ] || [ "$only" = fast-gate-real ]; then known=1; run_gate_real_tests; fi
 if [ -z "$only" ] || [ "$only" = installer ]; then known=1; run_installer_tests; fi
 [ "$known" -eq 1 ] || { echo "unknown hook: $only"; exit 2; }
 

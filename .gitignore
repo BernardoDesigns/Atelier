@@ -28,3 +28,6 @@ id_ed25519*
 
 # Agent worktrees (Claude Code creates them here)
 .claude/worktrees/
+
+# Real TypeScript compiler for the guardrail tests (npm ci in guardrails/tests)
+guardrails/tests/node_modules/

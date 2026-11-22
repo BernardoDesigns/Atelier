@@ -1,0 +1,8 @@
+{
+  "name": "atelier-guardrail-tests",
+  "private": true,
+  "description": "Real TypeScript compiler for the fast gate tests. Run npm ci here once.",
+  "devDependencies": {
+    "typescript": "5.7.3"
+  }
+}

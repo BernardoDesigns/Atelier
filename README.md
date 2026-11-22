@@ -12,6 +12,10 @@ Built by [Bernardo Garcia](https://www.bellwetherdesigns.io), a product designer
 
 What each version brought, in plain English. Newest first. The full technical detail is in [CHANGELOG.md](CHANGELOG.md). Every new version gets an entry here; [RELEASING.md](RELEASING.md) has the checklist.
 
+**[2.1.1](https://github.com/BernardoDesigns/atelier/releases/tag/v2.1.1), November 22, 2026: a code check that can't be fooled**
+
+While the agents build, an automatic check reads every change for coding mistakes and stops them when it finds one. On one common kind of project that check was looking in the wrong place. It found nothing to read, and reported that everything was fine, while the project had more than a hundred mistakes in it. Now it runs the same full check the project's own tools run, and if it can't run at all it says so instead of passing. It also notes the mistakes a project already has when work starts, so the agents are only stopped for the ones they add, including a mistake in a file they never opened but broke from somewhere else.
+
 **[2.1.0](https://github.com/BernardoDesigns/atelier/releases/tag/v2.1.0), November 22, 2026: lessons from a second design system**
 
 Until now the agents had only ever built with one design system, the kit of ready-made buttons, switches and colors a product team builds its screens from. So I had them build the same screen with a different one, to see what they had been taking for granted. They coped well, and the test showed where the tools needed work. The camera that photographs each screen used to recognize dark mode in only one way, and now each project can tell it how to check. At the end of a session, when the agents propose lessons worth keeping, an unclear reply from me can no longer be taken as "keep nothing", and the proposals are saved so they can't get lost. The preview server no longer shuts down when I close the window I started it from, and the shareable preview link now works with more kinds of projects without extra setup.
@@ -112,14 +116,14 @@ Hooks installed by `setup.sh` (`guardrails/install.sh --enforce`) keep the loop 
 | Guardrail | What it does | Needs |
 |---|---|---|
 | Conventions injector | Adds `conventions.md` to context before UI file edits | `--enforce`, a `/build` session |
-| Fast gate | Typecheck and lint on the files just edited | `--enforce`, a `/build` session |
+| Fast gate | Runs the repo's real typecheck (`tsc -b --force --noEmit` for a solution-style tsconfig, `tsc --noEmit` otherwise) and lints the edited file, and reports only the errors the Builder added, measured against a baseline taken when the build opened | `--enforce`, a `/build` session |
 | Bash write nudge | Blocks a Bash command that writes a file into the repo and points at Write and Edit | `--enforce`, a `/build` session |
 | Definition-of-done gates | The Stop gate nudges once; the PR gate blocks `gh pr create` until screenshots, assumptions, a recorded passing test run, a reviewed critique and a clean lane exist | `--enforce`, a `/build` session |
 | Lane guard | Blocks edits to `auth/`, `api/`, `payments/`, `lib/shared/` and any extra `protected` paths in `.claude/lane-rules.json` | `--enforce` for the hook, `guardrails/lane-guard-init.sh` for the deny rules |
 
 When `/build` opens a build, whatever an earlier build left in `.atelier/` moves to `.atelier/archive/<timestamp>-<branch>/`, so an old build can't satisfy the gates. The archive is yours to keep or delete.
 
-To turn the build-session hooks off, run `bash guardrails/install.sh --relax`. To protect a project's paths, run `bash guardrails/lane-guard-init.sh <path-to-repo>` on the repo root. Run `bash guardrails/tests/run.sh` to test the hooks and installer, and `bash agents/tests/check.sh` for the agents and commands. `guardrails/VETTING.md` is the checklist for reading a third-party skill, mod or MCP server before you install it.
+To turn the build-session hooks off, run `bash guardrails/install.sh --relax`. To protect a project's paths, run `bash guardrails/lane-guard-init.sh <path-to-repo>` on the repo root. Run `bash guardrails/tests/run.sh` to test the hooks and installer (one-time first: `cd guardrails/tests && npm ci`, which installs the pinned TypeScript the fast gate tests use; without it those cases fail), and `bash agents/tests/check.sh` for the agents and commands. `guardrails/VETTING.md` is the checklist for reading a third-party skill, mod or MCP server before you install it.
 
 ---
 
