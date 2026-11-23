@@ -441,3 +441,9 @@ A note that explains the consequence of a valid choice uses the system's warning
 Source: wrap:2026-11-21
 Check: Is every consequence note in the warning color (or a neutral or informational one where the system has none), with the error color used only for failures?
 Status: draft
+
+### C73
+At /wrap, assumptions are listed in two groups, "needs my decision" first and "for the record" second.
+Source: wrap:2026-11-23
+Check: Are the assumptions split into those two groups, with the needs-decision group first?
+Status: draft

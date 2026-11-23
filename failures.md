@@ -260,3 +260,19 @@ Instead: Allow the tunnel domain in the host's dev config: `.trycloudflare.com` 
 Source: log:F8
 Status: draft
 Verify: the Vite and Storybook option names and messages against current versions.
+
+### F32
+Name: An older result overwrites a newer one
+Trap: Each press starts async work, and whichever settles last sets the message, even when it belongs to an earlier press.
+Shows up as: A slow failure replaces a newer success, so the person is told something failed when it worked.
+Instead: Ignore results from older presses, and test two presses where the first settles last.
+Source: wrap:2026-11-23 finding 4
+Status: draft
+
+### F33
+Name: Code squeezed to fit the size cap
+Trap: To get under the cap, code is packed into long lines or counted around, instead of the PR being split.
+Shows up as: Lines over 140 characters, and a count that only passes because of what it leaves out.
+Instead: Write the code as it naturally comes. Put specs and plan docs in their own PR first, and if the code is still over, ask for a split or a stated one-time exception.
+Source: wrap:2026-11-23 assumption A22
+Status: draft
