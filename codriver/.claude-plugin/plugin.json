@@ -1,8 +1,0 @@
-{
-  "name": "codriver",
-  "version": "0.1.0",
-  "description": "A second pair of eyes docked beside Claude Code: debriefs what just happened in plain language, checks it against your plan, writes a guarded next prompt, and flags risky prompts before they go",
-  "types": "./types/index.d.ts",
-  "author": { "name": "Bernardo" },
-  "license": "MIT"
-}

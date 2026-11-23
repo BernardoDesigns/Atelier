@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Co-driver (formerly Sketchpad). Retired; re-run setup.sh to drop it from your settings.
+
 ### Changed
 
 - Sketchpad is now **Co-driver** (`codriver/`, opened with `/codriver`). `/sketch` is gone. Kept: the docked pane, the Aurora palette, the model switcher, Session on/off, Clear, and Send to prompt (goes under a draft, never sends on its own). The default model is now Opus at medium effort.
