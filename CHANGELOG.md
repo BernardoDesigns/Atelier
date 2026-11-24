@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Learning from the first build on an IBM Carbon host: `failures.md` gains F32 (an older result overwrites a newer one) and F33 (code squeezed to fit the size cap); `conventions.md` gains C73 (assumptions at /wrap are grouped, "needs my decision" first). All three are drafts.
+- Learning from Canon's S4b-1a build: `failures.md` gains F34 (estimate taken from a draft), F35 (another system's words shown as ours), F36 (fix brief wider than the finding) and F37 (hidden status left out of date). All four are drafts.
 
 ### Removed
 
