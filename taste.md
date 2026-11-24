@@ -238,3 +238,9 @@ A contrast or state fix for a shared primitive goes in the theme as the default 
 Source: wrap:2026-11-21
 Status: draft
 Applied as: Flag a per-component override of a primitive's base state as a one-off when the problem would show on every instance.
+
+### T39
+A short set of examples prefers variety: one feature takes at most two places.
+Source: wrap:2026-11-24
+Status: draft
+Applied as: Don't fill a short list from one kind of case when another kind has no place yet.
