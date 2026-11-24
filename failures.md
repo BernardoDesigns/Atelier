@@ -276,3 +276,35 @@ Shows up as: Lines over 140 characters, and a count that only passes because of 
 Instead: Write the code as it naturally comes. Put specs and plan docs in their own PR first, and if the code is still over, ask for a split or a stated one-time exception.
 Source: wrap:2026-11-23 assumption A22
 Status: draft
+
+### F34
+Name: Estimate taken from a draft
+Trap: A ticket's size is estimated from a draft, or from a first guess, instead of from finished, tested pieces.
+Shows up as: The build stops on the size cap partway, because focus, announcements and double presses were never in the number. First guesses ran about 2x low, and an untested draft still ran about 1.4x low.
+Instead: Estimate piece by piece from similar pieces that are finished and tested, leave room for the review's fixes, and split at the SPEC stage if it is over.
+Source: wrap:2026-11-24
+Status: draft
+
+### F35
+Name: Another system's words shown as ours
+Trap: An error screen shows whatever text came back, on the assumption that the app's own API wrote it.
+Shows up as: A Wi-Fi sign-in page, a host's error or raw server text appears as if the app said it.
+Instead: Show the API's words only when the reply is in the app's own error format, trimmed to one sentence. For anything else, one plain sentence of the app's own.
+Source: wrap:2026-11-24 assumption A7
+Status: draft
+
+### F36
+Name: Fix brief wider than the finding
+Trap: The instruction sent back to the Builder asks for more than the finding the user marked fix.
+Shows up as: A minor finding turns into a full rewrite, and the pass stops on the size cap with every fix held up.
+Instead: Brief each fix as the finding states it. If a wider fix seems worth it, ask the user first.
+Source: wrap:2026-11-24 finding 4
+Status: draft
+
+### F37
+Name: Hidden status left out of date
+Trap: A screen-reader status that announced a wait keeps its text after it has been announced.
+Shows up as: Someone browsing with a screen reader reads "60 seconds" when 12 are left.
+Instead: Clear the status once it has been announced, and test what it holds part way through, not only at the start and end.
+Source: wrap:2026-11-24 finding 2
+Status: draft
