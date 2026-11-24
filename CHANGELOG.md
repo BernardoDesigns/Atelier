@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Learning from the first build on an IBM Carbon host: `failures.md` gains F32 (an older result overwrites a newer one) and F33 (code squeezed to fit the size cap); `conventions.md` gains C73 (assumptions at /wrap are grouped, "needs my decision" first). All three are drafts.
 - Learning from Canon's S4b-1a build: `failures.md` gains F34 (estimate taken from a draft), F35 (another system's words shown as ours), F36 (fix brief wider than the finding) and F37 (hidden status left out of date). All four are drafts.
 - Learning from Canon's S4b-1b build: `failures.md` gains F38 (a known miss shown as normal), F39 (deduplicated by wording alone) and F40 (focus moved to a container scrolls the page); `taste.md` gains T39 (a short set of examples prefers variety). All four are drafts.
+- Learning from Canon's S4b-1c build, the first of two PRs: `taste.md` gains T40 (a dead-end state keeps one concrete action) and T41 (a reason also says what it means for the person). Both are drafts.
 
 ### Removed
 

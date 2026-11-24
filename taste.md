@@ -244,3 +244,15 @@ A short set of examples prefers variety: one feature takes at most two places.
 Source: wrap:2026-11-24
 Status: draft
 Applied as: Don't fill a short list from one kind of case when another kind has no place yet.
+
+### T40
+A dead-end state keeps one concrete action that matches its message. When the old action would only fail again, replace it, don't remove it.
+Source: wrap:2026-11-24 finding 4
+Status: draft
+Applied as: Flag a state that says what to do but has no control that does it, or one whose only control contradicts the message.
+
+### T41
+A message that explains why something is missing also says what that means for the person.
+Source: wrap:2026-11-24 assumption A2
+Status: draft
+Applied as: Flag a reason that stops at the cause when it can add the consequence, such as "so it isn't showing any".
