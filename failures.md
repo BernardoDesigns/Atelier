@@ -328,7 +328,7 @@ Status: draft
 ### F40
 Name: Focus moved to a container scrolls the page
 Trap: Code moves focus to a container that can be taller than the screen with a plain `focus()`.
-Shows up as: The browser may scroll to an edge of the container, away from what the person just pressed.
-Instead: Pass `preventScroll: true`, and test it from an item in the middle of a list longer than the screen.
+Shows up as: The page shifts when the container takes the focus, by how much depends on the browser and the layout.
+Instead: Pass `preventScroll: true`, and check that the test fails without it, because some positions don't move at all.
 Source: wrap:2026-11-24 finding 1
 Status: draft
