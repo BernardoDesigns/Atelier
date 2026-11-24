@@ -308,3 +308,27 @@ Shows up as: Someone browsing with a screen reader reads "60 seconds" when 12 ar
 Instead: Clear the status once it has been announced, and test what it holds part way through, not only at the start and end.
 Source: wrap:2026-11-24 finding 2
 Status: draft
+
+### F38
+Name: A known miss shown as normal
+Trap: An example list or demo includes a case whose own test or eval is known to fail, with nothing to say so.
+Shows up as: A bug that reads as the product working, such as a search miss shown as a correct handoff.
+Instead: Read each example's recorded result before choosing it. Leave failed ones out until they can be labelled as what they are.
+Source: wrap:2026-11-24
+Status: draft
+
+### F39
+Name: Deduplicated by wording alone
+Trap: Two entries with the same words are treated as a duplicate and one is dropped, when a date, version or tenant makes them different.
+Shows up as: The pair that best proves versioning is cut from the list as a repeat.
+Instead: Compare the whole identity, such as the words and the date. Show both side by side, each labelled with what differs.
+Source: wrap:2026-11-24 assumption A5
+Status: draft
+
+### F40
+Name: Focus moved to a container scrolls the page
+Trap: Code moves focus to a container that can be taller than the screen with a plain `focus()`.
+Shows up as: The browser may scroll to an edge of the container, away from what the person just pressed.
+Instead: Pass `preventScroll: true`, and test it from an item in the middle of a list longer than the screen.
+Source: wrap:2026-11-24 finding 1
+Status: draft
