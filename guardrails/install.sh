@@ -3,7 +3,8 @@
 # and worktree). Idempotent, and every other key stays.
 #
 #   permissions-ask.json      unioned into permissions.ask (Proceed/Cancel)
-#   permissions-allow.json    unioned into permissions.allow (local curl only)
+#   permissions-allow.json    unioned into permissions.allow (local curl, tools/
+#                             scripts, npm test/lint/build)
 #   permissions-retired.json  removed from allow and ask: rules that were too
 #                             broad or that conflict with CLAUDE.md
 #   outside-repo-guard.sh     PreToolUse hook on Write/Edit/NotebookEdit

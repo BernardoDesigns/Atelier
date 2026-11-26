@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Learning from Canon's S4b-1a build: `failures.md` gains F34 (estimate taken from a draft), F35 (another system's words shown as ours), F36 (fix brief wider than the finding) and F37 (hidden status left out of date). All four are drafts.
 - Learning from Canon's S4b-1b build: `failures.md` gains F38 (a known miss shown as normal), F39 (deduplicated by wording alone) and F40 (focus moved to a container scrolls the page); `taste.md` gains T39 (a short set of examples prefers variety). All four are drafts.
 - Learning from Canon's S4b-1c build, the first of two PRs: `taste.md` gains T40 (a dead-end state keeps one concrete action) and T41 (a reason also says what it means for the person). Both are drafts.
+- Shell command hygiene in `global/CLAUDE.md`: one command per Bash call, no file writes through Bash, multi-step checks go in a script. Compound commands can't match the allowlist, so they stall unattended sessions.
+- Allow rules in `guardrails/permissions-allow.json` for the simple forms that produces: `.venv/bin/python tools/*`, `.venv/bin/python3 tools/*`, `node tools/*`, and `npm test`, `npm run test`, `npm run lint`, `npm run build` (bare or with arguments). Re-run setup.sh to pick them up.
 
 ### Removed
 

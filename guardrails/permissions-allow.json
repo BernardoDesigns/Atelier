@@ -5,5 +5,16 @@
   "Bash(curl *http://127.0.0.1:*/*)",
   "Bash(curl *http://[::1]:*/*)",
   "Bash(curl *https://*.trycloudflare.com)",
-  "Bash(curl *https://*.trycloudflare.com/*)"
+  "Bash(curl *https://*.trycloudflare.com/*)",
+  "Bash(.venv/bin/python tools/*)",
+  "Bash(.venv/bin/python3 tools/*)",
+  "Bash(node tools/*)",
+  "Bash(npm test)",
+  "Bash(npm test *)",
+  "Bash(npm run test)",
+  "Bash(npm run test *)",
+  "Bash(npm run lint)",
+  "Bash(npm run lint *)",
+  "Bash(npm run build)",
+  "Bash(npm run build *)"
 ]
